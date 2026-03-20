@@ -1,0 +1,50 @@
+@import "./fonts.css";
+@import "./tailwind.css";
+@import "./theme.css";
+
+/* Global styles */
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+}
+
+::selection {
+  background: rgba(69, 85, 58, 0.15);
+  color: #171414;
+}
+
+/* Custom Scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(69, 85, 58, 0.25) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(69, 85, 58, 0.2);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(69, 85, 58, 0.35);
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Fix for position: fixed with transforms */
+#root {
+  transform: none !important;
+}
