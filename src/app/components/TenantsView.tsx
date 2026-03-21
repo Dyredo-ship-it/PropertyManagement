@@ -17,13 +17,14 @@ import {
   Search,
   ChevronRight,
   MapPin,
-  Home,
-  DollarSign,
   MessageSquare,
   Clock,
   AlertCircle,
   CheckCircle2,
   User,
+  MoreHorizontal,
+  ExternalLink,
+  Home,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -52,6 +53,8 @@ import {
   type MaintenanceRequest,
 } from "../utils/storage";
 import { useLanguage } from "../i18n/LanguageContext";
+
+/* ─── Types ─── */
 
 type TenantNote = {
   id: string;
@@ -96,53 +99,58 @@ const fileToDataUrl = (file: File) =>
     reader.readAsDataURL(file);
   });
 
-// Premium building gradient backgrounds for visual identity
-const BUILDING_GRADIENTS = [
-  "from-[#45553A]/90 to-[#45553A]/70",
-  "from-[#5A6B4F]/90 to-[#3D4A33]/70",
-  "from-[#4A5D3E]/90 to-[#354529]/70",
-  "from-[#526645]/90 to-[#3A4D2E]/70",
-  "from-[#3E5235]/90 to-[#2D3C26]/70",
-];
+/* ─── Premium building images ─── */
 
-// Building placeholder images (Unsplash)
 const BUILDING_IMAGES = [
-  "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=600&h=300&fit=crop",
-  "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=600&h=300&fit=crop",
-  "https://images.unsplash.com/photo-1460317442991-0ec209397118?w=600&h=300&fit=crop",
-  "https://images.unsplash.com/photo-1515263487990-61b07816b324?w=600&h=300&fit=crop",
-  "https://images.unsplash.com/photo-1554469384-e58fac16e23a?w=600&h=300&fit=crop",
+  "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=900&h=500&fit=crop&q=80",
+  "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=900&h=500&fit=crop&q=80",
+  "https://images.unsplash.com/photo-1460317442991-0ec209397118?w=900&h=500&fit=crop&q=80",
+  "https://images.unsplash.com/photo-1515263487990-61b07816b324?w=900&h=500&fit=crop&q=80",
+  "https://images.unsplash.com/photo-1554469384-e58fac16e23a?w=900&h=500&fit=crop&q=80",
 ];
 
-// Status badge component
-function StatusBadge({ status, t }: { status: string; t: (key: string) => string }) {
-  const config = {
-    active: { bg: "bg-emerald-50 border-emerald-200", text: "text-emerald-700", dot: "bg-emerald-500" },
-    pending: { bg: "bg-amber-50 border-amber-200", text: "text-amber-700", dot: "bg-amber-500" },
-    ended: { bg: "bg-slate-100 border-slate-200", text: "text-slate-600", dot: "bg-slate-400" },
-  }[status] ?? { bg: "bg-slate-100 border-slate-200", text: "text-slate-600", dot: "bg-slate-400" };
+/* ─── Helpers ─── */
 
-  const label = status === "active" ? t("active") : status === "pending" ? t("pending") : t("ended");
+const formatCHF = (value: number) => {
+  const n = Number.isFinite(value) ? value : 0;
+  return `CHF ${Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, "'")}`;
+};
 
+const getInitials = (name: string) => {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+};
+
+/* ─── StatusDot ─── */
+
+function StatusDot({ status, t, showLabel = true }: { status: string; t: (k: string) => string; showLabel?: boolean }) {
+  const cfg: Record<string, { dot: string; label: string }> = {
+    active: { dot: "bg-emerald-400", label: t("active") },
+    pending: { dot: "bg-amber-400", label: t("pending") },
+    ended: { dot: "bg-slate-400", label: t("ended") },
+  };
+  const c = cfg[status] ?? cfg.ended;
   return (
-    <span className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border", config.bg, config.text)}>
-      <span className={cn("w-1.5 h-1.5 rounded-full", config.dot)} />
-      {label}
+    <span className="inline-flex items-center gap-1.5">
+      <span className={cn("w-2 h-2 rounded-full ring-2 ring-white/50", c.dot)} />
+      {showLabel && <span className="text-[11px] font-medium text-white/90">{c.label}</span>}
     </span>
   );
 }
 
-// Tenant bubble card
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   TENANT BUBBLE — frosted glass card inside building
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
 function TenantBubble({
   tenant,
   onClick,
-  formatCHF,
   t,
 }: {
   tenant: any;
   onClick: () => void;
-  formatCHF: (v: number) => string;
-  t: (key: string) => string;
+  t: (k: string) => string;
 }) {
   const rentNet = Number(tenant.rentNet ?? tenant.rent ?? 0) || 0;
   const charges = Number(tenant.charges ?? 0) || 0;
@@ -151,57 +159,68 @@ function TenantBubble({
   return (
     <button
       onClick={onClick}
-      className="group w-full text-left bg-white rounded-2xl border border-[#E8E5DB]/80 p-4 hover:border-[#45553A]/30 hover:shadow-lg hover:shadow-[#45553A]/5 transition-all duration-300 cursor-pointer relative overflow-hidden"
+      className="group w-full text-left rounded-2xl overflow-hidden transition-all duration-300 cursor-pointer hover:scale-[1.02] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-white/30"
+      style={{
+        background: "rgba(255,255,255,0.12)",
+        backdropFilter: "blur(20px)",
+        WebkitBackdropFilter: "blur(20px)",
+        border: "1px solid rgba(255,255,255,0.18)",
+      }}
     >
-      {/* Subtle hover accent */}
-      <div className="absolute inset-0 bg-gradient-to-br from-[#45553A]/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-
-      <div className="relative">
-        {/* Top row: avatar + name + status */}
-        <div className="flex items-start gap-3 mb-3">
-          <div className="w-10 h-10 rounded-xl bg-[#45553A]/8 flex items-center justify-center shrink-0">
-            {tenant.gender === "female" ? (
-              <span className="text-base text-[#45553A]">{"\u2640"}</span>
-            ) : tenant.gender === "male" ? (
-              <span className="text-base text-[#45553A]">{"\u2642"}</span>
-            ) : (
-              <User className="w-4.5 h-4.5 text-[#45553A]" />
-            )}
+      <div className="p-4">
+        {/* Avatar + Name + Status */}
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-11 h-11 rounded-xl flex items-center justify-center text-sm font-bold shrink-0"
+            style={{
+              background: "rgba(255,255,255,0.15)",
+              color: "rgba(255,255,255,0.95)",
+              border: "1px solid rgba(255,255,255,0.12)",
+            }}
+          >
+            {getInitials(tenant.name)}
           </div>
           <div className="min-w-0 flex-1">
-            <h4 className="font-semibold text-[#171414] text-sm leading-tight truncate">
+            <h4 className="font-semibold text-white text-[13px] leading-tight truncate drop-shadow-sm">
               {tenant.name}
             </h4>
-            <p className="text-xs text-[#6B6560] mt-0.5">
+            <p className="text-[11px] text-white/60 mt-0.5">
               {t("unit")} {tenant.unit}
             </p>
           </div>
-          <StatusBadge status={tenant.status} t={t} />
+          <StatusDot status={tenant.status} t={t} showLabel={false} />
         </div>
 
-        {/* Financial summary */}
-        <div className="flex items-center justify-between pt-3 border-t border-[#E8E5DB]/60">
-          <span className="text-xs text-[#6B6560]">{t("totalMonthly")}</span>
-          <span className="text-sm font-semibold text-[#171414]">{formatCHF(total)}</span>
+        {/* Rent line */}
+        <div className="flex items-center justify-between pt-2.5"
+          style={{ borderTop: "1px solid rgba(255,255,255,0.10)" }}
+        >
+          <span className="text-[10px] uppercase tracking-wider text-white/45 font-medium">
+            {t("totalMonthly")}
+          </span>
+          <span className="text-[13px] font-bold text-white/95 tabular-nums">
+            {formatCHF(total)}
+          </span>
         </div>
 
-        {/* Hover indicator */}
+        {/* Hover cue */}
         <div className="flex items-center gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-          <span className="text-[10px] text-[#45553A] font-medium">{t("viewProfile")}</span>
-          <ChevronRight className="w-3 h-3 text-[#45553A]" />
+          <span className="text-[10px] text-white/60 font-medium">{t("viewProfile")}</span>
+          <ChevronRight className="w-3 h-3 text-white/50" />
         </div>
       </div>
     </button>
   );
 }
 
-// Building card with tenants inside
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   BUILDING CARD — immersive hero image + tenants
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
 function BuildingCard({
   building,
   tenants,
   index,
   onTenantClick,
-  formatCHF,
   t,
   requests,
 }: {
@@ -209,114 +228,127 @@ function BuildingCard({
   tenants: any[];
   index: number;
   onTenantClick: (tenant: any) => void;
-  formatCHF: (v: number) => string;
-  t: (key: string) => string;
+  t: (k: string) => string;
   requests: MaintenanceRequest[];
 }) {
-  const gradient = BUILDING_GRADIENTS[index % BUILDING_GRADIENTS.length];
   const image = BUILDING_IMAGES[index % BUILDING_IMAGES.length];
   const activeTenants = tenants.filter((tn) => tn.status === "active").length;
-  const buildingRequests = requests.filter((r) => r.buildingId === building.id);
-  const pendingCount = buildingRequests.filter((r) => r.status === "pending" || r.status === "in-progress").length;
-  const totalRevenue = tenants.reduce((sum, tn) => {
-    return sum + (Number(tn.rentNet ?? 0) || 0) + (Number(tn.charges ?? 0) || 0);
-  }, 0);
+  const pendingReqs = requests.filter((r) => r.buildingId === building.id && (r.status === "pending" || r.status === "in-progress")).length;
+  const totalRevenue = tenants.reduce((sum, tn) => sum + (Number(tn.rentNet ?? 0) || 0) + (Number(tn.charges ?? 0) || 0), 0);
+  const occupancyPct = building.units > 0 ? Math.round((activeTenants / building.units) * 100) : 0;
 
   return (
-    <div className="rounded-3xl bg-white border border-[#E8E5DB]/60 shadow-sm overflow-hidden">
-      {/* Building header with image */}
-      <div className="relative h-44 overflow-hidden">
+    <div className="rounded-[28px] overflow-hidden shadow-lg shadow-black/8 group/building">
+      {/* ─── Hero section with immersive image ─── */}
+      <div className="relative min-h-[320px] lg:min-h-[360px]">
+        {/* Background image */}
         <img
           src={image}
           alt={building.name}
           className="absolute inset-0 w-full h-full object-cover"
           loading="lazy"
         />
-        <div className={cn("absolute inset-0 bg-gradient-to-t", gradient)} />
+        {/* Gradient overlays for readability */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/10" />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/20 to-transparent" />
 
-        {/* Building info overlay */}
-        <div className="absolute inset-0 flex flex-col justify-end p-5">
-          <div className="flex items-start justify-between">
-            <div>
-              <h2 className="text-xl font-bold text-white leading-tight">{building.name}</h2>
-              <div className="flex items-center gap-1.5 mt-1.5">
-                <MapPin className="w-3.5 h-3.5 text-white/70" />
-                <span className="text-sm text-white/80">{building.address}</span>
-              </div>
+        {/* Building info — top area */}
+        <div className="absolute top-0 left-0 right-0 p-6 flex items-start justify-between">
+          <div>
+            <h2 className="text-2xl lg:text-3xl font-bold text-white drop-shadow-lg tracking-tight">
+              {building.name}
+            </h2>
+            <div className="flex items-center gap-1.5 mt-2">
+              <MapPin className="w-3.5 h-3.5 text-white/60" />
+              <span className="text-sm text-white/70 drop-shadow">{building.address}</span>
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* Building metrics bar */}
-      <div className="grid grid-cols-4 divide-x divide-[#E8E5DB]/60 border-b border-[#E8E5DB]/60">
-        <div className="px-4 py-3 text-center">
-          <p className="text-lg font-bold text-[#171414]">{tenants.length}</p>
-          <p className="text-[10px] text-[#6B6560] uppercase tracking-wider font-medium">{t("tenantCount")}</p>
+          {/* Pending requests pill */}
+          {pendingReqs > 0 && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium"
+              style={{
+                background: "rgba(251, 191, 36, 0.2)",
+                backdropFilter: "blur(12px)",
+                border: "1px solid rgba(251, 191, 36, 0.3)",
+                color: "#FCD34D",
+              }}
+            >
+              <AlertCircle className="w-3.5 h-3.5" />
+              {pendingReqs} {t("openRequests").toLowerCase()}
+            </div>
+          )}
         </div>
-        <div className="px-4 py-3 text-center">
-          <p className="text-lg font-bold text-[#171414]">{building.units}</p>
-          <p className="text-[10px] text-[#6B6560] uppercase tracking-wider font-medium">{t("units")}</p>
-        </div>
-        <div className="px-4 py-3 text-center">
-          <p className="text-lg font-bold text-[#45553A]">
-            {building.units > 0 ? Math.round((activeTenants / building.units) * 100) : 0}%
-          </p>
-          <p className="text-[10px] text-[#6B6560] uppercase tracking-wider font-medium">{t("occupancyLabel")}</p>
-        </div>
-        <div className="px-4 py-3 text-center">
-          <p className="text-lg font-bold text-[#171414]">{formatCHF(totalRevenue)}</p>
-          <p className="text-[10px] text-[#6B6560] uppercase tracking-wider font-medium">{t("revenue")}</p>
-        </div>
-      </div>
 
-      {/* Pending requests indicator */}
-      {pendingCount > 0 && (
-        <div className="flex items-center gap-2 px-5 py-2.5 bg-amber-50/50 border-b border-amber-100">
-          <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
-          <span className="text-xs font-medium text-amber-700">
-            {pendingCount} {t("openRequests").toLowerCase()}
-          </span>
-        </div>
-      )}
-
-      {/* Tenant grid */}
-      <div className="p-5">
-        {tenants.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
-            {tenants.map((tenant) => (
-              <TenantBubble
-                key={tenant.id}
-                tenant={tenant}
-                onClick={() => onTenantClick(tenant)}
-                formatCHF={formatCHF}
-                t={t}
-              />
+        {/* ─── Floating metric pills — glassmorphism ─── */}
+        <div className="absolute bottom-0 left-0 right-0 p-6 pt-0">
+          {/* Metrics row */}
+          <div className="flex flex-wrap gap-3 mb-5">
+            {[
+              { label: t("tenantCount"), value: String(tenants.length), accent: false },
+              { label: t("units"), value: String(building.units), accent: false },
+              { label: t("occupancyLabel"), value: `${occupancyPct}%`, accent: true },
+              { label: t("revenue"), value: formatCHF(totalRevenue), accent: false },
+            ].map((m, i) => (
+              <div key={i} className="px-4 py-2.5 rounded-2xl"
+                style={{
+                  background: m.accent ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.10)",
+                  backdropFilter: "blur(16px)",
+                  WebkitBackdropFilter: "blur(16px)",
+                  border: "1px solid rgba(255,255,255,0.15)",
+                }}
+              >
+                <p className={cn(
+                  "text-base font-bold tabular-nums",
+                  m.accent ? "text-white" : "text-white/95"
+                )}>
+                  {m.value}
+                </p>
+                <p className="text-[10px] uppercase tracking-widest text-white/50 font-medium mt-0.5">
+                  {m.label}
+                </p>
+              </div>
             ))}
           </div>
-        ) : (
-          <div className="text-center py-8">
-            <Users className="w-10 h-10 text-[#E8E5DB] mx-auto mb-3" />
-            <p className="text-sm text-[#6B6560]">{t("noTenants")}</p>
-          </div>
-        )}
+
+          {/* ─── Tenant bubbles grid ─── */}
+          {tenants.length > 0 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+              {tenants.map((tenant) => (
+                <TenantBubble
+                  key={tenant.id}
+                  tenant={tenant}
+                  onClick={() => onTenantClick(tenant)}
+                  t={t}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 rounded-2xl"
+              style={{ background: "rgba(255,255,255,0.08)", backdropFilter: "blur(12px)" }}
+            >
+              <Users className="w-8 h-8 text-white/25 mx-auto mb-2" />
+              <p className="text-sm text-white/40">{t("noTenants")}</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
-// Slide-out detail panel for a tenant
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   TENANT DETAIL DRAWER — premium slide-out panel
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
 function TenantDetailDrawer({
   tenant,
   open,
   onClose,
   t,
-  formatCHF,
-  formatDateRange,
   onEdit,
   onDelete,
   onEmail,
-  onOpenFiche,
   ficheNotes,
   ficheDocs,
   noteDate,
@@ -335,13 +367,10 @@ function TenantDetailDrawer({
   tenant: any;
   open: boolean;
   onClose: () => void;
-  t: (key: string) => string;
-  formatCHF: (v: number) => string;
-  formatDateRange: (start?: string, end?: string) => string;
+  t: (k: string) => string;
   onEdit: () => void;
   onDelete: () => void;
   onEmail: () => void;
-  onOpenFiche: () => void;
   ficheNotes: TenantNote[];
   ficheDocs: TenantDocument[];
   noteDate: string;
@@ -364,15 +393,14 @@ function TenantDetailDrawer({
   const rentNet = Number(tenant.rentNet ?? tenant.rent ?? 0) || 0;
   const charges = Number(tenant.charges ?? 0) || 0;
   const total = rentNet + charges;
-
   const tenantRequests = requests.filter((r) => r.tenantId === tenant.id);
   const openReqs = tenantRequests.filter((r) => r.status === "pending" || r.status === "in-progress");
   const closedReqs = tenantRequests.filter((r) => r.status === "completed");
 
   const tabs = [
-    { key: "overview" as const, label: t("details") },
-    { key: "notes" as const, label: t("tenantNotes") },
-    { key: "documents" as const, label: t("viewDocuments") },
+    { key: "overview" as const, label: t("details"), icon: User },
+    { key: "notes" as const, label: t("tenantNotes"), icon: MessageSquare },
+    { key: "documents" as const, label: t("viewDocuments"), icon: FileText },
   ];
 
   return (
@@ -380,274 +408,207 @@ function TenantDetailDrawer({
       {/* Backdrop */}
       <div
         className={cn(
-          "fixed inset-0 bg-black/20 backdrop-blur-sm z-40 transition-opacity duration-300",
-          open ? "opacity-100" : "opacity-0 pointer-events-none"
+          "fixed inset-0 z-40 transition-all duration-300",
+          open ? "opacity-100 backdrop-blur-sm bg-black/30" : "opacity-0 pointer-events-none"
         )}
         onClick={onClose}
       />
 
-      {/* Drawer panel */}
+      {/* Panel */}
       <div
         className={cn(
-          "fixed right-0 top-0 h-full w-full max-w-xl bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-out flex flex-col",
+          "fixed right-0 top-0 h-full w-full max-w-[520px] z-50 transform transition-transform duration-300 ease-out flex flex-col shadow-2xl",
           open ? "translate-x-0" : "translate-x-full"
         )}
+        style={{ background: "var(--card)" }}
       >
-        {/* Drawer header */}
-        <div className="shrink-0 border-b border-[#E8E5DB]/60">
-          {/* Top bar with close */}
-          <div className="flex items-center justify-between px-6 pt-5 pb-4">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-[#45553A]/8 flex items-center justify-center">
-                {tenant.gender === "female" ? (
-                  <span className="text-2xl text-[#45553A]">{"\u2640"}</span>
-                ) : tenant.gender === "male" ? (
-                  <span className="text-2xl text-[#45553A]">{"\u2642"}</span>
-                ) : (
-                  <User className="w-7 h-7 text-[#45553A]" />
-                )}
-              </div>
-              <div>
-                <h2 className="text-lg font-bold text-[#171414]">{tenant.name}</h2>
-                <div className="flex items-center gap-2 mt-1">
-                  <StatusBadge status={tenant.status} t={t} />
-                  <span className="text-xs text-[#6B6560]">
+        {/* ─── Header with colored banner ─── */}
+        <div className="shrink-0">
+          <div className="relative h-28 bg-gradient-to-br from-[#45553A] via-[#5A6B4F] to-[#3D4A33] overflow-hidden">
+            <div className="absolute inset-0 opacity-10"
+              style={{ backgroundImage: "url('data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"60\" height=\"60\" viewBox=\"0 0 60 60\"><circle cx=\"30\" cy=\"30\" r=\"1.5\" fill=\"white\" opacity=\"0.3\"/></svg>')" }}
+            />
+            <div className="absolute inset-0 flex items-end p-5">
+              <div className="flex items-center gap-4 flex-1">
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-lg font-bold shadow-lg"
+                  style={{
+                    background: "rgba(255,255,255,0.2)",
+                    backdropFilter: "blur(12px)",
+                    color: "white",
+                    border: "1px solid rgba(255,255,255,0.2)",
+                  }}
+                >
+                  {getInitials(tenant.name)}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-xl font-bold text-white drop-shadow-sm truncate">{tenant.name}</h2>
+                  <p className="text-sm text-white/70 mt-0.5">
                     {tenant.buildingName} &middot; {t("unit")} {tenant.unit}
-                  </span>
+                  </p>
                 </div>
               </div>
+              <button onClick={onClose} className="p-2 rounded-xl hover:bg-white/10 transition-colors self-start">
+                <X className="w-5 h-5 text-white/70" />
+              </button>
             </div>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-[#E8E5DB]/50 rounded-xl transition-colors"
-            >
-              <X className="w-5 h-5 text-[#6B6560]" />
-            </button>
           </div>
 
-          {/* Quick actions */}
-          <div className="flex items-center gap-2 px-6 pb-4">
-            <button
-              onClick={onEdit}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#45553A] text-white text-xs font-medium hover:bg-[#3a4930] transition-colors"
+          {/* Quick actions bar */}
+          <div className="flex items-center gap-2 px-5 py-3 border-b" style={{ borderColor: "var(--border)" }}>
+            <StatusDotLight status={tenant.status} t={t} />
+            <div className="flex-1" />
+            <button onClick={onEdit}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+              style={{ background: "var(--primary)", color: "var(--primary-foreground)" }}
             >
               <Edit className="w-3.5 h-3.5" />
               {t("edit")}
             </button>
-            <button
-              onClick={onEmail}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#FAF5F2] border border-[#E8E5DB] text-[#171414] text-xs font-medium hover:bg-[#E8E5DB]/50 transition-colors"
+            <button onClick={onEmail}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors"
+              style={{ borderColor: "var(--border)", color: "var(--foreground)" }}
             >
               <Mail className="w-3.5 h-3.5" />
               {t("contactTenant")}
             </button>
-            <button
-              onClick={onDelete}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 border border-red-100 text-red-600 text-xs font-medium hover:bg-red-100 transition-colors ml-auto"
+            <button onClick={onDelete}
+              className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
             >
-              <Trash2 className="w-3.5 h-3.5" />
-              {t("delete")}
+              <Trash2 className="w-4 h-4" />
             </button>
           </div>
 
           {/* Tabs */}
-          <div className="flex px-6 gap-1">
-            {tabs.map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={cn(
-                  "px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors relative",
-                  activeTab === tab.key
-                    ? "text-[#45553A] bg-[#FAF5F2]"
-                    : "text-[#6B6560] hover:text-[#171414] hover:bg-[#FAF5F2]/50"
-                )}
-              >
-                {tab.label}
-                {activeTab === tab.key && (
-                  <div className="absolute bottom-0 left-2 right-2 h-0.5 bg-[#45553A] rounded-full" />
-                )}
-              </button>
-            ))}
+          <div className="flex px-5 border-b" style={{ borderColor: "var(--border)" }}>
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+                  className={cn(
+                    "flex items-center gap-1.5 px-4 py-3 text-sm font-medium transition-colors relative",
+                    activeTab === tab.key ? "text-[var(--primary)]" : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                  )}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  {tab.label}
+                  {activeTab === tab.key && (
+                    <div className="absolute bottom-0 left-3 right-3 h-[2px] rounded-full" style={{ background: "var(--primary)" }} />
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        {/* Drawer content */}
+        {/* ─── Tab content ─── */}
         <div className="flex-1 overflow-y-auto">
           {activeTab === "overview" && (
-            <div className="p-6 space-y-6">
-              {/* Contact info */}
-              <section className="space-y-3">
-                <h3 className="text-xs uppercase tracking-wider font-semibold text-[#6B6560]">
-                  {t("contactTenant")}
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="flex items-center gap-3 p-3 rounded-xl bg-[#FAF5F2]/70 border border-[#E8E5DB]/40">
-                    <div className="w-9 h-9 rounded-lg bg-[#45553A]/8 flex items-center justify-center">
-                      <Mail className="w-4 h-4 text-[#45553A]" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-[10px] uppercase tracking-wider text-[#6B6560] font-medium">{t("email")}</p>
-                      <p className="text-sm text-[#171414] truncate">{tenant.email}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 p-3 rounded-xl bg-[#FAF5F2]/70 border border-[#E8E5DB]/40">
-                    <div className="w-9 h-9 rounded-lg bg-[#45553A]/8 flex items-center justify-center">
-                      <Phone className="w-4 h-4 text-[#45553A]" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-[10px] uppercase tracking-wider text-[#6B6560] font-medium">{t("phone")}</p>
-                      <p className="text-sm text-[#171414]">{tenant.phone}</p>
-                    </div>
-                  </div>
+            <div className="p-5 space-y-5">
+              {/* Contact */}
+              <Section title={t("contactTenant")}>
+                <div className="grid grid-cols-2 gap-3">
+                  <InfoCard icon={Mail} label={t("email")} value={tenant.email} />
+                  <InfoCard icon={Phone} label={t("phone")} value={tenant.phone} />
                 </div>
-              </section>
+              </Section>
 
-              {/* Lease details */}
-              <section className="space-y-3">
-                <h3 className="text-xs uppercase tracking-wider font-semibold text-[#6B6560]">
-                  {t("leaseDetails")}
-                </h3>
-                <div className="rounded-2xl border border-[#E8E5DB]/60 overflow-hidden">
-                  <div className="grid grid-cols-2 divide-x divide-[#E8E5DB]/60">
-                    <div className="p-4">
-                      <p className="text-[10px] uppercase tracking-wider text-[#6B6560] font-medium mb-1">{t("leaseStart")}</p>
-                      <p className="text-sm font-semibold text-[#171414]">
-                        {tenant.leaseStart ? new Date(tenant.leaseStart).toLocaleDateString("fr-CH") : "\u2014"}
-                      </p>
-                    </div>
-                    <div className="p-4">
-                      <p className="text-[10px] uppercase tracking-wider text-[#6B6560] font-medium mb-1">{t("leaseEnd")}</p>
-                      <p className="text-sm font-semibold text-[#171414]">
-                        {tenant.leaseEnd ? new Date(tenant.leaseEnd).toLocaleDateString("fr-CH") : "\u2014"}
-                      </p>
-                    </div>
+              {/* Lease */}
+              <Section title={t("leaseDetails")}>
+                <div className="rounded-2xl overflow-hidden border" style={{ borderColor: "var(--border)" }}>
+                  <div className="grid grid-cols-2 divide-x" style={{ "borderColor": "var(--border)" } as any}>
+                    <LabelValue label={t("leaseStart")} value={tenant.leaseStart ? new Date(tenant.leaseStart).toLocaleDateString("fr-CH") : "—"} />
+                    <LabelValue label={t("leaseEnd")} value={tenant.leaseEnd ? new Date(tenant.leaseEnd).toLocaleDateString("fr-CH") : "—"} />
                   </div>
-                  <div className="border-t border-[#E8E5DB]/60 grid grid-cols-2 divide-x divide-[#E8E5DB]/60">
-                    <div className="p-4">
-                      <p className="text-[10px] uppercase tracking-wider text-[#6B6560] font-medium mb-1">{t("building")}</p>
-                      <p className="text-sm font-semibold text-[#171414]">{tenant.buildingName}</p>
-                    </div>
-                    <div className="p-4">
-                      <p className="text-[10px] uppercase tracking-wider text-[#6B6560] font-medium mb-1">{t("unit")}</p>
-                      <p className="text-sm font-semibold text-[#171414]">{tenant.unit}</p>
-                    </div>
+                  <div className="grid grid-cols-2 divide-x border-t" style={{ borderColor: "var(--border)" }}>
+                    <LabelValue label={t("building")} value={tenant.buildingName} />
+                    <LabelValue label={t("unit")} value={tenant.unit} />
                   </div>
                 </div>
-              </section>
+              </Section>
 
               {/* Financials */}
-              <section className="space-y-3">
-                <h3 className="text-xs uppercase tracking-wider font-semibold text-[#6B6560]">
-                  {t("financials")}
-                </h3>
-                <div className="rounded-2xl border border-[#E8E5DB]/60 p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-[#6B6560]">{t("netRentLabel")}</span>
-                    <span className="text-sm font-medium text-[#171414]">{formatCHF(rentNet)}</span>
+              <Section title={t("financials")}>
+                <div className="rounded-2xl p-4 space-y-3 border" style={{ borderColor: "var(--border)" }}>
+                  <div className="flex justify-between">
+                    <span className="text-sm" style={{ color: "var(--muted-foreground)" }}>{t("netRentLabel")}</span>
+                    <span className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{formatCHF(rentNet)}</span>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-[#6B6560]">{t("chargesLabel")}</span>
-                    <span className="text-sm font-medium text-[#171414]">{formatCHF(charges)}</span>
+                  <div className="flex justify-between">
+                    <span className="text-sm" style={{ color: "var(--muted-foreground)" }}>{t("chargesLabel")}</span>
+                    <span className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{formatCHF(charges)}</span>
                   </div>
-                  <div className="flex items-center justify-between pt-3 border-t border-[#E8E5DB]/60">
-                    <span className="text-sm font-semibold text-[#171414]">{t("totalMonthly")}</span>
-                    <span className="text-lg font-bold text-[#45553A]">{formatCHF(total)}</span>
+                  <div className="flex justify-between pt-3 border-t" style={{ borderColor: "var(--border)" }}>
+                    <span className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>{t("totalMonthly")}</span>
+                    <span className="text-lg font-bold" style={{ color: "var(--primary)" }}>{formatCHF(total)}</span>
                   </div>
                 </div>
-              </section>
+              </Section>
 
-              {/* Requests overview */}
-              <section className="space-y-3">
-                <h3 className="text-xs uppercase tracking-wider font-semibold text-[#6B6560]">
-                  {t("recentActivity")}
-                </h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="rounded-xl border border-[#E8E5DB]/60 p-4 text-center">
+              {/* Requests */}
+              <Section title={t("recentActivity")}>
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  <div className="rounded-xl p-3 text-center border" style={{ borderColor: "var(--border)" }}>
                     <div className="flex items-center justify-center gap-2 mb-1">
                       <AlertCircle className="w-4 h-4 text-amber-500" />
-                      <span className="text-2xl font-bold text-[#171414]">{openReqs.length}</span>
+                      <span className="text-xl font-bold" style={{ color: "var(--foreground)" }}>{openReqs.length}</span>
                     </div>
-                    <p className="text-xs text-[#6B6560]">{t("openRequests")}</p>
+                    <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>{t("openRequests")}</p>
                   </div>
-                  <div className="rounded-xl border border-[#E8E5DB]/60 p-4 text-center">
+                  <div className="rounded-xl p-3 text-center border" style={{ borderColor: "var(--border)" }}>
                     <div className="flex items-center justify-center gap-2 mb-1">
                       <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                      <span className="text-2xl font-bold text-[#171414]">{closedReqs.length}</span>
+                      <span className="text-xl font-bold" style={{ color: "var(--foreground)" }}>{closedReqs.length}</span>
                     </div>
-                    <p className="text-xs text-[#6B6560]">{t("closedRequests")}</p>
+                    <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>{t("closedRequests")}</p>
                   </div>
                 </div>
-
                 {tenantRequests.length > 0 ? (
                   <div className="space-y-2">
-                    {tenantRequests.slice(0, 3).map((req) => (
-                      <div key={req.id} className="flex items-center gap-3 p-3 rounded-xl bg-[#FAF5F2]/70 border border-[#E8E5DB]/40">
-                        <div className={cn(
-                          "w-2 h-2 rounded-full shrink-0",
+                    {tenantRequests.slice(0, 4).map((req) => (
+                      <div key={req.id} className="flex items-center gap-3 p-3 rounded-xl border" style={{ borderColor: "var(--border)" }}>
+                        <div className={cn("w-2 h-2 rounded-full shrink-0",
                           req.status === "completed" ? "bg-emerald-500" : req.status === "in-progress" ? "bg-blue-500" : "bg-amber-500"
                         )} />
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm text-[#171414] truncate">{req.title}</p>
-                          <p className="text-xs text-[#6B6560]">
+                          <p className="text-sm truncate" style={{ color: "var(--foreground)" }}>{req.title}</p>
+                          <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>
                             {new Date(req.createdAt).toLocaleDateString("fr-CH")}
                           </p>
                         </div>
-                        <span className={cn(
-                          "text-[10px] font-medium px-2 py-0.5 rounded-full",
-                          req.status === "completed" ? "bg-emerald-50 text-emerald-700" : req.status === "in-progress" ? "bg-blue-50 text-blue-700" : "bg-amber-50 text-amber-700"
-                        )}>
-                          {req.status === "completed" ? t("completed") : req.status === "in-progress" ? t("inProgress") : t("pending")}
-                        </span>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-6 rounded-xl bg-[#FAF5F2]/50">
-                    <Clock className="w-8 h-8 text-[#E8E5DB] mx-auto mb-2" />
-                    <p className="text-xs text-[#6B6560]">{t("noActivity")}</p>
+                  <div className="text-center py-6 rounded-xl" style={{ background: "var(--muted)", opacity: 0.5 }}>
+                    <Clock className="w-8 h-8 mx-auto mb-2" style={{ color: "var(--muted-foreground)" }} />
+                    <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>{t("noActivity")}</p>
                   </div>
                 )}
-              </section>
+              </Section>
             </div>
           )}
 
           {activeTab === "notes" && (
-            <div className="p-6 space-y-4">
-              <div className="space-y-3">
-                <h3 className="text-xs uppercase tracking-wider font-semibold text-[#6B6560]">
-                  {t("internalNotes")}
-                </h3>
-                <p className="text-xs text-[#6B6560]">{t("managementNotes")}</p>
-
-                {/* Add note form */}
-                <div className="rounded-2xl border border-[#E8E5DB]/60 p-4 space-y-3">
+            <div className="p-5 space-y-4">
+              <Section title={t("internalNotes")} subtitle={t("managementNotes")}>
+                {/* Add note */}
+                <div className="rounded-2xl p-4 space-y-3 border" style={{ borderColor: "var(--border)" }}>
                   <div className="flex gap-3">
-                    <div className="w-32">
-                      <Label className="text-[10px] uppercase tracking-wider text-[#6B6560] font-medium">{t("noteDate")}</Label>
-                      <Input
-                        type="date"
-                        value={noteDate}
-                        onChange={(e) => setNoteDate(e.target.value)}
-                        className="bg-[#FAF5F2] border-[#E8E5DB] text-[#171414] mt-1 text-sm h-9"
-                      />
+                    <div className="w-28">
+                      <Label className="text-[10px] uppercase tracking-wider font-medium" style={{ color: "var(--muted-foreground)" }}>{t("noteDate")}</Label>
+                      <Input type="date" value={noteDate} onChange={(e) => setNoteDate(e.target.value)}
+                        className="mt-1 text-sm h-9" style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }} />
                     </div>
                     <div className="flex-1">
-                      <Label className="text-[10px] uppercase tracking-wider text-[#6B6560] font-medium">{t("tenantNotes")}</Label>
+                      <Label className="text-[10px] uppercase tracking-wider font-medium" style={{ color: "var(--muted-foreground)" }}>{t("tenantNotes")}</Label>
                       <div className="flex gap-2 mt-1">
-                        <Input
-                          value={noteText}
-                          onChange={(e) => setNoteText(e.target.value)}
-                          placeholder={t("writeNote")}
-                          className="bg-[#FAF5F2] border-[#E8E5DB] text-[#171414] text-sm h-9"
+                        <Input value={noteText} onChange={(e) => setNoteText(e.target.value)}
+                          placeholder={t("writeNote")} className="text-sm h-9"
+                          style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }}
                           onKeyDown={(e) => { if (e.key === "Enter") addNote(); }}
                         />
-                        <Button
-                          type="button"
-                          onClick={addNote}
-                          className="bg-[#45553A] hover:bg-[#3a4930] text-white h-9 px-4"
-                          size="sm"
-                        >
+                        <Button type="button" onClick={addNote} size="sm" className="h-9 px-3"
+                          style={{ background: "var(--primary)", color: "var(--primary-foreground)" }}>
                           <Plus className="w-4 h-4" />
                         </Button>
                       </div>
@@ -655,139 +616,103 @@ function TenantDetailDrawer({
                   </div>
                 </div>
 
-                {/* Notes list */}
-                <div className="space-y-2">
+                <div className="space-y-2 mt-3">
                   {ficheNotes.length === 0 ? (
-                    <div className="text-center py-10 rounded-xl bg-[#FAF5F2]/50">
-                      <MessageSquare className="w-10 h-10 text-[#E8E5DB] mx-auto mb-3" />
-                      <p className="text-sm text-[#6B6560]">{t("noNotesYet")}</p>
+                    <div className="text-center py-10 rounded-xl" style={{ background: "var(--background)" }}>
+                      <MessageSquare className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--muted)" }} />
+                      <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>{t("noNotesYet")}</p>
                     </div>
                   ) : (
-                    ficheNotes
-                      .slice()
-                      .sort((a, b) => b.date.localeCompare(a.date))
-                      .map((n) => (
-                        <div
-                          key={n.id}
-                          className="rounded-xl border border-[#E8E5DB]/60 bg-white p-4 group/note hover:border-[#E8E5DB] transition-colors"
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2 mb-1.5">
-                                <Calendar className="w-3.5 h-3.5 text-[#45553A]" />
-                                <span className="text-xs font-semibold text-[#45553A]">
-                                  {new Date(n.date).toLocaleDateString("fr-CH")}
-                                </span>
-                              </div>
-                              <p className="text-sm text-[#171414] whitespace-pre-wrap leading-relaxed">
-                                {n.text}
-                              </p>
+                    ficheNotes.slice().sort((a, b) => b.date.localeCompare(a.date)).map((n) => (
+                      <div key={n.id} className="rounded-xl p-4 group/note hover:shadow-sm transition-all border"
+                        style={{ borderColor: "var(--border)" }}>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <Calendar className="w-3.5 h-3.5" style={{ color: "var(--primary)" }} />
+                              <span className="text-xs font-semibold" style={{ color: "var(--primary)" }}>
+                                {new Date(n.date).toLocaleDateString("fr-CH")}
+                              </span>
                             </div>
-                            <button
-                              onClick={() => deleteNote(n.id)}
-                              className="p-1.5 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover/note:opacity-100"
-                            >
-                              <Trash2 className="w-3.5 h-3.5 text-red-400" />
-                            </button>
+                            <p className="text-sm whitespace-pre-wrap leading-relaxed" style={{ color: "var(--foreground)" }}>
+                              {n.text}
+                            </p>
                           </div>
+                          <button onClick={() => deleteNote(n.id)}
+                            className="p-1.5 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors opacity-0 group-hover/note:opacity-100">
+                            <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                          </button>
                         </div>
-                      ))
+                      </div>
+                    ))
                   )}
                 </div>
-              </div>
+              </Section>
             </div>
           )}
 
           {activeTab === "documents" && (
-            <div className="p-6 space-y-4">
-              <div className="space-y-3">
-                <h3 className="text-xs uppercase tracking-wider font-semibold text-[#6B6560]">
-                  {t("documents")}
-                </h3>
-
-                {/* Upload form */}
-                <div className="rounded-2xl border border-[#E8E5DB]/60 p-4 space-y-3">
-                  <div className="grid grid-cols-1 sm:grid-cols-[180px_1fr] gap-3 items-end">
+            <div className="p-5 space-y-4">
+              <Section title={t("documents")}>
+                {/* Upload */}
+                <div className="rounded-2xl p-4 space-y-3 border" style={{ borderColor: "var(--border)" }}>
+                  <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-3 items-end">
                     <div>
-                      <Label className="text-[10px] uppercase tracking-wider text-[#6B6560] font-medium">{t("category")}</Label>
-                      <Select
-                        value={docCategory}
-                        onValueChange={(v: any) => setDocCategory(v)}
-                      >
-                        <SelectTrigger className="bg-[#FAF5F2] border-[#E8E5DB] text-[#171414] mt-1 text-sm h-9">
+                      <Label className="text-[10px] uppercase tracking-wider font-medium" style={{ color: "var(--muted-foreground)" }}>{t("category")}</Label>
+                      <Select value={docCategory} onValueChange={(v: any) => setDocCategory(v)}>
+                        <SelectTrigger className="mt-1 text-sm h-9" style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }}>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {DOC_CATEGORIES.map((c) => (
-                            <SelectItem key={c} value={c}>{c}</SelectItem>
-                          ))}
+                          {DOC_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
                     <div>
-                      <Label className="text-[10px] uppercase tracking-wider text-[#6B6560] font-medium">{t("file")}</Label>
-                      <Input
-                        ref={fileInputRef}
-                        type="file"
-                        className="bg-[#FAF5F2] border-[#E8E5DB] text-[#171414] mt-1 text-sm h-9"
+                      <Label className="text-[10px] uppercase tracking-wider font-medium" style={{ color: "var(--muted-foreground)" }}>{t("file")}</Label>
+                      <Input ref={fileInputRef} type="file" className="mt-1 text-sm h-9"
+                        style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }}
                         onChange={async (e) => {
                           const file = e.target.files?.[0];
-                          if (!file) return;
-                          try {
-                            await uploadDoc(file);
-                          } catch {
-                            if (fileInputRef.current) fileInputRef.current.value = "";
-                          }
+                          if (file) { try { await uploadDoc(file); } catch { if (fileInputRef.current) fileInputRef.current.value = ""; } }
                         }}
                       />
                     </div>
                   </div>
                 </div>
 
-                {/* Documents list */}
-                <div className="space-y-2">
+                <div className="space-y-2 mt-3">
                   {ficheDocs.length === 0 ? (
-                    <div className="text-center py-10 rounded-xl bg-[#FAF5F2]/50">
-                      <FileText className="w-10 h-10 text-[#E8E5DB] mx-auto mb-3" />
-                      <p className="text-sm text-[#6B6560]">{t("noDocuments")}</p>
+                    <div className="text-center py-10 rounded-xl" style={{ background: "var(--background)" }}>
+                      <FileText className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--muted)" }} />
+                      <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>{t("noDocuments")}</p>
                     </div>
                   ) : (
                     ficheDocs.map((d) => (
-                      <div
-                        key={d.id}
-                        className="rounded-xl border border-[#E8E5DB]/60 bg-white p-4 group/doc hover:border-[#E8E5DB] transition-colors"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-lg bg-[#45553A]/8 flex items-center justify-center shrink-0">
-                            <Paperclip className="w-4 h-4 text-[#45553A]" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium text-[#171414] truncate">{d.filename}</p>
-                            <p className="text-xs text-[#6B6560]">
-                              {d.category} &middot; {t("addedOn")} {new Date(d.uploadedAt).toLocaleDateString("fr-CH")}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-1 shrink-0">
-                            <a
-                              href={d.dataUrl}
-                              download={d.filename}
-                              className="p-2 hover:bg-[#E8E5DB]/50 rounded-lg transition-colors"
-                            >
-                              <Download className="w-4 h-4 text-[#45553A]" />
-                            </a>
-                            <button
-                              onClick={() => deleteDoc(d.id)}
-                              className="p-2 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover/doc:opacity-100"
-                            >
-                              <Trash2 className="w-3.5 h-3.5 text-red-400" />
-                            </button>
-                          </div>
+                      <div key={d.id} className="rounded-xl p-4 group/doc hover:shadow-sm transition-all border flex items-center gap-3"
+                        style={{ borderColor: "var(--border)" }}>
+                        <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                          style={{ background: "color-mix(in srgb, var(--primary) 10%, transparent)" }}>
+                          <Paperclip className="w-4 h-4" style={{ color: "var(--primary)" }} />
                         </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium truncate" style={{ color: "var(--foreground)" }}>{d.filename}</p>
+                          <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>
+                            {d.category} &middot; {t("addedOn")} {new Date(d.uploadedAt).toLocaleDateString("fr-CH")}
+                          </p>
+                        </div>
+                        <a href={d.dataUrl} download={d.filename} className="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg transition-colors">
+                          <Download className="w-4 h-4" style={{ color: "var(--primary)" }} />
+                        </a>
+                        <button onClick={() => deleteDoc(d.id)}
+                          className="p-2 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors opacity-0 group-hover/doc:opacity-100">
+                          <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                        </button>
                       </div>
                     ))
                   )}
                 </div>
-              </div>
+              </Section>
             </div>
           )}
         </div>
@@ -796,9 +721,64 @@ function TenantDetailDrawer({
   );
 }
 
-// ─────────────────────────────────────────────
-// Main TenantsView
-// ─────────────────────────────────────────────
+/* ─── Small helper components ─── */
+
+function Section({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
+  return (
+    <section className="space-y-3">
+      <div>
+        <h3 className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: "var(--muted-foreground)" }}>{title}</h3>
+        {subtitle && <p className="text-xs mt-0.5" style={{ color: "var(--muted-foreground)", opacity: 0.7 }}>{subtitle}</p>}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function InfoCard({ icon: Icon, label, value }: { icon: any; label: string; value: string }) {
+  return (
+    <div className="flex items-center gap-3 p-3 rounded-xl border" style={{ borderColor: "var(--border)" }}>
+      <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+        style={{ background: "color-mix(in srgb, var(--primary) 8%, transparent)" }}>
+        <Icon className="w-4 h-4" style={{ color: "var(--primary)" }} />
+      </div>
+      <div className="min-w-0">
+        <p className="text-[10px] uppercase tracking-wider font-medium" style={{ color: "var(--muted-foreground)" }}>{label}</p>
+        <p className="text-sm truncate" style={{ color: "var(--foreground)" }}>{value}</p>
+      </div>
+    </div>
+  );
+}
+
+function LabelValue({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="p-3.5">
+      <p className="text-[10px] uppercase tracking-wider font-medium mb-1" style={{ color: "var(--muted-foreground)" }}>{label}</p>
+      <p className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>{value}</p>
+    </div>
+  );
+}
+
+function StatusDotLight({ status, t }: { status: string; t: (k: string) => string }) {
+  const cfg: Record<string, { bg: string; text: string; dot: string }> = {
+    active: { bg: "bg-emerald-50 dark:bg-emerald-500/10", text: "text-emerald-700 dark:text-emerald-400", dot: "bg-emerald-500" },
+    pending: { bg: "bg-amber-50 dark:bg-amber-500/10", text: "text-amber-700 dark:text-amber-400", dot: "bg-amber-500" },
+    ended: { bg: "bg-slate-100 dark:bg-slate-500/10", text: "text-slate-600 dark:text-slate-400", dot: "bg-slate-400" },
+  };
+  const c = cfg[status] ?? cfg.ended;
+  const label = status === "active" ? t("active") : status === "pending" ? t("pending") : t("ended");
+  return (
+    <span className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium", c.bg, c.text)}>
+      <span className={cn("w-1.5 h-1.5 rounded-full", c.dot)} />
+      {label}
+    </span>
+  );
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   MAIN COMPONENT
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
 export function TenantsView() {
   const { t } = useLanguage();
   const [tenants, setTenants] = useState<Tenant[]>([]);
@@ -806,67 +786,44 @@ export function TenantsView() {
   const [requests, setRequests] = useState<MaintenanceRequest[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
-
   const [searchQuery, setSearchQuery] = useState("");
-
-  // Detail drawer
   const [drawerTenantId, setDrawerTenantId] = useState<string | null>(null);
-
-  // Notes/docs state
   const [noteDate, setNoteDate] = useState<string>(todayISO());
   const [noteText, setNoteText] = useState<string>("");
   const [docCategory, setDocCategory] = useState<TenantDocument["category"]>("Contrat de bail");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    buildingId: "",
-    unit: "",
-    rentNet: 0,
-    charges: 0,
-    leaseStart: "",
-    leaseEnd: "",
+    name: "", email: "", phone: "", buildingId: "", unit: "",
+    rentNet: 0, charges: 0, leaseStart: "", leaseEnd: "",
     status: "active" as const,
     gender: "unspecified" as "male" | "female" | "unspecified",
   });
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  useEffect(() => { loadData(); }, []);
 
   const loadData = () => {
-    const allTenants = getTenants() as any[];
-    const b = getBuildings();
-    const r = getMaintenanceRequests();
-    setTenants(allTenants as Tenant[]);
-    setBuildings(b);
-    setRequests(r);
+    setTenants(getTenants() as any[]);
+    setBuildings(getBuildings());
+    setRequests(getMaintenanceRequests());
   };
 
-  // Search filter
   const filteredTenants = useMemo(() => {
     if (!searchQuery.trim()) return tenants;
     const q = searchQuery.toLowerCase();
-    return tenants.filter(
-      (tn: any) =>
-        tn.name?.toLowerCase().includes(q) ||
-        tn.email?.toLowerCase().includes(q) ||
-        tn.unit?.toLowerCase().includes(q) ||
-        tn.buildingName?.toLowerCase().includes(q)
+    return tenants.filter((tn: any) =>
+      tn.name?.toLowerCase().includes(q) || tn.email?.toLowerCase().includes(q) ||
+      tn.unit?.toLowerCase().includes(q) || tn.buildingName?.toLowerCase().includes(q)
     );
   }, [tenants, searchQuery]);
 
-  // Group tenants by building
   const buildingsWithTenants = useMemo(() => {
     return buildings.map((b) => ({
       building: b,
       tenants: filteredTenants.filter((tn: any) => tn.buildingId === b.id),
-    })).filter((group) => group.tenants.length > 0 || !searchQuery.trim());
+    })).filter((g) => g.tenants.length > 0 || !searchQuery.trim());
   }, [buildings, filteredTenants, searchQuery]);
 
-  // Drawer tenant
   const drawerTenant = useMemo(() => {
     if (!drawerTenantId) return null;
     return (tenants as any[]).find((tn) => tn.id === drawerTenantId) ?? null;
@@ -882,168 +839,87 @@ export function TenantsView() {
     return Array.isArray(raw) ? raw : [];
   }, [drawerTenant]);
 
-  const formatCHF = (value: number) => {
-    const n = Number.isFinite(value) ? value : 0;
-    const s = Math.round(n).toString();
-    const withApostrophe = s.replace(/\B(?=(\d{3})+(?!\d))/g, "'");
-    return `CHF ${withApostrophe}`;
-  };
-
-  const formatDateRange = (start?: string, end?: string) => {
-    const fmt = (d?: string) =>
-      d ? new Date(d).toLocaleDateString("fr-CH") : "\u2014";
-    return `${fmt(start)} - ${fmt(end)}`;
-  };
+  /* ─── Handlers ─── */
 
   const handleEmailTenant = (tenant: any) => {
     const subject = "Message concernant votre location";
-    const body = `Bonjour ${tenant?.name ?? ""},\n\nConcernant votre appartement ${
-      tenant?.buildingName ?? ""
-    } - Unit\u00E9 ${tenant?.unit ?? ""},\n\n`;
-    window.location.href = `mailto:${encodeURIComponent(
-      tenant?.email ?? ""
-    )}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    const body = `Bonjour ${tenant?.name ?? ""},\n\nConcernant votre appartement ${tenant?.buildingName ?? ""} - Unité ${tenant?.unit ?? ""},\n\n`;
+    window.location.href = `mailto:${encodeURIComponent(tenant?.email ?? "")}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const selectedBuilding = buildings.find((b) => b.id === formData.buildingId);
     if (!selectedBuilding) return;
-
     const payload: any = {
-      ...formData,
-      buildingName: (selectedBuilding as any).name,
-      rentNet: Number(formData.rentNet) || 0,
-      charges: Number(formData.charges) || 0,
+      ...formData, buildingName: (selectedBuilding as any).name,
+      rentNet: Number(formData.rentNet) || 0, charges: Number(formData.charges) || 0,
       leaseEnd: formData.leaseEnd || "",
     };
-
     if (editingTenant) {
-      const updated = (tenants as any).map((tn: any) =>
-        tn.id === (editingTenant as any).id ? { ...tn, ...payload } : tn
-      );
+      const updated = (tenants as any).map((tn: any) => tn.id === (editingTenant as any).id ? { ...tn, ...payload } : tn);
       saveTenants(updated as any);
     } else {
-      const newTenant: any = {
-        id: Date.now().toString(),
-        ...payload,
-        notes: [],
-        documents: [],
-      };
+      const newTenant: any = { id: Date.now().toString(), ...payload, notes: [], documents: [] };
       saveTenants([...(tenants as any), newTenant] as any);
     }
-
-    setIsDialogOpen(false);
-    setEditingTenant(null);
-    resetForm();
-    loadData();
+    setIsDialogOpen(false); setEditingTenant(null); resetForm(); loadData();
   };
 
   const resetForm = () => {
-    setFormData({
-      name: "",
-      email: "",
-      phone: "",
-      buildingId: "",
-      unit: "",
-      rentNet: 0,
-      charges: 0,
-      leaseStart: "",
-      leaseEnd: "",
-      status: "active",
-      gender: "unspecified",
-    });
+    setFormData({ name: "", email: "", phone: "", buildingId: "", unit: "", rentNet: 0, charges: 0, leaseStart: "", leaseEnd: "", status: "active", gender: "unspecified" });
   };
 
   const handleEdit = (tenant: any) => {
     setEditingTenant(tenant as Tenant);
     setFormData({
-      name: tenant.name ?? "",
-      email: tenant.email ?? "",
-      phone: tenant.phone ?? "",
-      buildingId: tenant.buildingId ?? "",
-      unit: tenant.unit ?? "",
+      name: tenant.name ?? "", email: tenant.email ?? "", phone: tenant.phone ?? "",
+      buildingId: tenant.buildingId ?? "", unit: tenant.unit ?? "",
       rentNet: Number(tenant.rentNet ?? tenant.rent ?? 0) || 0,
       charges: Number(tenant.charges ?? 0) || 0,
-      leaseStart: tenant.leaseStart ?? "",
-      leaseEnd: tenant.leaseEnd ?? "",
-      status: tenant.status ?? "active",
-      gender: (tenant.gender ?? "unspecified") as any,
+      leaseStart: tenant.leaseStart ?? "", leaseEnd: tenant.leaseEnd ?? "",
+      status: tenant.status ?? "active", gender: (tenant.gender ?? "unspecified") as any,
     });
-    setIsDialogOpen(true);
-    setDrawerTenantId(null);
+    setIsDialogOpen(true); setDrawerTenantId(null);
   };
 
   const handleDelete = (id: string) => {
     if (confirm(t("confirmDeleteTenant"))) {
-      const updated = (tenants as any).filter((tn: any) => tn.id !== id);
-      saveTenants(updated as any);
-      setDrawerTenantId(null);
-      loadData();
+      saveTenants((tenants as any).filter((tn: any) => tn.id !== id) as any);
+      setDrawerTenantId(null); loadData();
     }
   };
 
-  const handleDialogChange = (open: boolean) => {
-    setIsDialogOpen(open);
-    if (!open) {
-      setEditingTenant(null);
-      resetForm();
-    }
-  };
+  const handleDialogChange = (open: boolean) => { setIsDialogOpen(open); if (!open) { setEditingTenant(null); resetForm(); } };
 
   const openDrawer = (tenant: any) => {
-    setDrawerTenantId(tenant.id);
-    setNoteDate(todayISO());
-    setNoteText("");
-    setDocCategory("Contrat de bail");
-    if (fileInputRef.current) fileInputRef.current.value = "";
+    setDrawerTenantId(tenant.id); setNoteDate(todayISO()); setNoteText("");
+    setDocCategory("Contrat de bail"); if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const updateTenantById = (tenantId: string, patch: Partial<any>) => {
-    const updated = (tenants as any[]).map((tn) =>
-      tn.id === tenantId ? { ...tn, ...patch } : tn
-    );
-    saveTenants(updated as any);
-    setTenants(updated as any);
+    const updated = (tenants as any[]).map((tn) => tn.id === tenantId ? { ...tn, ...patch } : tn);
+    saveTenants(updated as any); setTenants(updated as any);
   };
 
   const addNote = () => {
-    if (!drawerTenantId) return;
-    const text = noteText.trim();
-    if (!text) return;
-
-    const next: TenantNote = {
-      id: `${Date.now()}`,
-      date: noteDate || todayISO(),
-      text,
-      createdAt: new Date().toISOString(),
-    };
-
+    if (!drawerTenantId || !noteText.trim()) return;
+    const next: TenantNote = { id: `${Date.now()}`, date: noteDate || todayISO(), text: noteText.trim(), createdAt: new Date().toISOString() };
     const current = ((drawerTenant as any)?.notes ?? []) as TenantNote[];
     updateTenantById(drawerTenantId, { notes: [next, ...current] });
-    setNoteText("");
-    setNoteDate(todayISO());
+    setNoteText(""); setNoteDate(todayISO());
   };
 
   const deleteNote = (noteId: string) => {
     if (!drawerTenantId) return;
     const current = ((drawerTenant as any)?.notes ?? []) as TenantNote[];
-    updateTenantById(drawerTenantId, {
-      notes: current.filter((n) => n.id !== noteId),
-    });
+    updateTenantById(drawerTenantId, { notes: current.filter((n) => n.id !== noteId) });
   };
 
   const uploadDoc = async (file: File) => {
     if (!drawerTenantId) return;
     const dataUrl = await fileToDataUrl(file);
-    const next: TenantDocument = {
-      id: `${Date.now()}`,
-      category: docCategory,
-      filename: file.name,
-      mimeType: file.type || "application/octet-stream",
-      uploadedAt: new Date().toISOString(),
-      dataUrl,
-    };
+    const next: TenantDocument = { id: `${Date.now()}`, category: docCategory, filename: file.name, mimeType: file.type || "application/octet-stream", uploadedAt: new Date().toISOString(), dataUrl };
     const current = ((drawerTenant as any)?.documents ?? []) as TenantDocument[];
     updateTenantById(drawerTenantId, { documents: [next, ...current] });
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -1052,130 +928,77 @@ export function TenantsView() {
   const deleteDoc = (docId: string) => {
     if (!drawerTenantId) return;
     const current = ((drawerTenant as any)?.documents ?? []) as TenantDocument[];
-    updateTenantById(drawerTenantId, {
-      documents: current.filter((d) => d.id !== docId),
-    });
+    updateTenantById(drawerTenantId, { documents: current.filter((d) => d.id !== docId) });
   };
 
-  // Stats
   const totalTenants = tenants.length;
   const activeTenants = tenants.filter((tn) => tn.status === "active").length;
 
   return (
-    <div className="min-h-screen bg-[#FAF5F2]">
-      {/* Page header */}
-      <div className="sticky top-0 z-30 bg-[#FAF5F2]/95 backdrop-blur-md border-b border-[#E8E5DB]/60">
+    <div className="min-h-screen" style={{ background: "var(--background)" }}>
+      {/* ═══ PAGE HEADER ═══ */}
+      <div className="sticky top-0 z-30 border-b" style={{
+        background: "color-mix(in srgb, var(--background) 90%, transparent)",
+        backdropFilter: "blur(16px)",
+        WebkitBackdropFilter: "blur(16px)",
+        borderColor: "var(--border)",
+      }}>
         <div className="px-6 lg:px-8 py-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-bold text-[#171414]">{t("tenantsTitle")}</h1>
-              <p className="text-sm text-[#6B6560] mt-0.5">{t("tenantsOverview")}</p>
+              <h1 className="text-2xl font-bold" style={{ color: "var(--foreground)" }}>{t("tenantsTitle")}</h1>
+              <p className="text-sm mt-0.5" style={{ color: "var(--muted-foreground)" }}>{t("tenantsOverview")}</p>
             </div>
 
             <div className="flex items-center gap-3">
               {/* Search */}
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#6B6560]" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--muted-foreground)" }} />
                 <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder={t("searchTenants")}
-                  className="pl-10 pr-4 py-2.5 rounded-xl bg-white border border-[#E8E5DB] text-sm text-[#171414] placeholder:text-[#6B6560]/60 focus:outline-none focus:ring-2 focus:ring-[#45553A]/20 focus:border-[#45553A]/30 w-64 transition-all"
+                  className="pl-10 pr-4 py-2.5 rounded-xl text-sm w-64 transition-all focus:outline-none focus:ring-2"
+                  style={{
+                    background: "var(--card)", border: "1px solid var(--border)",
+                    color: "var(--foreground)",
+                    "--tw-ring-color": "color-mix(in srgb, var(--primary) 20%, transparent)",
+                  } as any}
                 />
               </div>
 
-              {/* Add tenant button */}
+              {/* Add tenant */}
               <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
                 <DialogTrigger asChild>
-                  <Button className="bg-[#45553A] hover:bg-[#3a4930] text-white rounded-xl h-10 px-5 shadow-sm shadow-[#45553A]/10">
+                  <Button className="rounded-xl h-10 px-5 shadow-sm" style={{ background: "var(--primary)", color: "var(--primary-foreground)" }}>
                     <Plus className="w-4 h-4 mr-2" />
                     {t("addTenant")}
                   </Button>
                 </DialogTrigger>
-
-                <DialogContent className="bg-white border-[#E8E5DB] max-h-[90vh] overflow-y-auto rounded-2xl">
+                <DialogContent className="max-h-[90vh] overflow-y-auto rounded-2xl" style={{ background: "var(--card)", borderColor: "var(--border)" }}>
                   <DialogHeader>
-                    <DialogTitle className="text-[#171414]">
-                      {editingTenant ? t("editTenant") : t("newTenant")}
-                    </DialogTitle>
+                    <DialogTitle style={{ color: "var(--foreground)" }}>{editingTenant ? t("editTenant") : t("newTenant")}</DialogTitle>
                   </DialogHeader>
-
                   <form onSubmit={handleSubmit} className="space-y-4 mt-4">
-                    <div>
-                      <Label htmlFor="name" className="text-[#171414]">{t("fullName")}</Label>
-                      <Input
-                        id="name"
-                        value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        required
-                        className="bg-[#FAF5F2] border-[#E8E5DB] text-[#171414] mt-2"
-                      />
-                    </div>
-
+                    <FormField label={t("fullName")} id="name" value={formData.name} onChange={(v) => setFormData({ ...formData, name: v })} required />
                     <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="email" className="text-[#171414]">{t("email")}</Label>
-                        <Input
-                          id="email"
-                          type="email"
-                          value={formData.email}
-                          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                          required
-                          className="bg-[#FAF5F2] border-[#E8E5DB] text-[#171414] mt-2"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="phone" className="text-[#171414]">{t("phone")}</Label>
-                        <Input
-                          id="phone"
-                          value={formData.phone}
-                          onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                          required
-                          className="bg-[#FAF5F2] border-[#E8E5DB] text-[#171414] mt-2"
-                        />
-                      </div>
+                      <FormField label={t("email")} id="email" type="email" value={formData.email} onChange={(v) => setFormData({ ...formData, email: v })} required />
+                      <FormField label={t("phone")} id="phone" value={formData.phone} onChange={(v) => setFormData({ ...formData, phone: v })} required />
                     </div>
-
                     <div>
-                      <Label htmlFor="building" className="text-[#171414]">{t("building")}</Label>
-                      <Select
-                        value={formData.buildingId}
-                        onValueChange={(value) => setFormData({ ...formData, buildingId: value })}
-                      >
-                        <SelectTrigger className="bg-[#FAF5F2] border-[#E8E5DB] text-[#171414] mt-2">
+                      <Label style={{ color: "var(--foreground)" }}>{t("building")}</Label>
+                      <Select value={formData.buildingId} onValueChange={(v) => setFormData({ ...formData, buildingId: v })}>
+                        <SelectTrigger className="mt-2" style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }}>
                           <SelectValue placeholder={t("selectBuilding")} />
                         </SelectTrigger>
-                        <SelectContent>
-                          {buildings.map((building: any) => (
-                            <SelectItem key={building.id} value={building.id}>
-                              {building.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
+                        <SelectContent>{buildings.map((b: any) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
-
                     <div className="grid grid-cols-2 gap-4">
+                      <FormField label={t("units")} id="unit" value={formData.unit} onChange={(v) => setFormData({ ...formData, unit: v })} required />
                       <div>
-                        <Label htmlFor="unit" className="text-[#171414]">{t("units")}</Label>
-                        <Input
-                          id="unit"
-                          value={formData.unit}
-                          onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                          required
-                          className="bg-[#FAF5F2] border-[#E8E5DB] text-[#171414] mt-2"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="gender" className="text-[#171414]">{t("gender")}</Label>
-                        <Select
-                          value={formData.gender}
-                          onValueChange={(value: any) => setFormData({ ...formData, gender: value })}
-                        >
-                          <SelectTrigger className="bg-[#FAF5F2] border-[#E8E5DB] text-[#171414] mt-2">
-                            <SelectValue />
-                          </SelectTrigger>
+                        <Label style={{ color: "var(--foreground)" }}>{t("gender")}</Label>
+                        <Select value={formData.gender} onValueChange={(v: any) => setFormData({ ...formData, gender: v })}>
+                          <SelectTrigger className="mt-2" style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }}><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="male">{t("male")}</SelectItem>
                             <SelectItem value="female">{t("female")}</SelectItem>
@@ -1184,65 +1007,18 @@ export function TenantsView() {
                         </Select>
                       </div>
                     </div>
-
                     <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="rentNet" className="text-[#171414]">{t("netRent")}</Label>
-                        <Input
-                          id="rentNet"
-                          type="number"
-                          value={formData.rentNet}
-                          onChange={(e) => setFormData({ ...formData, rentNet: parseInt(e.target.value) || 0 })}
-                          required
-                          className="bg-[#FAF5F2] border-[#E8E5DB] text-[#171414] mt-2"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="charges" className="text-[#171414]">{t("monthlyCharges")}</Label>
-                        <Input
-                          id="charges"
-                          type="number"
-                          value={formData.charges}
-                          onChange={(e) => setFormData({ ...formData, charges: parseInt(e.target.value) || 0 })}
-                          required
-                          className="bg-[#FAF5F2] border-[#E8E5DB] text-[#171414] mt-2"
-                        />
-                      </div>
+                      <FormField label={t("netRent")} id="rentNet" type="number" value={String(formData.rentNet)} onChange={(v) => setFormData({ ...formData, rentNet: parseInt(v) || 0 })} required />
+                      <FormField label={t("monthlyCharges")} id="charges" type="number" value={String(formData.charges)} onChange={(v) => setFormData({ ...formData, charges: parseInt(v) || 0 })} required />
                     </div>
-
                     <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="leaseStart" className="text-[#171414]">{t("leaseStartLabel")}</Label>
-                        <Input
-                          id="leaseStart"
-                          type="date"
-                          value={formData.leaseStart}
-                          onChange={(e) => setFormData({ ...formData, leaseStart: e.target.value })}
-                          required
-                          className="bg-[#FAF5F2] border-[#E8E5DB] text-[#171414] mt-2"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="leaseEnd" className="text-[#171414]">{t("leaseEndOptional")}</Label>
-                        <Input
-                          id="leaseEnd"
-                          type="date"
-                          value={formData.leaseEnd}
-                          onChange={(e) => setFormData({ ...formData, leaseEnd: e.target.value })}
-                          className="bg-[#FAF5F2] border-[#E8E5DB] text-[#171414] mt-2"
-                        />
-                      </div>
+                      <FormField label={t("leaseStartLabel")} id="leaseStart" type="date" value={formData.leaseStart} onChange={(v) => setFormData({ ...formData, leaseStart: v })} required />
+                      <FormField label={t("leaseEndOptional")} id="leaseEnd" type="date" value={formData.leaseEnd} onChange={(v) => setFormData({ ...formData, leaseEnd: v })} />
                     </div>
-
                     <div>
-                      <Label htmlFor="status" className="text-[#171414]">{t("status")}</Label>
-                      <Select
-                        value={formData.status}
-                        onValueChange={(value: any) => setFormData({ ...formData, status: value })}
-                      >
-                        <SelectTrigger className="bg-[#FAF5F2] border-[#E8E5DB] text-[#171414] mt-2">
-                          <SelectValue />
-                        </SelectTrigger>
+                      <Label style={{ color: "var(--foreground)" }}>{t("status")}</Label>
+                      <Select value={formData.status} onValueChange={(v: any) => setFormData({ ...formData, status: v })}>
+                        <SelectTrigger className="mt-2" style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }}><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="active">{t("active")}</SelectItem>
                           <SelectItem value="pending">{t("pending")}</SelectItem>
@@ -1250,17 +1026,12 @@ export function TenantsView() {
                         </SelectContent>
                       </Select>
                     </div>
-
                     <div className="flex gap-3 pt-4">
-                      <Button type="submit" className="flex-1 bg-[#45553A] hover:bg-[#3a4930] text-white">
+                      <Button type="submit" className="flex-1" style={{ background: "var(--primary)", color: "var(--primary-foreground)" }}>
                         {editingTenant ? t("update") : t("create")}
                       </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => handleDialogChange(false)}
-                        className="flex-1 border-[#E8E5DB] text-[#171414]"
-                      >
+                      <Button type="button" variant="outline" onClick={() => handleDialogChange(false)} className="flex-1"
+                        style={{ borderColor: "var(--border)", color: "var(--foreground)" }}>
                         {t("cancel")}
                       </Button>
                     </div>
@@ -1270,43 +1041,19 @@ export function TenantsView() {
             </div>
           </div>
 
-          {/* Summary metrics */}
-          <div className="flex items-center gap-6 mt-4">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-[#45553A]/8 flex items-center justify-center">
-                <Users className="w-4 h-4 text-[#45553A]" />
-              </div>
-              <div>
-                <p className="text-lg font-bold text-[#171414] leading-none">{totalTenants}</p>
-                <p className="text-[10px] text-[#6B6560] uppercase tracking-wider">{t("tenantCount")}</p>
-              </div>
-            </div>
-            <div className="w-px h-8 bg-[#E8E5DB]" />
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-              </div>
-              <div>
-                <p className="text-lg font-bold text-[#171414] leading-none">{activeTenants}</p>
-                <p className="text-[10px] text-[#6B6560] uppercase tracking-wider">{t("active")}</p>
-              </div>
-            </div>
-            <div className="w-px h-8 bg-[#E8E5DB]" />
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-[#D1D1B0]/20 flex items-center justify-center">
-                <Building2 className="w-4 h-4 text-[#45553A]" />
-              </div>
-              <div>
-                <p className="text-lg font-bold text-[#171414] leading-none">{buildings.length}</p>
-                <p className="text-[10px] text-[#6B6560] uppercase tracking-wider">{t("navBuildings")}</p>
-              </div>
-            </div>
+          {/* Summary stats */}
+          <div className="flex items-center gap-5 mt-4">
+            <StatPill icon={Users} value={totalTenants} label={t("tenantCount")} />
+            <div className="w-px h-7" style={{ background: "var(--border)" }} />
+            <StatPill icon={CheckCircle2} value={activeTenants} label={t("active")} accent />
+            <div className="w-px h-7" style={{ background: "var(--border)" }} />
+            <StatPill icon={Building2} value={buildings.length} label={t("navBuildings")} />
           </div>
         </div>
       </div>
 
-      {/* Building sections */}
-      <div className="px-6 lg:px-8 py-6 space-y-6">
+      {/* ═══ BUILDING CARDS ═══ */}
+      <div className="px-6 lg:px-8 py-8 space-y-8">
         {buildingsWithTenants.length > 0 ? (
           buildingsWithTenants.map((group, i) => (
             <BuildingCard
@@ -1315,39 +1062,31 @@ export function TenantsView() {
               tenants={group.tenants}
               index={i}
               onTenantClick={openDrawer}
-              formatCHF={formatCHF}
               t={t}
               requests={requests}
             />
           ))
         ) : (
-          <div className="text-center py-20 rounded-3xl bg-white border border-[#E8E5DB]/60">
-            <Building2 className="w-16 h-16 text-[#E8E5DB] mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-[#171414] mb-2">{t("noTenants")}</h3>
-            <p className="text-sm text-[#6B6560] mb-6">{t("startAddTenant")}</p>
-            <Button
-              onClick={() => setIsDialogOpen(true)}
-              className="bg-[#45553A] hover:bg-[#3a4930] text-white rounded-xl"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              {t("addTenant")}
+          <div className="text-center py-24 rounded-[28px] border" style={{ background: "var(--card)", borderColor: "var(--border)" }}>
+            <Building2 className="w-16 h-16 mx-auto mb-4" style={{ color: "var(--muted)" }} />
+            <h3 className="text-xl font-semibold mb-2" style={{ color: "var(--foreground)" }}>{t("noTenants")}</h3>
+            <p className="text-sm mb-6" style={{ color: "var(--muted-foreground)" }}>{t("startAddTenant")}</p>
+            <Button onClick={() => setIsDialogOpen(true)} className="rounded-xl" style={{ background: "var(--primary)", color: "var(--primary-foreground)" }}>
+              <Plus className="w-4 h-4 mr-2" />{t("addTenant")}
             </Button>
           </div>
         )}
       </div>
 
-      {/* Tenant detail drawer */}
+      {/* ═══ DETAIL DRAWER ═══ */}
       <TenantDetailDrawer
         tenant={drawerTenant}
         open={!!drawerTenantId}
         onClose={() => setDrawerTenantId(null)}
         t={t}
-        formatCHF={formatCHF}
-        formatDateRange={formatDateRange}
         onEdit={() => drawerTenant && handleEdit(drawerTenant)}
         onDelete={() => drawerTenant && handleDelete(drawerTenant.id)}
         onEmail={() => drawerTenant && handleEmailTenant(drawerTenant)}
-        onOpenFiche={() => {}}
         ficheNotes={ficheNotes}
         ficheDocs={ficheDocs}
         noteDate={noteDate}
@@ -1363,6 +1102,35 @@ export function TenantsView() {
         deleteDoc={deleteDoc}
         requests={requests}
       />
+    </div>
+  );
+}
+
+/* ─── Reusable micro-components ─── */
+
+function StatPill({ icon: Icon, value, label, accent }: { icon: any; value: number; label: string; accent?: boolean }) {
+  return (
+    <div className="flex items-center gap-2">
+      <div className="w-8 h-8 rounded-lg flex items-center justify-center"
+        style={{ background: accent ? "color-mix(in srgb, var(--primary) 10%, transparent)" : "color-mix(in srgb, var(--primary) 6%, transparent)" }}>
+        <Icon className="w-4 h-4" style={{ color: "var(--primary)" }} />
+      </div>
+      <div>
+        <p className="text-lg font-bold leading-none" style={{ color: "var(--foreground)" }}>{value}</p>
+        <p className="text-[10px] uppercase tracking-wider" style={{ color: "var(--muted-foreground)" }}>{label}</p>
+      </div>
+    </div>
+  );
+}
+
+function FormField({ label, id, type = "text", value, onChange, required }: {
+  label: string; id: string; type?: string; value: string; onChange: (v: string) => void; required?: boolean;
+}) {
+  return (
+    <div>
+      <Label htmlFor={id} style={{ color: "var(--foreground)" }}>{label}</Label>
+      <Input id={id} type={type} value={value} onChange={(e) => onChange(e.target.value)} required={required}
+        className="mt-2" style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }} />
     </div>
   );
 }
