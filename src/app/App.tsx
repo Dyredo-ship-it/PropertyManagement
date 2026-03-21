@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { ThemeProvider } from "./context/ThemeContext";
 import { LanguageProvider, useLanguage } from "./i18n/LanguageContext";
 import { LoginPage } from "./components/LoginPage";
 import { ModernSidebar } from "./components/ModernSidebar";
@@ -91,10 +92,12 @@ function AppContent() {
 
 export default function App() {
   return (
-    <LanguageProvider>
-      <AuthProvider>
-        <AppContent />
-      </AuthProvider>
-    </LanguageProvider>
+    <ThemeProvider>
+      <LanguageProvider>
+        <AuthProvider>
+          <AppContent />
+        </AuthProvider>
+      </LanguageProvider>
+    </ThemeProvider>
   );
 }

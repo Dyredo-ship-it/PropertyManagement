@@ -1,11 +1,13 @@
 import React from "react";
-import { Search, Bell, User, Globe } from "lucide-react";
+import { Search, Bell, User, Globe, Sun, Moon } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../context/ThemeContext";
 import { useLanguage } from "../i18n/LanguageContext";
 import { LANGUAGES } from "../i18n/translations";
 
 export function TopHeader() {
   const { user } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const { t, language, setLanguage } = useLanguage();
 
   return (
@@ -26,6 +28,19 @@ export function TopHeader() {
 
           {/* Right Section */}
           <div className="flex items-center gap-2">
+            {/* Theme Toggle */}
+            <button
+              onClick={toggleTheme}
+              className="p-2.5 rounded-xl transition-all hover:bg-muted/50 text-muted-foreground hover:text-foreground"
+              title={theme === "light" ? t("darkMode") : t("lightMode")}
+            >
+              {theme === "light" ? (
+                <Moon className="w-[18px] h-[18px]" />
+              ) : (
+                <Sun className="w-[18px] h-[18px]" />
+              )}
+            </button>
+
             {/* Language Switcher */}
             <div className="relative">
               <select

@@ -386,6 +386,71 @@ type TranslationSet = {
   tagFinance: string;
   tagRental: string;
   tagCompliance: string;
+
+  // Tenants redesign
+  tenantsOverview: string;
+  searchTenants: string;
+  tenantCount: string;
+  occupancyLabel: string;
+  viewProfile: string;
+  contactTenant: string;
+  addNote: string;
+  viewRequests: string;
+  viewDocuments: string;
+  leaseDetails: string;
+  financials: string;
+  tenantSince: string;
+  leaseEnds: string;
+  totalMonthly: string;
+  internalNotes: string;
+  managementNotes: string;
+  writeNote: string;
+  noNotesYet: string;
+  recentActivity: string;
+  noActivity: string;
+  openRequests: string;
+  closedRequests: string;
+  leaving: string;
+
+  // Requests split (rental applications + maintenance)
+  requestsHub: string;
+  requestsHubSub: string;
+  maintenanceTab: string;
+  rentalApplicationsTab: string;
+  rentalApplications: string;
+  rentalApplicationsSub: string;
+  newRentalApplication: string;
+  applicantName: string;
+  applicantEmail: string;
+  applicantPhone: string;
+  desiredUnit: string;
+  desiredMoveIn: string;
+  monthlyIncome: string;
+  currentAddress: string;
+  applicationMessage: string;
+  applicationStatus: string;
+  received: string;
+  underReview: string;
+  accepted: string;
+  rejected: string;
+  noApplications: string;
+  noApplicationsSub: string;
+  reviewApplication: string;
+  applicantInfo: string;
+  applicationDetails: string;
+  householdSize: string;
+  applicantOccupation: string;
+  employer: string;
+  applicationDate: string;
+  approve: string;
+  reject: string;
+  markUnderReview: string;
+  numberOfPersons: string;
+
+  // Dark mode
+  lightMode: string;
+  darkMode: string;
+  theme: string;
 };
 
 export const translations: Record<Language, TranslationSet> = {
@@ -750,6 +815,68 @@ export const translations: Record<Language, TranslationSet> = {
     tagFinance: "Finance",
     tagRental: "Location",
     tagCompliance: "Conformité",
+
+    tenantsOverview: "Vue d'ensemble de vos locataires par immeuble",
+    searchTenants: "Rechercher un locataire...",
+    tenantCount: "locataires",
+    occupancyLabel: "Occupation",
+    viewProfile: "Voir le profil",
+    contactTenant: "Contacter",
+    addNote: "Ajouter une note",
+    viewRequests: "Voir les demandes",
+    viewDocuments: "Documents",
+    leaseDetails: "Détails du bail",
+    financials: "Finances",
+    tenantSince: "Locataire depuis",
+    leaseEnds: "Fin du bail",
+    totalMonthly: "Total mensuel",
+    internalNotes: "Notes internes",
+    managementNotes: "Notes de gestion et suivi",
+    writeNote: "Écrire une note...",
+    noNotesYet: "Aucune note pour le moment",
+    recentActivity: "Activité récente",
+    noActivity: "Aucune activité récente",
+    openRequests: "Demandes ouvertes",
+    closedRequests: "Demandes fermées",
+    leaving: "Départ",
+
+    requestsHub: "Demandes",
+    requestsHubSub: "Gérez les demandes de maintenance et les candidatures locatives",
+    maintenanceTab: "Maintenance",
+    rentalApplicationsTab: "Candidatures",
+    rentalApplications: "Demandes de location",
+    rentalApplicationsSub: "Gérez les candidatures de futurs locataires",
+    newRentalApplication: "Nouvelle candidature",
+    applicantName: "Nom du candidat",
+    applicantEmail: "Email",
+    applicantPhone: "Téléphone",
+    desiredUnit: "Unité souhaitée",
+    desiredMoveIn: "Date d'emménagement souhaitée",
+    monthlyIncome: "Revenu mensuel",
+    currentAddress: "Adresse actuelle",
+    applicationMessage: "Message de candidature",
+    applicationStatus: "Statut de la candidature",
+    received: "Reçue",
+    underReview: "En examen",
+    accepted: "Acceptée",
+    rejected: "Refusée",
+    noApplications: "Aucune candidature",
+    noApplicationsSub: "Les nouvelles candidatures apparaîtront ici",
+    reviewApplication: "Examiner la candidature",
+    applicantInfo: "Informations du candidat",
+    applicationDetails: "Détails de la candidature",
+    householdSize: "Taille du ménage",
+    applicantOccupation: "Profession",
+    employer: "Employeur",
+    applicationDate: "Date de candidature",
+    approve: "Approuver",
+    reject: "Refuser",
+    markUnderReview: "Mettre en examen",
+    numberOfPersons: "personnes",
+
+    lightMode: "Jour",
+    darkMode: "Nuit",
+    theme: "Thème",
   },
 
   en: {
@@ -1113,6 +1240,68 @@ export const translations: Record<Language, TranslationSet> = {
     tagFinance: "Finance",
     tagRental: "Rental",
     tagCompliance: "Compliance",
+
+    tenantsOverview: "Overview of your tenants by building",
+    searchTenants: "Search tenants...",
+    tenantCount: "tenants",
+    occupancyLabel: "Occupancy",
+    viewProfile: "View profile",
+    contactTenant: "Contact",
+    addNote: "Add note",
+    viewRequests: "View requests",
+    viewDocuments: "Documents",
+    leaseDetails: "Lease details",
+    financials: "Financials",
+    tenantSince: "Tenant since",
+    leaseEnds: "Lease ends",
+    totalMonthly: "Monthly total",
+    internalNotes: "Internal notes",
+    managementNotes: "Management notes and follow-up",
+    writeNote: "Write a note...",
+    noNotesYet: "No notes yet",
+    recentActivity: "Recent activity",
+    noActivity: "No recent activity",
+    openRequests: "Open requests",
+    closedRequests: "Closed requests",
+    leaving: "Leaving",
+
+    requestsHub: "Requests",
+    requestsHubSub: "Manage maintenance requests and rental applications",
+    maintenanceTab: "Maintenance",
+    rentalApplicationsTab: "Applications",
+    rentalApplications: "Rental Applications",
+    rentalApplicationsSub: "Manage prospective tenant applications",
+    newRentalApplication: "New application",
+    applicantName: "Applicant name",
+    applicantEmail: "Email",
+    applicantPhone: "Phone",
+    desiredUnit: "Desired unit",
+    desiredMoveIn: "Desired move-in date",
+    monthlyIncome: "Monthly income",
+    currentAddress: "Current address",
+    applicationMessage: "Application message",
+    applicationStatus: "Application status",
+    received: "Received",
+    underReview: "Under review",
+    accepted: "Accepted",
+    rejected: "Rejected",
+    noApplications: "No applications",
+    noApplicationsSub: "New rental applications will appear here",
+    reviewApplication: "Review application",
+    applicantInfo: "Applicant information",
+    applicationDetails: "Application details",
+    householdSize: "Household size",
+    applicantOccupation: "Occupation",
+    employer: "Employer",
+    applicationDate: "Application date",
+    approve: "Approve",
+    reject: "Reject",
+    markUnderReview: "Mark under review",
+    numberOfPersons: "persons",
+
+    lightMode: "Day",
+    darkMode: "Night",
+    theme: "Theme",
   },
 
   de: {
@@ -1476,6 +1665,68 @@ export const translations: Record<Language, TranslationSet> = {
     tagFinance: "Finanzen",
     tagRental: "Vermietung",
     tagCompliance: "Compliance",
+
+    tenantsOverview: "Übersicht Ihrer Mieter nach Gebäude",
+    searchTenants: "Mieter suchen...",
+    tenantCount: "Mieter",
+    occupancyLabel: "Belegung",
+    viewProfile: "Profil anzeigen",
+    contactTenant: "Kontaktieren",
+    addNote: "Notiz hinzufügen",
+    viewRequests: "Anfragen anzeigen",
+    viewDocuments: "Dokumente",
+    leaseDetails: "Mietvertrag",
+    financials: "Finanzen",
+    tenantSince: "Mieter seit",
+    leaseEnds: "Mietende",
+    totalMonthly: "Monatlich gesamt",
+    internalNotes: "Interne Notizen",
+    managementNotes: "Verwaltungsnotizen und Nachverfolgung",
+    writeNote: "Notiz schreiben...",
+    noNotesYet: "Noch keine Notizen",
+    recentActivity: "Letzte Aktivität",
+    noActivity: "Keine aktuelle Aktivität",
+    openRequests: "Offene Anfragen",
+    closedRequests: "Abgeschlossene Anfragen",
+    leaving: "Auszug",
+
+    requestsHub: "Anfragen",
+    requestsHubSub: "Wartungsanfragen und Mietbewerbungen verwalten",
+    maintenanceTab: "Wartung",
+    rentalApplicationsTab: "Bewerbungen",
+    rentalApplications: "Mietbewerbungen",
+    rentalApplicationsSub: "Bewerbungen von Mietinteressenten verwalten",
+    newRentalApplication: "Neue Bewerbung",
+    applicantName: "Name des Bewerbers",
+    applicantEmail: "E-Mail",
+    applicantPhone: "Telefon",
+    desiredUnit: "Gewünschte Einheit",
+    desiredMoveIn: "Gewünschtes Einzugsdatum",
+    monthlyIncome: "Monatliches Einkommen",
+    currentAddress: "Aktuelle Adresse",
+    applicationMessage: "Bewerbungsnachricht",
+    applicationStatus: "Bewerbungsstatus",
+    received: "Eingegangen",
+    underReview: "In Prüfung",
+    accepted: "Angenommen",
+    rejected: "Abgelehnt",
+    noApplications: "Keine Bewerbungen",
+    noApplicationsSub: "Neue Mietbewerbungen erscheinen hier",
+    reviewApplication: "Bewerbung prüfen",
+    applicantInfo: "Bewerberinformationen",
+    applicationDetails: "Bewerbungsdetails",
+    householdSize: "Haushaltsgröße",
+    applicantOccupation: "Beruf",
+    employer: "Arbeitgeber",
+    applicationDate: "Bewerbungsdatum",
+    approve: "Genehmigen",
+    reject: "Ablehnen",
+    markUnderReview: "In Prüfung setzen",
+    numberOfPersons: "Personen",
+
+    lightMode: "Tag",
+    darkMode: "Nacht",
+    theme: "Thema",
   },
 
   it: {
@@ -1839,5 +2090,67 @@ export const translations: Record<Language, TranslationSet> = {
     tagFinance: "Finanza",
     tagRental: "Locazione",
     tagCompliance: "Conformità",
+
+    tenantsOverview: "Panoramica degli inquilini per edificio",
+    searchTenants: "Cerca inquilini...",
+    tenantCount: "inquilini",
+    occupancyLabel: "Occupazione",
+    viewProfile: "Vedi profilo",
+    contactTenant: "Contattare",
+    addNote: "Aggiungi nota",
+    viewRequests: "Vedi richieste",
+    viewDocuments: "Documenti",
+    leaseDetails: "Dettagli del contratto",
+    financials: "Finanze",
+    tenantSince: "Inquilino dal",
+    leaseEnds: "Fine del contratto",
+    totalMonthly: "Totale mensile",
+    internalNotes: "Note interne",
+    managementNotes: "Note di gestione e monitoraggio",
+    writeNote: "Scrivi una nota...",
+    noNotesYet: "Nessuna nota per ora",
+    recentActivity: "Attività recente",
+    noActivity: "Nessuna attività recente",
+    openRequests: "Richieste aperte",
+    closedRequests: "Richieste chiuse",
+    leaving: "In partenza",
+
+    requestsHub: "Richieste",
+    requestsHubSub: "Gestisci le richieste di manutenzione e le candidature locative",
+    maintenanceTab: "Manutenzione",
+    rentalApplicationsTab: "Candidature",
+    rentalApplications: "Domande di locazione",
+    rentalApplicationsSub: "Gestisci le candidature dei futuri inquilini",
+    newRentalApplication: "Nuova candidatura",
+    applicantName: "Nome del candidato",
+    applicantEmail: "Email",
+    applicantPhone: "Telefono",
+    desiredUnit: "Unità desiderata",
+    desiredMoveIn: "Data di trasloco desiderata",
+    monthlyIncome: "Reddito mensile",
+    currentAddress: "Indirizzo attuale",
+    applicationMessage: "Messaggio di candidatura",
+    applicationStatus: "Stato della candidatura",
+    received: "Ricevuta",
+    underReview: "In esame",
+    accepted: "Accettata",
+    rejected: "Rifiutata",
+    noApplications: "Nessuna candidatura",
+    noApplicationsSub: "Le nuove candidature appariranno qui",
+    reviewApplication: "Esaminare la candidatura",
+    applicantInfo: "Informazioni del candidato",
+    applicationDetails: "Dettagli della candidatura",
+    householdSize: "Dimensione del nucleo familiare",
+    applicantOccupation: "Professione",
+    employer: "Datore di lavoro",
+    applicationDate: "Data di candidatura",
+    approve: "Approvare",
+    reject: "Rifiutare",
+    markUnderReview: "Mettere in esame",
+    numberOfPersons: "persone",
+
+    lightMode: "Giorno",
+    darkMode: "Notte",
+    theme: "Tema",
   },
 };

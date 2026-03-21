@@ -12,8 +12,10 @@ import {
   ChevronRight,
   Briefcase,
   CalendarDays,
+  ClipboardList,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../context/ThemeContext";
 import { useLanguage } from "../i18n/LanguageContext";
 
 interface ModernSidebarProps {
@@ -29,6 +31,7 @@ type MenuItem = {
 
 export function ModernSidebar({ activeView, onViewChange }: ModernSidebarProps) {
   const { user, logout } = useAuth();
+  const { theme } = useTheme();
   const { t } = useLanguage();
   const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -37,7 +40,7 @@ export function ModernSidebar({ activeView, onViewChange }: ModernSidebarProps) 
       { id: "dashboard", labelKey: "navDashboard", icon: LayoutDashboard },
       { id: "buildings", labelKey: "navBuildings", icon: Building },
       { id: "tenants", labelKey: "navTenants", icon: Users },
-      { id: "requests", labelKey: "navRequests", icon: Wrench },
+      { id: "requests", labelKey: "requestsHub", icon: ClipboardList },
       { id: "interventions", labelKey: "navInterventions", icon: CalendarDays },
       { id: "services", labelKey: "navServices", icon: Briefcase },
       { id: "notifications", labelKey: "navNotifications", icon: Bell },
@@ -64,8 +67,8 @@ export function ModernSidebar({ activeView, onViewChange }: ModernSidebarProps) 
       className={[
         sidebarWidth,
         "h-screen shrink-0",
-        "bg-[#45553A]",
-        "border-r border-white/10",
+        "bg-sidebar",
+        "border-r border-sidebar-border",
         "overflow-hidden",
         "relative",
         "transition-[width] duration-200 ease-out",
@@ -171,7 +174,7 @@ export function ModernSidebar({ activeView, onViewChange }: ModernSidebarProps) 
         className={[
           "absolute -right-3 top-20",
           "w-6 h-6 rounded-full",
-          "bg-[#45553A] border border-[#E8E5DB]",
+          "bg-sidebar border border-border",
           "flex items-center justify-center",
           "text-white hover:bg-[#3a4930]",
           "shadow-md",

@@ -18,6 +18,11 @@ body {
   color: #171414;
 }
 
+.dark ::selection {
+  background: rgba(124, 154, 107, 0.25);
+  color: #E8E5DB;
+}
+
 /* Custom Scrollbar */
 * {
   scrollbar-width: thin;

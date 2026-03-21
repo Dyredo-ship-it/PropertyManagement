@@ -120,6 +120,29 @@ export interface BuildingAction {
   updatedAt: string; // ISO
 }
 
+// ✅ Rental Applications (Demandes de location)
+export type RentalApplicationStatus = "received" | "under-review" | "accepted" | "rejected";
+
+export interface RentalApplication {
+  id: string;
+  buildingId: string;
+  buildingName: string;
+  desiredUnit: string;
+  applicantName: string;
+  applicantEmail: string;
+  applicantPhone: string;
+  currentAddress: string;
+  desiredMoveIn: string; // yyyy-mm-dd
+  monthlyIncome: number;
+  householdSize: number;
+  occupation: string;
+  employer: string;
+  message: string;
+  status: RentalApplicationStatus;
+  createdAt: string; // ISO
+  updatedAt: string; // ISO
+}
+
 // ------------------------
 // Keys
 // ------------------------
@@ -132,6 +155,7 @@ const LS_KEYS = {
   tenantDocuments: "tenantDocuments",
   buildingActions: "buildingActions",
   tenantAbsences: "tenantAbsences",
+  rentalApplications: "rentalApplications",
 } as const;
 
 // ------------------------
@@ -570,4 +594,104 @@ export const updateBuildingAction = (updated: BuildingAction) => {
 export const deleteBuildingAction = (id: string) => {
   const actions = getBuildingActions();
   saveBuildingActions(actions.filter((a) => a.id !== id));
+};
+
+// ✅ Rental Applications
+export const getRentalApplications = (): RentalApplication[] => {
+  const raw = localStorage.getItem(LS_KEYS.rentalApplications);
+  if (!raw) {
+    // Initialize with sample data
+    const defaults: RentalApplication[] = [
+      {
+        id: "ra1",
+        buildingId: "1",
+        buildingName: "Résidence Bellevue",
+        desiredUnit: "401",
+        applicantName: "Alice Fontaine",
+        applicantEmail: "alice.fontaine@email.com",
+        applicantPhone: "+41 76 123 45 67",
+        currentAddress: "12 Rue du Lac, 1003 Lausanne",
+        desiredMoveIn: "2026-05-01",
+        monthlyIncome: 7200,
+        householdSize: 2,
+        occupation: "Ingénieure logiciel",
+        employer: "TechCorp SA",
+        message: "Nous sommes un couple sans animaux, très intéressés par cet appartement proche de notre lieu de travail.",
+        status: "received",
+        createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
+        updatedAt: new Date(Date.now() - 86400000 * 2).toISOString(),
+      },
+      {
+        id: "ra2",
+        buildingId: "2",
+        buildingName: "Le Château",
+        desiredUnit: "203",
+        applicantName: "Pierre Morel",
+        applicantEmail: "pierre.morel@email.com",
+        applicantPhone: "+41 79 987 65 43",
+        currentAddress: "45 Avenue de la Gare, 1001 Lausanne",
+        desiredMoveIn: "2026-06-01",
+        monthlyIncome: 5800,
+        householdSize: 1,
+        occupation: "Comptable",
+        employer: "FinancePlus Sàrl",
+        message: "Je cherche un appartement calme pour une personne. J'ai d'excellentes références de mon propriétaire actuel.",
+        status: "under-review",
+        createdAt: new Date(Date.now() - 86400000 * 5).toISOString(),
+        updatedAt: new Date(Date.now() - 86400000 * 1).toISOString(),
+      },
+      {
+        id: "ra3",
+        buildingId: "1",
+        buildingName: "Résidence Bellevue",
+        desiredUnit: "105",
+        applicantName: "Famille Keller",
+        applicantEmail: "keller.family@email.com",
+        applicantPhone: "+41 78 456 78 90",
+        currentAddress: "8 Chemin des Vignes, 1009 Pully",
+        desiredMoveIn: "2026-04-15",
+        monthlyIncome: 9500,
+        householdSize: 4,
+        occupation: "Directeur commercial",
+        employer: "SwissRetail AG",
+        message: "Famille de 4 personnes (2 adultes, 2 enfants) cherchant un logement plus spacieux. Nous avons un dossier complet à disposition.",
+        status: "accepted",
+        createdAt: new Date(Date.now() - 86400000 * 10).toISOString(),
+        updatedAt: new Date(Date.now() - 86400000 * 3).toISOString(),
+      },
+    ];
+    localStorage.setItem(LS_KEYS.rentalApplications, JSON.stringify(defaults));
+    return defaults;
+  }
+  return safeParse<RentalApplication[]>(raw, []);
+};
+
+export const saveRentalApplications = (apps: RentalApplication[]) => {
+  localStorage.setItem(LS_KEYS.rentalApplications, JSON.stringify(apps));
+};
+
+export const addRentalApplication = (app: Omit<RentalApplication, "id" | "createdAt" | "updatedAt" | "status">) => {
+  const apps = getRentalApplications();
+  const newApp: RentalApplication = {
+    id: `ra-${Date.now()}`,
+    status: "received",
+    createdAt: nowISO(),
+    updatedAt: nowISO(),
+    ...app,
+  };
+  saveRentalApplications([newApp, ...apps]);
+  return newApp;
+};
+
+export const updateRentalApplication = (updated: RentalApplication) => {
+  const apps = getRentalApplications();
+  const next = apps.map((a) =>
+    a.id === updated.id ? { ...updated, updatedAt: nowISO() } : a,
+  );
+  saveRentalApplications(next);
+};
+
+export const deleteRentalApplication = (id: string) => {
+  const apps = getRentalApplications();
+  saveRentalApplications(apps.filter((a) => a.id !== id));
 };
