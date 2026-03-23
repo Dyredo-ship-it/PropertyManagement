@@ -37,15 +37,15 @@
 
   --radius: 0.75rem;
 
-  /* Sidebar — Hunter green */
-  --sidebar: #45553A;
-  --sidebar-foreground: #FFFFFF;
-  --sidebar-primary: #D1D1B0;
-  --sidebar-primary-foreground: #171414;
-  --sidebar-accent: rgba(255, 255, 255, 0.12);
-  --sidebar-accent-foreground: #FFFFFF;
-  --sidebar-border: rgba(255, 255, 255, 0.15);
-  --sidebar-ring: #D1D1B0;
+  /* Sidebar — Light premium */
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #4B5563;
+  --sidebar-primary: #45553A;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: rgba(69, 85, 58, 0.07);
+  --sidebar-accent-foreground: #45553A;
+  --sidebar-border: #EEECEA;
+  --sidebar-ring: #45553A;
 }
 
 /* Dark mode */
@@ -78,13 +78,13 @@
   --chart-4: #A3785F;
   --chart-5: #8A857F;
 
-  --sidebar: #1A1F1C;
-  --sidebar-foreground: #E8E5DB;
+  --sidebar: #141816;
+  --sidebar-foreground: #A3A09A;
   --sidebar-primary: #7C9A6B;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: rgba(124, 154, 107, 0.12);
-  --sidebar-accent-foreground: #E8E5DB;
-  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-accent: rgba(124, 154, 107, 0.10);
+  --sidebar-accent-foreground: #7C9A6B;
+  --sidebar-border: #232826;
   --sidebar-ring: #7C9A6B;
 }
 

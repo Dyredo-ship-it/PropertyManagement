@@ -56,6 +56,8 @@ type TranslationSet = {
   navServices: string;
   navNotifications: string;
   navInformations: string;
+  navSettings: string;
+  navSupport: string;
   navHome: string;
   navMyRequests: string;
 
@@ -500,6 +502,8 @@ export const translations: Record<Language, TranslationSet> = {
     navServices: "Services",
     navNotifications: "Notifications",
     navInformations: "Informations",
+    navSettings: "Paramètres",
+    navSupport: "Support",
     navHome: "Accueil",
     navMyRequests: "Mes demandes",
 
@@ -925,6 +929,8 @@ export const translations: Record<Language, TranslationSet> = {
     navServices: "Services",
     navNotifications: "Notifications",
     navInformations: "Information",
+    navSettings: "Settings",
+    navSupport: "Support",
     navHome: "Home",
     navMyRequests: "My Requests",
 
@@ -1350,6 +1356,8 @@ export const translations: Record<Language, TranslationSet> = {
     navServices: "Dienstleistungen",
     navNotifications: "Benachrichtigungen",
     navInformations: "Informationen",
+    navSettings: "Einstellungen",
+    navSupport: "Support",
     navHome: "Startseite",
     navMyRequests: "Meine Anfragen",
 
@@ -1775,6 +1783,8 @@ export const translations: Record<Language, TranslationSet> = {
     navServices: "Servizi",
     navNotifications: "Notifiche",
     navInformations: "Informazioni",
+    navSettings: "Impostazioni",
+    navSupport: "Supporto",
     navHome: "Home",
     navMyRequests: "Le mie richieste",
 

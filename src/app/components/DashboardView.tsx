@@ -5,13 +5,13 @@ import {
   Users,
   DollarSign,
   Wrench,
+  TrendingUp,
   AlertCircle,
   Info,
   ChevronLeft,
   ChevronRight,
   ArrowUpRight,
   MapPin,
-  TrendingUp,
   Home,
 } from "lucide-react";
 import {
@@ -27,232 +27,78 @@ import { BuildingDetailsView } from "./BuildingDetailsView";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { useLanguage } from "../i18n/LanguageContext";
 
-/* ─── Constants ─────────────────────────────────────────────── */
+/* ─── Helpers ───────────────────────────────────────────────── */
 
 const BUILDING_PHOTOS = [
-  "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=1600&q=85",
-  "https://images.unsplash.com/photo-1486325212027-8081e485255e?w=1600&q=85",
-  "https://images.unsplash.com/photo-1460317442991-0ec209397118?w=1600&q=85",
-  "https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=1600&q=85",
-  "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=1600&q=85",
+  "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=900&q=80",
+  "https://images.unsplash.com/photo-1486325212027-8081e485255e?w=900&q=80",
+  "https://images.unsplash.com/photo-1460317442991-0ec209397118?w=900&q=80",
 ];
 
 const formatCHF = (v: number) =>
   `CHF ${new Intl.NumberFormat("de-CH", { maximumFractionDigits: 0 }).format(v)}`;
 
-/* ─── SVG Donut Chart ────────────────────────────────────────── */
+/* ─── SVG Donut ─────────────────────────────────────────────── */
 
-function DonutChart({
+function Donut({
   pct,
-  size = 110,
-  stroke = 12,
-  color = "#C9A84C",
-  trackColor = "rgba(210,195,165,0.35)",
-  label,
-  sublabel,
+  size = 96,
+  stroke = 10,
+  color = "var(--primary)",
 }: {
   pct: number;
   size?: number;
   stroke?: number;
   color?: string;
-  trackColor?: string;
-  label: string;
-  sublabel?: string;
 }) {
   const r = (size - stroke) / 2;
   const circ = 2 * Math.PI * r;
   const fill = (Math.min(100, Math.max(0, pct)) / 100) * circ;
 
   return (
-    <div className="flex flex-col items-center gap-2">
-      <div className="relative" style={{ width: size, height: size }}>
-        <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
-          {/* Track */}
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={r}
-            fill="none"
-            stroke={trackColor}
-            strokeWidth={stroke}
-          />
-          {/* Fill */}
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={r}
-            fill="none"
-            stroke={color}
-            strokeWidth={stroke}
-            strokeDasharray={`${fill} ${circ}`}
-            strokeLinecap="round"
-          />
-        </svg>
-        {/* Center label */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-xl font-bold" style={{ color: "#1A1614" }}>
-            {pct.toFixed(0)}%
-          </span>
-        </div>
-      </div>
-      <p className="text-xs font-semibold uppercase tracking-widest text-center" style={{ color: "#8A7D72" }}>
-        {label}
-      </p>
-      {sublabel && (
-        <p className="text-xs text-center" style={{ color: "#A09488" }}>
-          {sublabel}
-        </p>
-      )}
-    </div>
-  );
-}
-
-/* ─── Mini Bar Chart ─────────────────────────────────────────── */
-
-function MiniBarChart({
-  bars,
-  maxValue,
-  color = "#C9A84C",
-  highlightIdx,
-}: {
-  bars: { label: string; value: number }[];
-  maxValue: number;
-  color?: string;
-  highlightIdx?: number;
-}) {
-  return (
-    <div className="flex items-end gap-2 h-20">
-      {bars.map((b, i) => {
-        const h = maxValue > 0 ? (b.value / maxValue) * 100 : 0;
-        const isHighlight = i === highlightIdx;
-        return (
-          <div key={b.label} className="flex flex-col items-center gap-1 flex-1">
-            <div
-              className="w-full rounded-t-md transition-all"
-              style={{
-                height: `${Math.max(4, h)}%`,
-                maxHeight: "64px",
-                minHeight: "4px",
-                background: isHighlight ? color : "rgba(210,195,165,0.5)",
-              }}
-            />
-            <span className="text-[10px]" style={{ color: "#A09488" }}>{b.label}</span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-/* ─── Glass Card ─────────────────────────────────────────────── */
-
-function GlassPanel({
-  children,
-  className = "",
-  style = {},
-}: {
-  children: React.ReactNode;
-  className?: string;
-  style?: React.CSSProperties;
-}) {
-  return (
-    <div
-      className={`rounded-2xl backdrop-blur-xl ${className}`}
-      style={{
-        background: "rgba(255,255,255,0.16)",
-        border: "1px solid rgba(255,255,255,0.22)",
-        ...style,
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
-/* ─── Metric Card ────────────────────────────────────────────── */
-
-function MetricCard({
-  icon: Icon,
-  label,
-  value,
-  sub,
-  accent = false,
-  badge,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  value: string | number;
-  sub?: string;
-  accent?: boolean;
-  badge?: React.ReactNode;
-}) {
-  return (
-    <div
-      className="rounded-2xl p-6 flex flex-col gap-4 group hover:shadow-md transition-all duration-200"
-      style={{
-        background: "rgba(255,255,255,0.92)",
-        border: "1px solid rgba(215,200,178,0.55)",
-        backdropFilter: "blur(12px)",
-      }}
-    >
-      <div className="flex items-start justify-between">
-        <div
-          className="w-11 h-11 rounded-xl flex items-center justify-center"
-          style={{
-            background: accent ? "rgba(201,168,76,0.15)" : "rgba(210,195,165,0.25)",
-          }}
-        >
-          <Icon
-            className="w-5 h-5"
-            style={{ color: accent ? "#C9A84C" : "#7A6E63" }}
-          />
-        </div>
-        {badge}
-      </div>
-
-      <div>
-        <p
-          className="text-xs font-semibold uppercase tracking-widest mb-1"
-          style={{ color: "#9A8C80" }}
-        >
-          {label}
-        </p>
-        <p
-          className="text-3xl font-bold leading-none"
-          style={{ color: "#1A1614" }}
-        >
-          {value}
-        </p>
-        {sub && (
-          <p className="text-sm mt-1.5" style={{ color: "#9A8C80" }}>
-            {sub}
-          </p>
-        )}
+    <div className="relative" style={{ width: size, height: size }}>
+      <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--muted)" strokeWidth={stroke} />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke={color}
+          strokeWidth={stroke}
+          strokeDasharray={`${fill} ${circ}`}
+          strokeLinecap="round"
+        />
+      </svg>
+      <div className="absolute inset-0 flex items-center justify-center">
+        <span className="text-lg font-bold" style={{ color: "var(--foreground)" }}>
+          {pct.toFixed(0)}%
+        </span>
       </div>
     </div>
   );
 }
 
-/* ─── Status Badge ───────────────────────────────────────────── */
+/* ─── Status Badge ──────────────────────────────────────────── */
 
-function StatusBadge({ status }: { status: string }) {
-  const cfg: Record<string, { label: string; bg: string; color: string }> = {
-    pending: { label: "En attente", bg: "rgba(201,168,76,0.15)", color: "#9A7A1A" },
-    "in-progress": { label: "En cours", bg: "rgba(69,85,58,0.12)", color: "#45553A" },
-    completed: { label: "Terminé", bg: "rgba(69,85,58,0.18)", color: "#2D4025" },
+function Badge({ status, t }: { status: string; t: (k: string) => string }) {
+  const map: Record<string, { bg: string; fg: string; key: string }> = {
+    pending: { bg: "rgba(201,168,76,0.12)", fg: "#8A6A14", key: "pending" },
+    "in-progress": { bg: "rgba(69,85,58,0.10)", fg: "#45553A", key: "inProgress" },
+    completed: { bg: "rgba(69,85,58,0.16)", fg: "#2D4025", key: "completed" },
   };
-  const c = cfg[status] ?? { label: status, bg: "rgba(200,185,165,0.2)", color: "#7A6E63" };
+  const c = map[status] ?? { bg: "var(--muted)", fg: "var(--muted-foreground)", key: status };
   return (
     <span
-      className="px-2.5 py-1 rounded-full text-xs font-semibold shrink-0"
-      style={{ background: c.bg, color: c.color }}
+      className="rounded-full text-[11px] font-semibold shrink-0"
+      style={{ padding: "3px 10px", background: c.bg, color: c.fg }}
     >
-      {c.label}
+      {t(c.key)}
     </span>
   );
 }
 
-/* ─── Info types ─────────────────────────────────────────────── */
+/* ─── Info Dialog item type ─────────────────────────────────── */
 
 type InfoItem = { Title: string; Description: string; Tag?: string };
 
@@ -272,28 +118,23 @@ function AdminDashboard({
   onSelectBuilding: (id: string) => void;
 }) {
   const { t } = useLanguage();
-  const [featuredIdx, setFeaturedIdx] = useState(0);
+  const [featIdx, setFeatIdx] = useState(0);
   const [isInfoOpen, setIsInfoOpen] = useState(false);
 
   const totalUnits = buildings.reduce((s, b) => s + (b.units ?? 0), 0);
-  const occupiedUnits = buildings.reduce((s, b) => s + (b.occupiedUnits ?? 0), 0);
-  const totalRevenue = buildings.reduce((s, b) => s + (b.monthlyRevenue ?? 0), 0);
-  const occupancyPct = totalUnits > 0 ? (occupiedUnits / totalUnits) * 100 : 0;
-  const pendingRequests = requests.filter((r) => r.status === "pending").length;
-  const inProgressRequests = requests.filter((r) => r.status === "in-progress").length;
+  const occupied = buildings.reduce((s, b) => s + (b.occupiedUnits ?? 0), 0);
+  const revenue = buildings.reduce((s, b) => s + (b.monthlyRevenue ?? 0), 0);
+  const occPct = totalUnits > 0 ? (occupied / totalUnits) * 100 : 0;
+  const pending = requests.filter((r) => r.status === "pending").length;
 
-  const featured = buildings[featuredIdx] ?? null;
-  const featuredPhoto =
-    featured?.imageUrl || BUILDING_PHOTOS[featuredIdx % BUILDING_PHOTOS.length];
+  const feat = buildings[featIdx] ?? null;
+  const featPhoto = feat?.imageUrl || BUILDING_PHOTOS[featIdx % BUILDING_PHOTOS.length];
+  const featUnits = feat?.units ?? 0;
+  const featOccupied = feat?.occupiedUnits ?? 0;
+  const featOccPct = featUnits > 0 ? (featOccupied / featUnits) * 100 : 0;
 
-  const prev = () => setFeaturedIdx((i) => (i - 1 + Math.max(1, buildings.length)) % Math.max(1, buildings.length));
-  const next = () => setFeaturedIdx((i) => (i + 1) % Math.max(1, buildings.length));
-
-  const revenueByBuilding = buildings.map((b) => ({
-    label: b.name.split(" ")[0] ?? b.name,
-    value: b.monthlyRevenue ?? 0,
-  }));
-  const maxRevenue = Math.max(...revenueByBuilding.map((b) => b.value), 1);
+  const prev = () => setFeatIdx((i) => (i - 1 + Math.max(1, buildings.length)) % Math.max(1, buildings.length));
+  const next = () => setFeatIdx((i) => (i + 1) % Math.max(1, buildings.length));
 
   const infoItems: InfoItem[] = useMemo(
     () => [
@@ -306,499 +147,454 @@ function AdminDashboard({
       { Title: t("infoVacancy"), Tag: t("tagRental"), Description: t("infoVacancyDesc") },
       { Title: t("infoDocumentation"), Tag: t("tagCompliance"), Description: t("infoDocumentationDesc") },
     ],
-    [t]
+    [t],
+  );
+
+  /* ── Card wrapper ─── */
+  const Card = ({
+    children,
+    className = "",
+    style = {},
+  }: {
+    children: React.ReactNode;
+    className?: string;
+    style?: React.CSSProperties;
+  }) => (
+    <div
+      className={`rounded-2xl ${className}`}
+      style={{
+        background: "var(--card)",
+        border: "1px solid var(--border)",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+        ...style,
+      }}
+    >
+      {children}
+    </div>
   );
 
   return (
-    <div
-      className="min-h-full px-6 py-8 space-y-6"
-      style={{ background: "var(--background)" }}
-    >
+    <div className="max-w-[1200px] mx-auto px-8 py-8 space-y-6" style={{ background: "var(--background)" }}>
 
-      {/* ── HERO ─────────────────────────────────────────────── */}
-      <div
-        className="relative rounded-3xl overflow-hidden w-full"
-        style={{ height: "58vh", minHeight: "420px" }}
-      >
-        {/* Background photo */}
-        <img
-          src={featuredPhoto}
-          alt={featured?.name ?? "Property"}
-          className="absolute inset-0 w-full h-full object-cover transition-all duration-700"
-          key={featuredPhoto}
-        />
+      {/* ── HERO: Split Building Card ──────────────────── */}
+      <Card className="overflow-hidden" style={{ minHeight: 320 }}>
+        <div className="flex flex-col lg:flex-row">
+          {/* Image side */}
+          <div className="relative lg:w-[55%] min-h-[240px] lg:min-h-[320px]">
+            <img
+              src={featPhoto}
+              alt={feat?.name ?? "Building"}
+              className="absolute inset-0 w-full h-full object-cover"
+              key={featPhoto}
+            />
+            {/* Subtle gradient for nav dots only */}
+            <div
+              className="absolute inset-x-0 bottom-0 h-20"
+              style={{ background: "linear-gradient(to top, rgba(0,0,0,0.35), transparent)" }}
+            />
 
-        {/* Gradient overlay */}
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              "linear-gradient(135deg, rgba(12,8,4,0.65) 0%, rgba(12,8,4,0.35) 45%, rgba(12,8,4,0.10) 100%)",
-          }}
-        />
-        <div
-          className="absolute inset-x-0 bottom-0"
-          style={{
-            height: "55%",
-            background:
-              "linear-gradient(to top, rgba(10,7,4,0.70) 0%, transparent 100%)",
-          }}
-        />
-
-        {/* ── Left glass panel ─── */}
-        <GlassPanel className="absolute top-7 left-7 p-5 flex flex-col gap-4 min-w-[170px]">
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-white/60 mb-1">
-              {t("totalBuildings")}
-            </p>
-            <p className="text-3xl font-bold text-white leading-none">
-              {buildings.length}
-            </p>
-            <p className="text-xs text-white/55 mt-0.5">
-              {totalUnits} {t("totalUnits")}
-            </p>
-          </div>
-
-          <div className="h-px bg-white/15" />
-
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-white/60 mb-1">
-              {t("activeTenants")}
-            </p>
-            <p className="text-2xl font-bold text-white leading-none">
-              {occupiedUnits}
-            </p>
-            <p className="text-xs text-white/55 mt-0.5">{t("acrossProperties")}</p>
-          </div>
-
-          <div className="h-px bg-white/15" />
-
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-white/60 mb-1">
-              {t("monthlyRevenue")}
-            </p>
-            <p className="text-lg font-bold text-white leading-none">
-              {formatCHF(totalRevenue)}
-            </p>
-          </div>
-        </GlassPanel>
-
-        {/* ── Right glass panel: occupancy donut ─── */}
-        <GlassPanel className="absolute top-7 right-7 p-5 flex flex-col items-center gap-4 min-w-[150px]">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-white/60 self-start">
-            {t("occupancyRate")}
-          </p>
-
-          {/* SVG donut (white version for hero) */}
-          <div className="relative" style={{ width: 100, height: 100 }}>
-            <svg width={100} height={100} style={{ transform: "rotate(-90deg)" }}>
-              <circle cx={50} cy={50} r={38} fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth={11} />
-              <circle
-                cx={50}
-                cy={50}
-                r={38}
-                fill="none"
-                stroke="#C9A84C"
-                strokeWidth={11}
-                strokeDasharray={`${(occupancyPct / 100) * (2 * Math.PI * 38)} ${2 * Math.PI * 38}`}
-                strokeLinecap="round"
-              />
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-xl font-bold text-white">
-                {occupancyPct.toFixed(0)}%
-              </span>
-            </div>
-          </div>
-
-          <div className="text-center">
-            <p className="text-xs text-white/55">
-              {occupiedUnits} {t("occupiedOf")} {totalUnits}
-            </p>
-          </div>
-        </GlassPanel>
-
-        {/* ── Center bottom: building info ─── */}
-        <div className="absolute bottom-0 left-0 right-0 px-8 pb-7">
-          <div className="flex items-end justify-between gap-4">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 mb-2">
-                <span
-                  className="text-xs font-semibold uppercase tracking-widest px-2.5 py-1 rounded-full"
-                  style={{ background: "rgba(201,168,76,0.30)", color: "#E8CC7A" }}
+            {/* Building dots */}
+            {buildings.length > 1 && (
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={prev}
+                  className="w-7 h-7 rounded-full flex items-center justify-center"
+                  style={{ background: "rgba(255,255,255,0.2)", backdropFilter: "blur(8px)" }}
                 >
-                  {t("buildingsPortfolio")}
-                </span>
-              </div>
-              <h2 className="text-3xl sm:text-4xl font-bold text-white leading-tight tracking-tight truncate">
-                {featured?.name ?? t("dashboardTitle")}
-              </h2>
-              {featured && (
-                <div className="flex items-center gap-1.5 mt-1.5">
-                  <MapPin className="w-3.5 h-3.5 text-white/55 shrink-0" />
-                  <p className="text-sm text-white/65 truncate">{featured.address}</p>
-                </div>
-              )}
+                  <ChevronLeft className="w-3.5 h-3.5 text-white" />
+                </button>
 
-              {/* Building navigation dots */}
-              {buildings.length > 1 && (
-                <div className="flex items-center gap-2 mt-4">
+                <div className="flex items-center gap-1.5">
                   {buildings.map((_, i) => (
                     <button
                       key={i}
                       type="button"
-                      onClick={() => setFeaturedIdx(i)}
-                      className="transition-all duration-200"
+                      onClick={() => setFeatIdx(i)}
+                      className="transition-all duration-200 rounded-full"
                       style={{
-                        width: i === featuredIdx ? "24px" : "8px",
-                        height: "8px",
-                        borderRadius: "4px",
-                        background: i === featuredIdx ? "#C9A84C" : "rgba(255,255,255,0.40)",
+                        width: i === featIdx ? 20 : 7,
+                        height: 7,
+                        background: i === featIdx ? "#fff" : "rgba(255,255,255,0.45)",
                       }}
                     />
                   ))}
                 </div>
-              )}
-            </div>
 
-            <div className="flex items-center gap-2 shrink-0">
-              {/* Prev/Next arrows */}
-              {buildings.length > 1 && (
-                <>
-                  <button
-                    type="button"
-                    onClick={prev}
-                    className="w-9 h-9 rounded-full flex items-center justify-center transition-colors"
-                    style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.2)" }}
-                  >
-                    <ChevronLeft className="w-4 h-4 text-white" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={next}
-                    className="w-9 h-9 rounded-full flex items-center justify-center transition-colors"
-                    style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.2)" }}
-                  >
-                    <ChevronRight className="w-4 h-4 text-white" />
-                  </button>
-                </>
-              )}
-
-              {featured && (
                 <button
                   type="button"
-                  onClick={() => onSelectBuilding(featured.id)}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors"
+                  onClick={next}
+                  className="w-7 h-7 rounded-full flex items-center justify-center"
+                  style={{ background: "rgba(255,255,255,0.2)", backdropFilter: "blur(8px)" }}
+                >
+                  <ChevronRight className="w-3.5 h-3.5 text-white" />
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Info side */}
+          <div className="lg:w-[45%] p-7 lg:p-8 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <span
+                  className="text-[10px] font-semibold uppercase px-2.5 py-1 rounded-full"
                   style={{
-                    background: "rgba(255,255,255,0.18)",
-                    border: "1px solid rgba(255,255,255,0.28)",
-                    color: "#fff",
+                    background: "var(--sidebar-accent)",
+                    color: "var(--primary)",
+                    letterSpacing: "0.08em",
+                  }}
+                >
+                  {t("buildingsPortfolio")}
+                </span>
+              </div>
+
+              <h2 className="text-2xl font-bold leading-tight" style={{ color: "var(--foreground)" }}>
+                {feat?.name ?? t("dashboardTitle")}
+              </h2>
+
+              {feat && (
+                <div className="flex items-center gap-1.5 mt-1.5">
+                  <MapPin className="w-3.5 h-3.5 shrink-0" style={{ color: "var(--muted-foreground)" }} />
+                  <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>
+                    {feat.address}
+                  </p>
+                </div>
+              )}
+
+              {/* Mini stats row */}
+              <div className="grid grid-cols-3 gap-3 mt-6">
+                {[
+                  { label: t("totalUnits"), value: featUnits },
+                  { label: t("occupancy"), value: `${featOccPct.toFixed(0)}%` },
+                  { label: t("monthlyRevenue"), value: formatCHF(feat?.monthlyRevenue ?? 0) },
+                ].map((s) => (
+                  <div
+                    key={s.label}
+                    className="rounded-xl p-3"
+                    style={{ background: "var(--background)", border: "1px solid var(--border)" }}
+                  >
+                    <p className="text-[10px] font-semibold uppercase" style={{ color: "var(--muted-foreground)", letterSpacing: "0.06em" }}>
+                      {s.label}
+                    </p>
+                    <p className="text-lg font-bold mt-0.5" style={{ color: "var(--foreground)" }}>
+                      {s.value}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* CTAs */}
+            <div className="flex items-center gap-3 mt-6">
+              {feat && (
+                <button
+                  type="button"
+                  onClick={() => onSelectBuilding(feat.id)}
+                  className="flex items-center gap-2 text-sm font-semibold rounded-xl transition-colors"
+                  style={{
+                    padding: "9px 18px",
+                    background: "var(--primary)",
+                    color: "var(--primary-foreground)",
                   }}
                 >
                   <ArrowUpRight className="w-4 h-4" />
                   Détails
                 </button>
               )}
+
+              <button
+                type="button"
+                onClick={() => setIsInfoOpen(true)}
+                className="flex items-center gap-2 text-sm font-medium rounded-xl transition-colors"
+                style={{
+                  padding: "9px 18px",
+                  background: "var(--background)",
+                  color: "var(--foreground)",
+                  border: "1px solid var(--border)",
+                }}
+              >
+                <Info className="w-4 h-4" />
+                {t("importantInfo")}
+              </button>
             </div>
           </div>
         </div>
+      </Card>
 
-        {/* ── Building thumbnail strip (if >1 building) ─── */}
-        {buildings.length > 1 && (
-          <div className="absolute bottom-0 right-8 pb-7 flex gap-2">
-            {buildings.slice(0, 4).map((b, i) => (
-              <button
-                key={b.id}
-                type="button"
-                onClick={() => setFeaturedIdx(i)}
-                className="rounded-xl overflow-hidden transition-all duration-200"
-                style={{
-                  width: 56,
-                  height: 42,
-                  outline: i === featuredIdx ? "2px solid #C9A84C" : "2px solid transparent",
-                  outlineOffset: "2px",
-                  opacity: i === featuredIdx ? 1 : 0.6,
-                }}
-              >
-                <img
-                  src={b.imageUrl || BUILDING_PHOTOS[i % BUILDING_PHOTOS.length]}
-                  alt={b.name}
-                  className="w-full h-full object-cover"
-                />
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* ── Info button ─── */}
-        <button
-          type="button"
-          onClick={() => setIsInfoOpen(true)}
-          className="absolute top-7 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold transition-colors"
-          style={{
-            background: "rgba(255,255,255,0.14)",
-            border: "1px solid rgba(255,255,255,0.2)",
-            color: "rgba(255,255,255,0.85)",
-          }}
-        >
-          <Info className="w-3.5 h-3.5" />
-          {t("importantInfo")}
-        </button>
-      </div>
-
-      {/* ── 4 KPI METRIC CARDS ─────────────────────────────────── */}
+      {/* ── KPI CARDS ──────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <MetricCard
-          icon={Building2}
-          label={t("totalBuildings")}
-          value={buildings.length}
-          sub={`${totalUnits} ${t("totalUnits")}`}
-          badge={<TrendingUp className="w-4 h-4" style={{ color: "#C9A84C" }} />}
-        />
-        <MetricCard
-          icon={Users}
-          label={t("occupancyRate")}
-          value={`${occupancyPct.toFixed(1)}%`}
-          sub={`${occupiedUnits} ${t("occupiedOf")} ${totalUnits}`}
-          accent
-          badge={<TrendingUp className="w-4 h-4" style={{ color: "#C9A84C" }} />}
-        />
-        <MetricCard
-          icon={DollarSign}
-          label={t("monthlyRevenue")}
-          value={formatCHF(totalRevenue)}
-          sub={t("combinedTotal")}
-          accent
-          badge={<TrendingUp className="w-4 h-4" style={{ color: "#C9A84C" }} />}
-        />
-        <MetricCard
-          icon={Wrench}
-          label={t("pendingRequests")}
-          value={pendingRequests}
-          sub={`${requests.length} ${t("totalRequests")}`}
-          badge={
-            pendingRequests > 0 ? (
-              <span
-                className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold"
-                style={{ background: "rgba(201,168,76,0.18)", color: "#9A7A1A" }}
-              >
-                <AlertCircle className="w-3 h-3" />
-                {t("actionNeeded")}
-              </span>
-            ) : undefined
-          }
-        />
+        {[
+          {
+            icon: Building2,
+            label: t("totalBuildings"),
+            value: buildings.length,
+            sub: `${totalUnits} ${t("totalUnits")}`,
+            accent: false,
+            trend: true,
+          },
+          {
+            icon: Users,
+            label: t("occupancyRate"),
+            value: `${occPct.toFixed(1)}%`,
+            sub: `${occupied} ${t("occupiedOf")} ${totalUnits}`,
+            accent: true,
+            trend: true,
+          },
+          {
+            icon: DollarSign,
+            label: t("monthlyRevenue"),
+            value: formatCHF(revenue),
+            sub: t("combinedTotal"),
+            accent: true,
+            trend: true,
+          },
+          {
+            icon: Wrench,
+            label: t("pendingRequests"),
+            value: pending,
+            sub: `${requests.length} ${t("totalRequests")}`,
+            accent: false,
+            trend: false,
+            alert: pending > 0,
+          },
+        ].map((kpi) => {
+          const Icon = kpi.icon;
+          return (
+            <Card key={kpi.label} className="p-5 flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center"
+                  style={{
+                    background: kpi.accent ? "rgba(69,85,58,0.08)" : "var(--background)",
+                    border: kpi.accent ? "none" : "1px solid var(--border)",
+                  }}
+                >
+                  <Icon className="w-[18px] h-[18px]" style={{ color: "var(--primary)" }} />
+                </div>
+
+                {kpi.trend && <TrendingUp className="w-4 h-4" style={{ color: "var(--primary)" }} />}
+                {(kpi as any).alert && (
+                  <span
+                    className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold"
+                    style={{ background: "rgba(201,168,76,0.12)", color: "#8A6A14" }}
+                  >
+                    <AlertCircle className="w-3 h-3" />
+                    {t("actionNeeded")}
+                  </span>
+                )}
+              </div>
+
+              <div>
+                <p
+                  className="text-[10px] font-semibold uppercase mb-0.5"
+                  style={{ color: "var(--muted-foreground)", letterSpacing: "0.08em" }}
+                >
+                  {kpi.label}
+                </p>
+                <p className="text-2xl font-bold leading-none" style={{ color: "var(--foreground)" }}>
+                  {kpi.value}
+                </p>
+                <p className="text-xs mt-1" style={{ color: "var(--muted-foreground)" }}>
+                  {kpi.sub}
+                </p>
+              </div>
+            </Card>
+          );
+        })}
       </div>
 
-      {/* ── BOTTOM GRID ────────────────────────────────────────── */}
+      {/* ── BOTTOM GRID ────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
 
-        {/* Recent Requests — 3/5 */}
-        <div
-          className="lg:col-span-3 rounded-2xl p-7"
-          style={{
-            background: "rgba(255,255,255,0.92)",
-            border: "1px solid rgba(215,200,178,0.55)",
-          }}
-        >
-          <div className="flex items-start justify-between mb-6">
+        {/* Recent Requests — 3 cols */}
+        <Card className="lg:col-span-3 p-6">
+          <div className="flex items-center justify-between mb-5">
             <div>
-              <h3 className="text-base font-semibold" style={{ color: "#1A1614" }}>
+              <h3 className="text-[15px] font-semibold" style={{ color: "var(--foreground)" }}>
                 {t("recentRequests")}
               </h3>
-              <p className="text-sm mt-0.5" style={{ color: "#9A8C80" }}>
+              <p className="text-xs mt-0.5" style={{ color: "var(--muted-foreground)" }}>
                 {t("recentRequestsSub")}
               </p>
             </div>
             <span
-              className="text-[10px] font-semibold uppercase tracking-widest px-2.5 py-1.5 rounded-full"
-              style={{ background: "rgba(201,168,76,0.15)", color: "#9A7A1A" }}
+              className="text-[10px] font-semibold uppercase rounded-full"
+              style={{
+                padding: "4px 10px",
+                background: "var(--background)",
+                color: "var(--muted-foreground)",
+                border: "1px solid var(--border)",
+                letterSpacing: "0.06em",
+              }}
             >
               {t("liveData")}
             </span>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2">
             {requests.slice(0, 5).map((req) => (
               <div
                 key={req.id}
-                className="flex items-center gap-4 p-4 rounded-xl group cursor-pointer transition-colors"
-                style={{ background: "rgba(245,240,234,0.7)", border: "1px solid rgba(210,195,165,0.4)" }}
+                className="flex items-center gap-4 rounded-xl p-3.5 transition-colors cursor-pointer"
+                style={{ background: "var(--background)", border: "1px solid var(--border)" }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--primary)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
               >
                 <div
-                  className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                  style={{ background: "rgba(201,168,76,0.15)" }}
+                  className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                  style={{ background: "rgba(69,85,58,0.07)" }}
                 >
-                  <Wrench className="w-4 h-4" style={{ color: "#C9A84C" }} />
+                  <Wrench className="w-4 h-4" style={{ color: "var(--primary)" }} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold truncate" style={{ color: "#1A1614" }}>
+                  <p className="text-sm font-medium truncate" style={{ color: "var(--foreground)" }}>
                     {req.title}
                   </p>
-                  <p className="text-xs mt-0.5 truncate" style={{ color: "#9A8C80" }}>
+                  <p className="text-[11px] mt-0.5 truncate" style={{ color: "var(--muted-foreground)" }}>
                     {req.buildingName} · Apt {req.unit} · {req.tenantName}
                   </p>
                 </div>
-                <StatusBadge status={req.status} />
+                <Badge status={req.status} t={t} />
               </div>
             ))}
 
             {requests.length === 0 && (
-              <div className="text-center py-12">
-                <Wrench className="w-10 h-10 mx-auto mb-3 opacity-20" style={{ color: "#8A7D72" }} />
-                <p className="text-sm font-medium" style={{ color: "#1A1614" }}>{t("noRequestsYet")}</p>
-                <p className="text-xs mt-1" style={{ color: "#9A8C80" }}>{t("allRequestsHere")}</p>
+              <div className="text-center py-10">
+                <Wrench className="w-8 h-8 mx-auto mb-2 opacity-20" style={{ color: "var(--muted-foreground)" }} />
+                <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{t("noRequestsYet")}</p>
+                <p className="text-xs mt-1" style={{ color: "var(--muted-foreground)" }}>{t("allRequestsHere")}</p>
               </div>
             )}
           </div>
-        </div>
+        </Card>
 
-        {/* Portfolio Health — 2/5 */}
-        <div
-          className="lg:col-span-2 rounded-2xl p-7 flex flex-col gap-6"
-          style={{
-            background: "rgba(255,255,255,0.92)",
-            border: "1px solid rgba(215,200,178,0.55)",
-          }}
-        >
+        {/* Portfolio Health — 2 cols */}
+        <Card className="lg:col-span-2 p-6 flex flex-col gap-5">
           <div>
-            <h3 className="text-base font-semibold" style={{ color: "#1A1614" }}>
+            <h3 className="text-[15px] font-semibold" style={{ color: "var(--foreground)" }}>
               {t("quickStats")}
             </h3>
-            <p className="text-sm mt-0.5" style={{ color: "#9A8C80" }}>
+            <p className="text-xs mt-0.5" style={{ color: "var(--muted-foreground)" }}>
               {t("quickStatsSub")}
             </p>
           </div>
 
-          {/* Occupancy donut */}
-          <div className="flex justify-center py-2">
-            <DonutChart
-              pct={occupancyPct}
-              size={120}
-              stroke={13}
-              color="#C9A84C"
-              label={t("occupancy")}
-              sublabel={`${occupiedUnits} ${t("unitsOccupied")}`}
-            />
-          </div>
-
-          {/* Revenue by building bars */}
-          {buildings.length > 0 && (
+          {/* Donut */}
+          <div className="flex items-center gap-5 justify-center py-2">
+            <Donut pct={occPct} />
             <div>
-              <p
-                className="text-xs font-semibold uppercase tracking-widest mb-3"
-                style={{ color: "#9A8C80" }}
-              >
-                {t("monthlyRevenue")} / immeuble
+              <p className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
+                {t("occupancy")}
               </p>
-              <MiniBarChart
-                bars={revenueByBuilding}
-                maxValue={maxRevenue}
-                color="#C9A84C"
-                highlightIdx={featuredIdx}
-              />
-            </div>
-          )}
-
-          {/* Quick stats strip */}
-          <div className="grid grid-cols-2 gap-3 pt-2 border-t" style={{ borderColor: "rgba(210,195,165,0.4)" }}>
-            <div className="text-center">
-              <p className="text-2xl font-bold" style={{ color: "#1A1614" }}>
-                {buildings.length}
+              <p className="text-xs mt-0.5" style={{ color: "var(--muted-foreground)" }}>
+                {occupied} {t("unitsOccupied")}
               </p>
-              <p className="text-[10px] uppercase tracking-widest mt-0.5" style={{ color: "#9A8C80" }}>
-                {t("totalProperties")}
-              </p>
-            </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold" style={{ color: "#C9A84C" }}>
-                {inProgressRequests}
-              </p>
-              <p className="text-[10px] uppercase tracking-widest mt-0.5" style={{ color: "#9A8C80" }}>
-                En cours
+              <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>
+                {totalUnits - occupied} {t("totalUnits")} vacants
               </p>
             </div>
           </div>
+
+          {/* Stat rows */}
+          <div className="space-y-3 flex-1">
+            {[
+              { label: t("totalProperties"), value: buildings.length.toString(), bar: 100, color: "var(--primary)" },
+              { label: t("activeTenants"), value: occupied.toString(), bar: occPct, color: "var(--primary)" },
+              { label: t("pendingRequests"), value: pending.toString(), bar: requests.length > 0 ? (pending / requests.length) * 100 : 0, color: "#C9A84C" },
+            ].map((row) => (
+              <div
+                key={row.label}
+                className="rounded-xl p-3.5"
+                style={{ background: "var(--background)", border: "1px solid var(--border)" }}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-medium" style={{ color: "var(--foreground)" }}>{row.label}</p>
+                  <p className="text-lg font-bold" style={{ color: "var(--foreground)" }}>{row.value}</p>
+                </div>
+                <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: "var(--muted)" }}>
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{ width: `${Math.max(2, Math.min(100, row.bar))}%`, background: row.color }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+
+      {/* ── Bottom metrics strip ───────────────────────── */}
+      <Card className="px-6 py-4">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          {[
+            { label: t("totalUnits"), value: totalUnits.toString() },
+            { label: t("occupancyRate"), value: `${occPct.toFixed(1)}%` },
+            { label: t("monthlyRevenue"), value: formatCHF(revenue) },
+            { label: t("pendingRequests"), value: pending.toString() },
+            { label: t("activeTenants"), value: occupied.toString() },
+          ].map((m, i, arr) => (
+            <React.Fragment key={m.label}>
+              <div className="text-center">
+                <p
+                  className="text-[10px] font-semibold uppercase"
+                  style={{ color: "var(--muted-foreground)", letterSpacing: "0.06em" }}
+                >
+                  {m.label}
+                </p>
+                <p className="text-lg font-bold mt-0.5" style={{ color: "var(--foreground)" }}>
+                  {m.value}
+                </p>
+              </div>
+              {i < arr.length - 1 && (
+                <div className="h-8 w-px hidden sm:block" style={{ background: "var(--border)" }} />
+              )}
+            </React.Fragment>
+          ))}
         </div>
-      </div>
+      </Card>
 
-      {/* Status strip at bottom */}
-      <div
-        className="rounded-2xl px-7 py-5 flex items-center justify-between gap-6 flex-wrap"
-        style={{
-          background: "rgba(255,255,255,0.90)",
-          border: "1px solid rgba(215,200,178,0.55)",
-        }}
-      >
-        {[
-          { label: t("totalUnits"), value: totalUnits.toString() },
-          { label: t("occupancyRate"), value: `${occupancyPct.toFixed(1)}%` },
-          { label: t("monthlyRevenue"), value: formatCHF(totalRevenue) },
-          { label: t("pendingRequests"), value: pendingRequests.toString() },
-          { label: t("activeTenants"), value: occupiedUnits.toString() },
-        ].map((item, i, arr) => (
-          <React.Fragment key={item.label}>
-            <div className="text-center">
-              <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "#9A8C80" }}>
-                {item.label}
-              </p>
-              <p className="text-xl font-bold mt-0.5" style={{ color: "#1A1614" }}>
-                {item.value}
-              </p>
-            </div>
-            {i < arr.length - 1 && (
-              <div className="h-8 w-px hidden sm:block" style={{ background: "rgba(210,195,165,0.4)" }} />
-            )}
-          </React.Fragment>
-        ))}
-      </div>
-
-      {/* ── INFO DIALOG ────────────────────────────────────────── */}
+      {/* ── Info Dialog ────────────────────────────────── */}
       <Dialog open={isInfoOpen} onOpenChange={setIsInfoOpen}>
         <DialogContent
-          className="max-w-3xl rounded-3xl"
+          className="max-w-2xl rounded-2xl"
           style={{
-            background: "#FAF8F4",
-            border: "1px solid rgba(215,200,178,0.6)",
+            background: "var(--card)",
+            border: "1px solid var(--border)",
           }}
         >
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold" style={{ color: "#1A1614" }}>
+            <DialogTitle className="text-xl font-bold" style={{ color: "var(--foreground)" }}>
               {t("importantInformation")}
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-3 mt-5 max-h-[60vh] overflow-y-auto pr-1">
+          <div className="space-y-2.5 mt-4 max-h-[60vh] overflow-y-auto pr-1">
             {infoItems.map((item) => (
               <div
                 key={item.Title}
-                className="rounded-xl p-5"
-                style={{
-                  background: "rgba(255,255,255,0.90)",
-                  border: "1px solid rgba(215,200,178,0.5)",
-                }}
+                className="rounded-xl p-4"
+                style={{ background: "var(--background)", border: "1px solid var(--border)" }}
               >
-                <div className="flex items-start justify-between gap-4 mb-2">
-                  <p className="font-semibold text-sm" style={{ color: "#1A1614" }}>
-                    {item.Title}
-                  </p>
+                <div className="flex items-start justify-between gap-3 mb-1.5">
+                  <p className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>{item.Title}</p>
                   {item.Tag && (
                     <span
-                      className="px-2.5 py-1 rounded-full text-xs font-medium shrink-0"
-                      style={{ background: "rgba(201,168,76,0.15)", color: "#9A7A1A" }}
+                      className="px-2 py-0.5 rounded-full text-[10px] font-semibold shrink-0"
+                      style={{ background: "rgba(69,85,58,0.08)", color: "var(--primary)" }}
                     >
                       {item.Tag}
                     </span>
                   )}
                 </div>
-                <p className="text-sm leading-relaxed" style={{ color: "#7A6E63" }}>
+                <p className="text-xs leading-relaxed" style={{ color: "var(--muted-foreground)" }}>
                   {item.Description}
                 </p>
               </div>
             ))}
           </div>
 
-          <p className="mt-4 text-xs" style={{ color: "#A09488" }}>
+          <p className="mt-3 text-[11px]" style={{ color: "var(--muted-foreground)" }}>
             {t("infoDisclaimer")}
           </p>
         </DialogContent>
@@ -827,202 +623,132 @@ function TenantDashboard({
   userName: string;
 }) {
   const { t } = useLanguage();
-  const myTenant = tenants.find((t) => t.email === userEmail);
+  const myTenant = tenants.find((te) => te.email === userEmail);
   const myBuilding = buildings.find((b) => b.id === myTenant?.buildingId);
   const myRequests = requests.filter((r) => r.tenantId === userId);
-  const pending = myRequests.filter((r) => r.status === "pending").length;
-  const inProgress = myRequests.filter((r) => r.status === "in-progress").length;
+  const pendingCount = myRequests.filter((r) => r.status === "pending").length;
+  const inProgressCount = myRequests.filter((r) => r.status === "in-progress").length;
+  const heroPhoto = myBuilding?.imageUrl || BUILDING_PHOTOS[0];
 
-  const heroPhoto =
-    myBuilding?.imageUrl || BUILDING_PHOTOS[0];
+  const Card = ({
+    children,
+    className = "",
+    style = {},
+  }: {
+    children: React.ReactNode;
+    className?: string;
+    style?: React.CSSProperties;
+  }) => (
+    <div
+      className={`rounded-2xl ${className}`}
+      style={{
+        background: "var(--card)",
+        border: "1px solid var(--border)",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+        ...style,
+      }}
+    >
+      {children}
+    </div>
+  );
 
   return (
-    <div
-      className="min-h-full px-6 py-8 space-y-6"
-      style={{ background: "var(--background)" }}
-    >
+    <div className="max-w-[1200px] mx-auto px-8 py-8 space-y-6" style={{ background: "var(--background)" }}>
       {/* Hero */}
-      <div
-        className="relative rounded-3xl overflow-hidden w-full"
-        style={{ height: "50vh", minHeight: "360px" }}
-      >
-        <img
-          src={heroPhoto}
-          alt={myBuilding?.name ?? "Property"}
-          className="absolute inset-0 w-full h-full object-cover"
-        />
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              "linear-gradient(135deg, rgba(12,8,4,0.62) 0%, rgba(12,8,4,0.30) 50%, rgba(12,8,4,0.08) 100%)",
-          }}
-        />
-        <div
-          className="absolute inset-x-0 bottom-0"
-          style={{
-            height: "50%",
-            background: "linear-gradient(to top, rgba(10,7,4,0.68) 0%, transparent 100%)",
-          }}
-        />
-
-        {/* Left glass: greeting */}
-        <GlassPanel className="absolute top-7 left-7 p-5">
-          <p className="text-xs text-white/60 mb-1">{t("hello")}</p>
-          <p className="text-2xl font-bold text-white leading-tight">{userName}</p>
-          <p className="text-xs text-white/55 mt-1">{t("tenant")}</p>
-        </GlassPanel>
-
-        {/* Right glass: rent */}
-        {myTenant && (
-          <GlassPanel className="absolute top-7 right-7 p-5 text-right">
-            <p className="text-[10px] text-white/60 uppercase tracking-widest mb-1">
-              {t("monthlyRent")}
-            </p>
-            <p className="text-2xl font-bold text-white">{formatCHF(myTenant.rent)}</p>
-            <p className="text-xs text-white/55 mt-0.5">{t("currentAmount")}</p>
-          </GlassPanel>
-        )}
-
-        {/* Bottom overlay */}
-        <div className="absolute bottom-0 left-0 right-0 px-8 pb-7">
-          <h2 className="text-3xl font-bold text-white truncate">
-            {myBuilding?.name ?? t("myBuilding")}
-          </h2>
-          {myBuilding && (
-            <div className="flex items-center gap-1.5 mt-1">
-              <MapPin className="w-3.5 h-3.5 text-white/55 shrink-0" />
-              <p className="text-sm text-white/65">{myBuilding.address}</p>
-            </div>
-          )}
+      <Card className="overflow-hidden">
+        <div className="flex flex-col lg:flex-row">
+          <div className="relative lg:w-[50%] min-h-[220px] lg:min-h-[280px]">
+            <img src={heroPhoto} alt={myBuilding?.name ?? ""} className="absolute inset-0 w-full h-full object-cover" />
+          </div>
+          <div className="lg:w-[50%] p-7 flex flex-col justify-center">
+            <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>{t("hello")},</p>
+            <h2 className="text-2xl font-bold mt-1" style={{ color: "var(--foreground)" }}>{userName}</h2>
+            {myBuilding && (
+              <div className="flex items-center gap-1.5 mt-2">
+                <MapPin className="w-3.5 h-3.5" style={{ color: "var(--muted-foreground)" }} />
+                <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>
+                  {myBuilding.name} — {myBuilding.address}
+                </p>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      </Card>
 
-      {/* KPI row */}
+      {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <MetricCard
-          icon={Home}
-          label={t("myBuilding")}
-          value={myBuilding?.name ?? "—"}
-          sub={myTenant?.unit ? `Apt ${myTenant.unit}` : undefined}
-        />
-        <MetricCard
-          icon={DollarSign}
-          label={t("monthlyRent")}
-          value={myTenant ? formatCHF(myTenant.rent) : "—"}
-          sub={t("currentAmount")}
-          accent
-        />
-        <MetricCard
-          icon={Wrench}
-          label={t("waiting")}
-          value={pending}
-          sub={t("requests")}
-          badge={
-            pending > 0 ? (
-              <span
-                className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold"
-                style={{ background: "rgba(201,168,76,0.18)", color: "#9A7A1A" }}
+        {[
+          { icon: Home, label: t("myBuilding"), value: myBuilding?.name ?? "—", sub: myTenant?.unit ? `Apt ${myTenant.unit}` : undefined },
+          { icon: DollarSign, label: t("monthlyRent"), value: myTenant ? formatCHF(myTenant.rent) : "—", sub: t("currentAmount") },
+          { icon: Wrench, label: t("waiting"), value: pendingCount, sub: t("requests") },
+          { icon: AlertCircle, label: t("ongoing"), value: inProgressCount, sub: t("requests") },
+        ].map((kpi) => {
+          const Icon = kpi.icon;
+          return (
+            <Card key={kpi.label} className="p-5">
+              <div
+                className="w-10 h-10 rounded-xl flex items-center justify-center mb-3"
+                style={{ background: "var(--background)", border: "1px solid var(--border)" }}
               >
-                <AlertCircle className="w-3 h-3" />
-                {t("actionNeeded")}
-              </span>
-            ) : undefined
-          }
-        />
-        <MetricCard
-          icon={AlertCircle}
-          label={t("ongoing")}
-          value={inProgress}
-          sub={t("requests")}
-        />
+                <Icon className="w-[18px] h-[18px]" style={{ color: "var(--primary)" }} />
+              </div>
+              <p className="text-[10px] font-semibold uppercase mb-0.5" style={{ color: "var(--muted-foreground)", letterSpacing: "0.08em" }}>
+                {kpi.label}
+              </p>
+              <p className="text-xl font-bold" style={{ color: "var(--foreground)" }}>{kpi.value}</p>
+              {kpi.sub && <p className="text-xs mt-0.5" style={{ color: "var(--muted-foreground)" }}>{kpi.sub}</p>}
+            </Card>
+          );
+        })}
       </div>
 
-      {/* Lease card */}
-      <div
-        className="rounded-2xl p-7"
-        style={{
-          background: "rgba(255,255,255,0.92)",
-          border: "1px solid rgba(215,200,178,0.55)",
-        }}
-      >
-        <h3 className="text-base font-semibold mb-5" style={{ color: "#1A1614" }}>
-          {t("leaseInfo")}
-        </h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {/* Lease */}
+      <Card className="p-6">
+        <h3 className="text-[15px] font-semibold mb-4" style={{ color: "var(--foreground)" }}>{t("leaseInfo")}</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
             { label: t("unit"), value: myTenant?.unit ?? "—" },
             { label: t("address"), value: myBuilding?.address ?? "—" },
-            {
-              label: t("leaseStart"),
-              value: myTenant?.leaseStart
-                ? new Date(myTenant.leaseStart).toLocaleDateString("fr-CH")
-                : "—",
-            },
-            {
-              label: t("leaseEnd"),
-              value: myTenant?.leaseEnd
-                ? new Date(myTenant.leaseEnd).toLocaleDateString("fr-CH")
-                : "—",
-            },
+            { label: t("leaseStart"), value: myTenant?.leaseStart ? new Date(myTenant.leaseStart).toLocaleDateString("fr-CH") : "—" },
+            { label: t("leaseEnd"), value: myTenant?.leaseEnd ? new Date(myTenant.leaseEnd).toLocaleDateString("fr-CH") : "—" },
           ].map((item) => (
             <div
               key={item.label}
-              className="rounded-xl p-4"
-              style={{ background: "rgba(245,240,234,0.8)", border: "1px solid rgba(210,195,165,0.4)" }}
+              className="rounded-xl p-3.5"
+              style={{ background: "var(--background)", border: "1px solid var(--border)" }}
             >
-              <p className="text-[10px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: "#9A8C80" }}>
+              <p className="text-[10px] font-semibold uppercase mb-1" style={{ color: "var(--muted-foreground)", letterSpacing: "0.06em" }}>
                 {item.label}
               </p>
-              <p className="text-sm font-semibold" style={{ color: "#1A1614" }}>
-                {item.value}
-              </p>
+              <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{item.value}</p>
             </div>
           ))}
         </div>
-      </div>
+      </Card>
 
-      {/* Recent requests */}
+      {/* Requests */}
       {myRequests.length > 0 && (
-        <div
-          className="rounded-2xl p-7"
-          style={{
-            background: "rgba(255,255,255,0.92)",
-            border: "1px solid rgba(215,200,178,0.55)",
-          }}
-        >
-          <h3 className="text-base font-semibold mb-5" style={{ color: "#1A1614" }}>
-            {t("recentRequests")}
-          </h3>
-          <div className="space-y-3">
+        <Card className="p-6">
+          <h3 className="text-[15px] font-semibold mb-4" style={{ color: "var(--foreground)" }}>{t("recentRequests")}</h3>
+          <div className="space-y-2">
             {myRequests.slice(0, 4).map((req) => (
               <div
                 key={req.id}
-                className="flex items-center gap-4 p-4 rounded-xl"
-                style={{
-                  background: "rgba(245,240,234,0.7)",
-                  border: "1px solid rgba(210,195,165,0.4)",
-                }}
+                className="flex items-center gap-4 rounded-xl p-3.5"
+                style={{ background: "var(--background)", border: "1px solid var(--border)" }}
               >
-                <div
-                  className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                  style={{ background: "rgba(201,168,76,0.15)" }}
-                >
-                  <Wrench className="w-4 h-4" style={{ color: "#C9A84C" }} />
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: "rgba(69,85,58,0.07)" }}>
+                  <Wrench className="w-3.5 h-3.5" style={{ color: "var(--primary)" }} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold truncate" style={{ color: "#1A1614" }}>
-                    {req.title}
-                  </p>
-                  <p className="text-xs mt-0.5" style={{ color: "#9A8C80" }}>
-                    {req.buildingName} · Apt {req.unit}
-                  </p>
+                  <p className="text-sm font-medium truncate" style={{ color: "var(--foreground)" }}>{req.title}</p>
+                  <p className="text-[11px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>{req.buildingName} · Apt {req.unit}</p>
                 </div>
-                <StatusBadge status={req.status} />
+                <Badge status={req.status} t={t} />
               </div>
             ))}
           </div>
-        </div>
+        </Card>
       )}
     </div>
   );
