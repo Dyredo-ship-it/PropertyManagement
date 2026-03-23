@@ -1,11 +1,9 @@
-import { cn } from "./ui/utils";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Wrench,
   Plus,
-  AlertCircle,
-  CheckCircle,
   Clock,
+  CheckCircle,
   Trash2,
   Home,
   User,
@@ -15,13 +13,16 @@ import {
   Calendar,
   DollarSign,
   Users,
-  Briefcase,
   MessageSquare,
   X,
   ChevronRight,
-  Eye,
   FileText,
   Search,
+  AlertTriangle,
+  Zap,
+  ArrowRight,
+  CheckCheck,
+  Eye,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -55,65 +56,103 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../i18n/LanguageContext";
 
-// ─────────────────────────────────────────
-// Status helpers
-// ─────────────────────────────────────────
+/* ═══════════════════════════════════════════════════════════════
+   STATUS / BADGE SYSTEM
+═══════════════════════════════════════════════════════════════ */
 
-function MaintenanceStatusBadge({ status, t }: { status: string; t: (k: string) => string }) {
-  const cfg = {
-    pending: { bg: "bg-amber-50 border-amber-200", text: "text-amber-700", dot: "bg-amber-500" },
-    "in-progress": { bg: "bg-blue-50 border-blue-200", text: "text-blue-700", dot: "bg-blue-500" },
-    completed: { bg: "bg-emerald-50 border-emerald-200", text: "text-emerald-700", dot: "bg-emerald-500" },
-  }[status] ?? { bg: "bg-slate-100 border-slate-200", text: "text-slate-600", dot: "bg-slate-400" };
+type BadgeCfg = { bg: string; fg: string; dot: string };
 
-  const label = status === "pending" ? t("pending") : status === "in-progress" ? t("inProgress") : t("completed");
+const MAINT_STATUS: Record<string, BadgeCfg> = {
+  pending:      { bg: "rgba(245,158,11,0.10)", fg: "#B45309", dot: "#F59E0B" },
+  "in-progress":{ bg: "rgba(59,130,246,0.10)", fg: "#1D4ED8", dot: "#3B82F6" },
+  completed:    { bg: "rgba(34,197,94,0.10)",  fg: "#15803D", dot: "#22C55E" },
+};
 
+const APP_STATUS: Record<string, BadgeCfg & { label: string }> = {
+  received:      { bg: "rgba(99,102,241,0.10)", fg: "#4338CA", dot: "#6366F1", label: "Reçue" },
+  "under-review":{ bg: "rgba(245,158,11,0.10)", fg: "#B45309", dot: "#F59E0B", label: "En examen" },
+  accepted:      { bg: "rgba(34,197,94,0.10)",  fg: "#15803D", dot: "#22C55E", label: "Acceptée" },
+  rejected:      { bg: "rgba(239,68,68,0.10)",  fg: "#DC2626", dot: "#EF4444", label: "Refusée" },
+};
+
+const PRIORITY: Record<string, { bg: string; fg: string }> = {
+  urgent: { bg: "rgba(239,68,68,0.12)", fg: "#DC2626" },
+  high:   { bg: "rgba(239,68,68,0.08)", fg: "#B91C1C" },
+  medium: { bg: "rgba(245,158,11,0.10)", fg: "#B45309" },
+  low:    { bg: "rgba(107,114,128,0.08)", fg: "#4B5563" },
+};
+
+function StatusDot({ color }: { color: string }) {
   return (
-    <span className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border", cfg.bg, cfg.text)}>
-      <span className={cn("w-1.5 h-1.5 rounded-full", cfg.dot)} />
+    <span className="inline-block w-1.5 h-1.5 rounded-full shrink-0" style={{ background: color }} />
+  );
+}
+
+function MaintBadge({ status, t }: { status: string; t: (k: string) => string }) {
+  const c = MAINT_STATUS[status] ?? { bg: "rgba(107,114,128,0.08)", fg: "#4B5563", dot: "#9CA3AF" };
+  const label = status === "pending" ? t("pending") : status === "in-progress" ? t("inProgress") : t("completed");
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full text-[11px] font-semibold" style={{ padding: "4px 10px", background: c.bg, color: c.fg }}>
+      <StatusDot color={c.dot} />
       {label}
     </span>
   );
 }
 
-function ApplicationStatusBadge({ status, t }: { status: string; t: (k: string) => string }) {
-  const cfg = {
-    received: { bg: "bg-blue-50 border-blue-200", text: "text-blue-700", dot: "bg-blue-500" },
-    "under-review": { bg: "bg-amber-50 border-amber-200", text: "text-amber-700", dot: "bg-amber-500" },
-    accepted: { bg: "bg-emerald-50 border-emerald-200", text: "text-emerald-700", dot: "bg-emerald-500" },
-    rejected: { bg: "bg-red-50 border-red-200", text: "text-red-600", dot: "bg-red-500" },
-  }[status] ?? { bg: "bg-slate-100 border-slate-200", text: "text-slate-600", dot: "bg-slate-400" };
-
-  const label = status === "received" ? t("received") : status === "under-review" ? t("underReview") : status === "accepted" ? t("accepted") : t("rejected");
-
+function AppBadge({ status }: { status: string }) {
+  const c = APP_STATUS[status] ?? { bg: "rgba(107,114,128,0.08)", fg: "#4B5563", dot: "#9CA3AF", label: status };
   return (
-    <span className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border", cfg.bg, cfg.text)}>
-      <span className={cn("w-1.5 h-1.5 rounded-full", cfg.dot)} />
-      {label}
+    <span className="inline-flex items-center gap-1.5 rounded-full text-[11px] font-semibold" style={{ padding: "4px 10px", background: c.bg, color: c.fg }}>
+      <StatusDot color={c.dot} />
+      {c.label}
     </span>
   );
 }
 
 function PriorityBadge({ priority, t }: { priority: string; t: (k: string) => string }) {
-  const cfg = {
-    high: { bg: "bg-red-50 border-red-200", text: "text-red-700" },
-    urgent: { bg: "bg-red-100 border-red-300", text: "text-red-800" },
-    medium: { bg: "bg-amber-50 border-amber-200", text: "text-amber-700" },
-    low: { bg: "bg-slate-50 border-slate-200", text: "text-slate-600" },
-  }[priority] ?? { bg: "bg-slate-50 border-slate-200", text: "text-slate-600" };
-
-  const label = priority === "high" ? t("high") : priority === "urgent" ? t("urgent") : priority === "medium" ? t("medium") : t("low");
-
+  const c = PRIORITY[priority] ?? PRIORITY.low;
+  const label = priority === "urgent" ? t("urgent") : priority === "high" ? t("high") : priority === "medium" ? t("medium") : t("low");
   return (
-    <span className={cn("px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider border", cfg.bg, cfg.text)}>
+    <span className="rounded text-[10px] font-semibold uppercase" style={{ padding: "2px 7px", background: c.bg, color: c.fg, letterSpacing: "0.05em" }}>
       {label}
     </span>
   );
 }
 
-// ─────────────────────────────────────────
-// Rental Application Detail Drawer
-// ─────────────────────────────────────────
+/* ═══════════════════════════════════════════════════════════════
+   FILTER PILL
+═══════════════════════════════════════════════════════════════ */
+
+function FilterPill({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex items-center gap-1.5 rounded-xl text-[13px] font-medium transition-all"
+      style={{
+        padding: "7px 14px",
+        background: active ? "var(--primary)" : "var(--card)",
+        color: active ? "var(--primary-foreground)" : "var(--muted-foreground)",
+        border: `1px solid ${active ? "transparent" : "var(--border)"}`,
+        boxShadow: active ? "0 1px 4px rgba(69,85,58,0.18)" : "none",
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   APPLICATION DETAIL DRAWER
+═══════════════════════════════════════════════════════════════ */
 
 function ApplicationDrawer({
   app,
@@ -132,146 +171,124 @@ function ApplicationDrawer({
 }) {
   if (!app) return null;
 
+  const actions: { key: RentalApplication["status"]; label: string; bg: string; fg: string }[] = [
+    { key: "under-review", label: t("markUnderReview"), bg: "rgba(245,158,11,0.12)", fg: "#B45309" },
+    { key: "accepted",     label: t("approve"),         bg: "rgba(34,197,94,0.12)",  fg: "#15803D" },
+    { key: "rejected",     label: t("reject"),          bg: "rgba(239,68,68,0.10)",  fg: "#DC2626" },
+  ];
+
   return (
     <>
       <div
-        className={cn(
-          "fixed inset-0 bg-black/20 backdrop-blur-sm z-40 transition-opacity duration-300",
-          open ? "opacity-100" : "opacity-0 pointer-events-none"
-        )}
+        className="fixed inset-0 z-40 transition-opacity duration-300"
+        style={{
+          background: "rgba(0,0,0,0.20)",
+          backdropFilter: "blur(2px)",
+          opacity: open ? 1 : 0,
+          pointerEvents: open ? "auto" : "none",
+        }}
         onClick={onClose}
       />
       <div
-        className={cn(
-          "fixed right-0 top-0 h-full w-full max-w-xl bg-card shadow-2xl z-50 transform transition-transform duration-300 ease-out flex flex-col",
-          open ? "translate-x-0" : "translate-x-full"
-        )}
+        className="fixed right-0 top-0 h-full z-50 flex flex-col transition-transform duration-300 ease-out"
+        style={{
+          width: "min(480px, 100vw)",
+          background: "var(--card)",
+          borderLeft: "1px solid var(--border)",
+          boxShadow: "-8px 0 32px rgba(0,0,0,0.10)",
+          transform: open ? "translateX(0)" : "translateX(100%)",
+        }}
       >
         {/* Header */}
-        <div className="shrink-0 border-b border-border px-6 py-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-bold text-foreground">{t("reviewApplication")}</h2>
-              <p className="text-sm text-muted-foreground mt-0.5">
-                {app.buildingName} &middot; {t("unit")} {app.desiredUnit}
+        <div className="shrink-0 px-6 py-5" style={{ borderBottom: "1px solid var(--border)" }}>
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <h2 className="text-base font-bold" style={{ color: "var(--foreground)" }}>
+                {t("reviewApplication")}
+              </h2>
+              <p className="text-[12px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>
+                {app.buildingName} · {t("unit")} {app.desiredUnit}
               </p>
             </div>
-            <button onClick={onClose} className="p-2 hover:bg-muted/50 rounded-xl transition-colors">
-              <X className="w-5 h-5 text-muted-foreground" />
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors shrink-0"
+              style={{ color: "var(--muted-foreground)" }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "var(--background)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+            >
+              <X className="w-4 h-4" />
             </button>
           </div>
 
-          {/* Status actions */}
-          <div className="flex items-center gap-2 mt-4">
-            <ApplicationStatusBadge status={app.status} t={t} />
+          {/* Current status + actions */}
+          <div className="flex items-center gap-2 mt-4 flex-wrap">
+            <AppBadge status={app.status} />
             <div className="flex-1" />
-            {app.status !== "accepted" && (
-              <button
-                onClick={() => onStatusChange(app.id, "accepted")}
-                className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 transition-colors"
-              >
-                {t("approve")}
-              </button>
-            )}
-            {app.status !== "under-review" && app.status !== "accepted" && app.status !== "rejected" && (
-              <button
-                onClick={() => onStatusChange(app.id, "under-review")}
-                className="px-3 py-1.5 rounded-lg bg-amber-500 text-white text-xs font-medium hover:bg-amber-600 transition-colors"
-              >
-                {t("markUnderReview")}
-              </button>
-            )}
-            {app.status !== "rejected" && (
-              <button
-                onClick={() => onStatusChange(app.id, "rejected")}
-                className="px-3 py-1.5 rounded-lg bg-red-50 border border-red-200 text-red-600 text-xs font-medium hover:bg-red-100 transition-colors"
-              >
-                {t("reject")}
-              </button>
-            )}
+            {actions
+              .filter((a) => a.key !== app.status)
+              .map((a) => (
+                <button
+                  key={a.key}
+                  type="button"
+                  onClick={() => onStatusChange(app.id, a.key)}
+                  className="rounded-lg text-[12px] font-semibold transition-colors"
+                  style={{ padding: "5px 12px", background: a.bg, color: a.fg }}
+                >
+                  {a.label}
+                </button>
+              ))}
           </div>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {/* Applicant info */}
-          <section className="space-y-3">
-            <h3 className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">{t("applicantInfo")}</h3>
-            <div className="rounded-2xl border border-border overflow-hidden">
-              <div className="flex items-center gap-4 p-4 border-b border-border">
-                <div className="w-12 h-12 rounded-xl bg-primary/8 flex items-center justify-center">
-                  <User className="w-6 h-6 text-primary" />
-                </div>
-                <div>
-                  <p className="font-semibold text-foreground">{app.applicantName}</p>
-                  <p className="text-sm text-muted-foreground">{app.occupation} &middot; {app.employer}</p>
-                </div>
+        <div className="flex-1 overflow-y-auto p-6 space-y-5">
+          {/* Identity */}
+          <Section title={t("applicantInfo")}>
+            <div className="flex items-center gap-3 mb-3">
+              <div
+                className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
+                style={{ background: "var(--sidebar-accent)" }}
+              >
+                <User className="w-5 h-5" style={{ color: "var(--primary)" }} />
               </div>
-              <div className="grid grid-cols-2 divide-x divide-border">
-                <div className="p-4">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Mail className="w-3.5 h-3.5 text-muted-foreground" />
-                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">{t("email")}</span>
-                  </div>
-                  <p className="text-sm text-foreground">{app.applicantEmail}</p>
-                </div>
-                <div className="p-4">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Phone className="w-3.5 h-3.5 text-muted-foreground" />
-                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">{t("phone")}</span>
-                  </div>
-                  <p className="text-sm text-foreground">{app.applicantPhone}</p>
-                </div>
-              </div>
-              <div className="border-t border-border p-4">
-                <div className="flex items-center gap-2 mb-1">
-                  <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">{t("currentAddress")}</span>
-                </div>
-                <p className="text-sm text-foreground">{app.currentAddress}</p>
+              <div>
+                <p className="text-[14px] font-semibold" style={{ color: "var(--foreground)" }}>
+                  {app.applicantName}
+                </p>
+                <p className="text-[12px]" style={{ color: "var(--muted-foreground)" }}>
+                  {app.occupation} · {app.employer}
+                </p>
               </div>
             </div>
-          </section>
+            <DrawerGrid>
+              <DrawerItem icon={<Mail className="w-3.5 h-3.5" />} label={t("email")} value={app.applicantEmail} />
+              <DrawerItem icon={<Phone className="w-3.5 h-3.5" />} label={t("phone")} value={app.applicantPhone} />
+              <DrawerItem icon={<MapPin className="w-3.5 h-3.5" />} label={t("currentAddress")} value={app.currentAddress} full />
+            </DrawerGrid>
+          </Section>
 
           {/* Application details */}
-          <section className="space-y-3">
-            <h3 className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">{t("applicationDetails")}</h3>
-            <div className="rounded-2xl border border-border p-4 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">{t("desiredMoveIn")}</p>
-                  <p className="text-sm font-medium text-foreground">
-                    {new Date(app.desiredMoveIn).toLocaleDateString("fr-CH")}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">{t("monthlyIncome")}</p>
-                  <p className="text-sm font-medium text-foreground">{formatCHF(app.monthlyIncome)}</p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">{t("householdSize")}</p>
-                  <p className="text-sm font-medium text-foreground">{app.householdSize} {t("numberOfPersons")}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">{t("applicationDate")}</p>
-                  <p className="text-sm font-medium text-foreground">
-                    {new Date(app.createdAt).toLocaleDateString("fr-CH")}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </section>
+          <Section title={t("applicationDetails")}>
+            <DrawerGrid>
+              <DrawerItem icon={<Calendar className="w-3.5 h-3.5" />} label={t("desiredMoveIn")} value={new Date(app.desiredMoveIn).toLocaleDateString("fr-CH")} />
+              <DrawerItem icon={<DollarSign className="w-3.5 h-3.5" />} label={t("monthlyIncome")} value={formatCHF(app.monthlyIncome)} />
+              <DrawerItem icon={<Users className="w-3.5 h-3.5" />} label={t("householdSize")} value={`${app.householdSize} ${t("numberOfPersons")}`} />
+              <DrawerItem icon={<Calendar className="w-3.5 h-3.5" />} label={t("applicationDate")} value={new Date(app.createdAt).toLocaleDateString("fr-CH")} />
+            </DrawerGrid>
+          </Section>
 
           {/* Message */}
           {app.message && (
-            <section className="space-y-3">
-              <h3 className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">{t("applicationMessage")}</h3>
-              <div className="rounded-2xl border border-border bg-background p-4">
-                <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{app.message}</p>
+            <Section title={t("applicationMessage")}>
+              <div
+                className="rounded-xl p-4 text-[13px] leading-relaxed"
+                style={{ background: "var(--background)", border: "1px solid var(--border)", color: "var(--foreground)" }}
+              >
+                {app.message}
               </div>
-            </section>
+            </Section>
           )}
         </div>
       </div>
@@ -279,161 +296,171 @@ function ApplicationDrawer({
   );
 }
 
-// ─────────────────────────────────────────
-// Main RequestsView
-// ─────────────────────────────────────────
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <p className="text-[10px] font-semibold uppercase mb-3" style={{ color: "var(--muted-foreground)", letterSpacing: "0.1em" }}>
+        {title}
+      </p>
+      <div
+        className="rounded-xl overflow-hidden"
+        style={{ border: "1px solid var(--border)", background: "var(--card)" }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function DrawerGrid({ children }: { children: React.ReactNode }) {
+  return <div className="divide-y" style={{ borderColor: "var(--border)" }}>{children}</div>;
+}
+
+function DrawerItem({
+  icon,
+  label,
+  value,
+  full,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  full?: boolean;
+}) {
+  return (
+    <div className="px-4 py-3">
+      <div className="flex items-center gap-1.5 mb-0.5">
+        <span style={{ color: "var(--muted-foreground)" }}>{icon}</span>
+        <p className="text-[10px] font-semibold uppercase" style={{ color: "var(--muted-foreground)", letterSpacing: "0.06em" }}>
+          {label}
+        </p>
+      </div>
+      <p className="text-[13px]" style={{ color: "var(--foreground)" }}>{value}</p>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MAIN COMPONENT
+═══════════════════════════════════════════════════════════════ */
 
 export function RequestsView() {
   const { user } = useAuth();
   const { t } = useLanguage();
+  const isAdmin = user?.role === "admin";
 
   const [activeTab, setActiveTab] = useState<"maintenance" | "applications">("maintenance");
-
-  // Maintenance state
   const [requests, setRequests] = useState<MaintenanceRequest[]>([]);
   const [tenants, setTenants] = useState<any[]>([]);
   const [buildings, setBuildings] = useState<Building[]>([]);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [filter, setFilter] = useState<"all" | "pending" | "in-progress" | "completed">("all");
-  const [searchQuery, setSearchQuery] = useState("");
-
-  const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    priority: "medium" as "low" | "medium" | "high",
-  });
-
-  // Rental applications state
   const [applications, setApplications] = useState<RentalApplication[]>([]);
+
+  const [filter, setFilter] = useState<"all" | "pending" | "in-progress" | "completed">("all");
   const [appFilter, setAppFilter] = useState<"all" | "received" | "under-review" | "accepted" | "rejected">("all");
-  const [isAppDialogOpen, setIsAppDialogOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [drawerAppId, setDrawerAppId] = useState<string | null>(null);
 
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isAppDialogOpen, setIsAppDialogOpen] = useState(false);
+  const [formData, setFormData] = useState({ title: "", description: "", priority: "medium" as "low" | "medium" | "high" });
   const [appFormData, setAppFormData] = useState({
-    buildingId: "",
-    desiredUnit: "",
-    applicantName: "",
-    applicantEmail: "",
-    applicantPhone: "",
-    currentAddress: "",
-    desiredMoveIn: "",
-    monthlyIncome: 0,
-    householdSize: 1,
-    occupation: "",
-    employer: "",
-    message: "",
+    buildingId: "", desiredUnit: "", applicantName: "", applicantEmail: "",
+    applicantPhone: "", currentAddress: "", desiredMoveIn: "", monthlyIncome: 0,
+    householdSize: 1, occupation: "", employer: "", message: "",
   });
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  useEffect(() => { loadData(); }, []);
 
   const loadData = () => {
-    const allRequests = getMaintenanceRequests();
-    if (user?.role === "tenant") {
-      setRequests(allRequests.filter((r) => r.tenantId === user.id));
-    } else {
-      setRequests(allRequests);
-    }
+    const all = getMaintenanceRequests();
+    setRequests(isAdmin ? all : all.filter((r) => r.tenantId === user?.id));
     setTenants(getTenants());
     setBuildings(getBuildings());
     setApplications(getRentalApplications());
   };
 
-  // Maintenance filtered
   const filteredRequests = useMemo(() => {
     let list = requests.filter((r) => filter === "all" || r.status === filter);
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      list = list.filter(
-        (r) =>
-          r.title.toLowerCase().includes(q) ||
-          r.tenantName.toLowerCase().includes(q) ||
-          r.buildingName.toLowerCase().includes(q)
+      list = list.filter((r) =>
+        r.title.toLowerCase().includes(q) ||
+        r.tenantName.toLowerCase().includes(q) ||
+        r.buildingName.toLowerCase().includes(q)
       );
     }
     return list;
   }, [requests, filter, searchQuery]);
 
-  // Applications filtered
-  const filteredApplications = useMemo(() => {
-    return applications.filter((a) => appFilter === "all" || a.status === appFilter);
-  }, [applications, appFilter]);
+  const filteredApplications = useMemo(
+    () => applications.filter((a) => appFilter === "all" || a.status === appFilter),
+    [applications, appFilter]
+  );
 
-  const drawerApp = useMemo(() => {
-    if (!drawerAppId) return null;
-    return applications.find((a) => a.id === drawerAppId) ?? null;
-  }, [applications, drawerAppId]);
+  const drawerApp = useMemo(
+    () => (drawerAppId ? applications.find((a) => a.id === drawerAppId) ?? null : null),
+    [applications, drawerAppId]
+  );
 
-  // Maintenance counts
   const pendingCount = requests.filter((r) => r.status === "pending").length;
   const inProgressCount = requests.filter((r) => r.status === "in-progress").length;
-  const completedCount = requests.filter((r) => r.status === "completed").length;
-
-  // Application counts
   const receivedCount = applications.filter((a) => a.status === "received").length;
   const reviewCount = applications.filter((a) => a.status === "under-review").length;
 
-  const formatCHF = (value: number) => {
-    const n = Number.isFinite(value) ? value : 0;
-    const s = Math.round(n).toString();
-    return `CHF ${s.replace(/\B(?=(\d{3})+(?!\d))/g, "'")}`;
+  const formatCHF = (v: number) => {
+    const n = Number.isFinite(v) ? v : 0;
+    return `CHF ${Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, "'")}`;
   };
 
-  // Maintenance handlers
+  const formatDate = (d: string) =>
+    new Date(d).toLocaleDateString("fr-CH", { year: "numeric", month: "short", day: "numeric" });
+
+  /* ── Handlers ── */
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (user?.role !== "tenant") return;
-    const tenant = tenants.find((tn: any) => tn.email === user.email);
-    if (!tenant) return;
-
-    const newRequest: MaintenanceRequest = {
-      id: Date.now().toString(),
-      title: formData.title,
-      description: formData.description,
-      buildingId: tenant.buildingId,
-      buildingName: tenant.buildingName,
-      unit: tenant.unit,
-      tenantId: user.id,
-      tenantName: user.name,
-      status: "pending",
-      priority: formData.priority,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    const allRequests = getMaintenanceRequests();
-    saveMaintenanceRequests([...allRequests, newRequest]);
-    setIsDialogOpen(false);
-    setFormData({ title: "", description: "", priority: "medium" });
-    loadData();
+    if (!isAdmin) {
+      const tenant = tenants.find((tn: any) => tn.email === user?.email);
+      if (!tenant) return;
+      const req: MaintenanceRequest = {
+        id: Date.now().toString(),
+        title: formData.title,
+        description: formData.description,
+        buildingId: tenant.buildingId,
+        buildingName: tenant.buildingName,
+        unit: tenant.unit,
+        tenantId: user!.id,
+        tenantName: user!.name,
+        status: "pending",
+        priority: formData.priority,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      saveMaintenanceRequests([...getMaintenanceRequests(), req]);
+      setIsDialogOpen(false);
+      setFormData({ title: "", description: "", priority: "medium" });
+      loadData();
+    }
   };
 
-  const handleStatusChange = (id: string, newStatus: MaintenanceRequest["status"]) => {
-    const allRequests = getMaintenanceRequests();
-    const updated = allRequests.map((r) =>
-      r.id === id ? { ...r, status: newStatus, updatedAt: new Date().toISOString() } : r
-    );
-    saveMaintenanceRequests(updated);
+  const handleStatusChange = (id: string, status: MaintenanceRequest["status"]) => {
+    const all = getMaintenanceRequests();
+    saveMaintenanceRequests(all.map((r) => r.id === id ? { ...r, status, updatedAt: new Date().toISOString() } : r));
     loadData();
   };
 
   const handleDelete = (id: string) => {
     if (confirm(t("confirmDeleteRequest"))) {
-      const allRequests = getMaintenanceRequests();
-      saveMaintenanceRequests(allRequests.filter((r) => r.id !== id));
+      saveMaintenanceRequests(getMaintenanceRequests().filter((r) => r.id !== id));
       loadData();
     }
   };
 
-  // Application handlers
   const handleAppSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const bldg = buildings.find((b) => b.id === appFormData.buildingId);
     if (!bldg) return;
-
     const apps = getRentalApplications();
-    const newApp: RentalApplication = {
+    saveRentalApplications([{
       id: `ra-${Date.now()}`,
       buildingId: appFormData.buildingId,
       buildingName: bldg.name,
@@ -451,107 +478,113 @@ export function RequestsView() {
       status: "received",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-    };
-
-    saveRentalApplications([newApp, ...apps]);
+    }, ...apps]);
     setIsAppDialogOpen(false);
-    setAppFormData({
-      buildingId: "", desiredUnit: "", applicantName: "", applicantEmail: "",
-      applicantPhone: "", currentAddress: "", desiredMoveIn: "", monthlyIncome: 0,
-      householdSize: 1, occupation: "", employer: "", message: "",
-    });
+    setAppFormData({ buildingId: "", desiredUnit: "", applicantName: "", applicantEmail: "", applicantPhone: "", currentAddress: "", desiredMoveIn: "", monthlyIncome: 0, householdSize: 1, occupation: "", employer: "", message: "" });
     loadData();
   };
 
-  const handleAppStatusChange = (id: string, newStatus: RentalApplication["status"]) => {
+  const handleAppStatusChange = (id: string, status: RentalApplication["status"]) => {
     const apps = getRentalApplications();
-    const updated = apps.map((a) =>
-      a.id === id ? { ...a, status: newStatus, updatedAt: new Date().toISOString() } : a
-    );
-    saveRentalApplications(updated);
+    saveRentalApplications(apps.map((a) => a.id === id ? { ...a, status, updatedAt: new Date().toISOString() } : a));
     loadData();
   };
 
   const handleAppDelete = (id: string) => {
     if (confirm(t("confirmDeleteRequest"))) {
-      const apps = getRentalApplications();
-      saveRentalApplications(apps.filter((a) => a.id !== id));
+      saveRentalApplications(getRentalApplications().filter((a) => a.id !== id));
       if (drawerAppId === id) setDrawerAppId(null);
       loadData();
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("fr-CH", { year: "numeric", month: "short", day: "numeric" });
+  /* ── Maintenance status icon ── */
+  const statusIcon = (s: string) => {
+    if (s === "pending")     return <Clock className="w-4 h-4" />;
+    if (s === "in-progress") return <AlertTriangle className="w-4 h-4" />;
+    return <CheckCircle className="w-4 h-4" />;
   };
 
-  const isAdmin = user?.role === "admin";
-
+  /* ─────────────────────────────────────────────────────────────
+     RENDER
+  ───────────────────────────────────────────────────────────── */
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-border">
-        <div className="px-6 lg:px-8 py-5">
+    <div className="min-h-screen" style={{ background: "var(--background)" }}>
+
+      {/* ── Page header ───────────────────────────────────── */}
+      <div
+        className="sticky top-0 z-30"
+        style={{
+          background: "var(--card)",
+          borderBottom: "1px solid var(--border)",
+        }}
+      >
+        <div className="max-w-[1200px] mx-auto px-8 py-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-bold text-foreground">
+              <h1 className="text-xl font-bold" style={{ color: "var(--foreground)" }}>
                 {isAdmin ? t("requestsHub") : t("myRequestsTitle")}
               </h1>
-              <p className="text-sm text-muted-foreground mt-0.5">
+              <p className="text-[13px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>
                 {isAdmin ? t("requestsHubSub") : t("requestsSubTenant")}
               </p>
             </div>
 
             <div className="flex items-center gap-3">
-              {/* Search */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={t("search") + "..."}
-                  className="pl-10 pr-4 py-2.5 rounded-xl bg-card border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/30 w-56 transition-all"
-                />
-              </div>
+              {/* Search (maintenance tab only) */}
+              {activeTab === "maintenance" && (
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-[14px] h-[14px] pointer-events-none" style={{ color: "var(--muted-foreground)" }} />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder={t("search") + "..."}
+                    className="text-[13px] outline-none transition-all"
+                    style={{
+                      padding: "8px 14px 8px 34px",
+                      borderRadius: 12,
+                      border: "1px solid var(--border)",
+                      background: "var(--background)",
+                      color: "var(--foreground)",
+                      width: 200,
+                    }}
+                    onFocus={(e) => { e.currentTarget.style.borderColor = "var(--primary)"; }}
+                    onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
+                  />
+                </div>
+              )}
 
               {/* Add buttons */}
-              {activeTab === "maintenance" && user?.role === "tenant" && (
+              {activeTab === "maintenance" && !isAdmin && (
                 <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl h-10 px-5 shadow-sm">
-                      <Plus className="w-4 h-4 mr-2" />
+                    <button
+                      type="button"
+                      className="flex items-center gap-2 rounded-xl text-[13px] font-semibold transition-opacity"
+                      style={{ padding: "8px 16px", background: "var(--primary)", color: "var(--primary-foreground)" }}
+                    >
+                      <Plus className="w-4 h-4" />
                       {t("newRequest")}
-                    </Button>
+                    </button>
                   </DialogTrigger>
-                  <DialogContent className="bg-card border-border max-h-[90vh] overflow-y-auto rounded-2xl">
+                  <DialogContent className="rounded-2xl max-w-md" style={{ background: "var(--card)", border: "1px solid var(--border)" }}>
                     <DialogHeader>
-                      <DialogTitle className="text-foreground">{t("newRequest")}</DialogTitle>
+                      <DialogTitle style={{ color: "var(--foreground)" }}>{t("newRequest")}</DialogTitle>
                     </DialogHeader>
                     <form onSubmit={handleSubmit} className="space-y-4 mt-4">
                       <div>
-                        <Label className="text-foreground">{t("requestTitle")}</Label>
-                        <Input
-                          value={formData.title}
-                          onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                          required
-                          className="bg-background border-border text-foreground mt-2"
-                        />
+                        <Label style={{ color: "var(--foreground)" }}>{t("requestTitle")}</Label>
+                        <Input value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} required className="mt-2" style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }} />
                       </div>
                       <div>
-                        <Label className="text-foreground">{t("requestDescription")}</Label>
-                        <Textarea
-                          value={formData.description}
-                          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                          required
-                          rows={5}
-                          className="bg-background border-border text-foreground mt-2"
-                        />
+                        <Label style={{ color: "var(--foreground)" }}>{t("requestDescription")}</Label>
+                        <Textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} required rows={4} className="mt-2" style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }} />
                       </div>
                       <div>
-                        <Label className="text-foreground">{t("priority")}</Label>
+                        <Label style={{ color: "var(--foreground)" }}>{t("priority")}</Label>
                         <Select value={formData.priority} onValueChange={(v: any) => setFormData({ ...formData, priority: v })}>
-                          <SelectTrigger className="bg-background border-border text-foreground mt-2"><SelectValue /></SelectTrigger>
+                          <SelectTrigger className="mt-2" style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }}><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="low">{t("low")}</SelectItem>
                             <SelectItem value="medium">{t("medium")}</SelectItem>
@@ -559,9 +592,9 @@ export function RequestsView() {
                           </SelectContent>
                         </Select>
                       </div>
-                      <div className="flex gap-3 pt-4">
-                        <Button type="submit" className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground">{t("submit")}</Button>
-                        <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} className="flex-1 border-border text-foreground">{t("cancel")}</Button>
+                      <div className="flex gap-3 pt-2">
+                        <button type="submit" className="flex-1 rounded-xl text-[13px] font-semibold py-2.5 transition-opacity" style={{ background: "var(--primary)", color: "var(--primary-foreground)" }}>{t("submit")}</button>
+                        <button type="button" onClick={() => setIsDialogOpen(false)} className="flex-1 rounded-xl text-[13px] font-medium py-2.5" style={{ border: "1px solid var(--border)", color: "var(--foreground)", background: "var(--background)" }}>{t("cancel")}</button>
                       </div>
                     </form>
                   </DialogContent>
@@ -571,80 +604,80 @@ export function RequestsView() {
               {activeTab === "applications" && isAdmin && (
                 <Dialog open={isAppDialogOpen} onOpenChange={setIsAppDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl h-10 px-5 shadow-sm">
-                      <Plus className="w-4 h-4 mr-2" />
+                    <button type="button" className="flex items-center gap-2 rounded-xl text-[13px] font-semibold transition-opacity" style={{ padding: "8px 16px", background: "var(--primary)", color: "var(--primary-foreground)" }}>
+                      <Plus className="w-4 h-4" />
                       {t("newRentalApplication")}
-                    </Button>
+                    </button>
                   </DialogTrigger>
-                  <DialogContent className="bg-card border-border max-h-[90vh] overflow-y-auto rounded-2xl">
+                  <DialogContent className="rounded-2xl max-w-lg max-h-[90vh] overflow-y-auto" style={{ background: "var(--card)", border: "1px solid var(--border)" }}>
                     <DialogHeader>
-                      <DialogTitle className="text-foreground">{t("newRentalApplication")}</DialogTitle>
+                      <DialogTitle style={{ color: "var(--foreground)" }}>{t("newRentalApplication")}</DialogTitle>
                     </DialogHeader>
                     <form onSubmit={handleAppSubmit} className="space-y-4 mt-4">
                       <div>
-                        <Label className="text-foreground">{t("applicantName")}</Label>
-                        <Input value={appFormData.applicantName} onChange={(e) => setAppFormData({ ...appFormData, applicantName: e.target.value })} required className="bg-background border-border text-foreground mt-2" />
+                        <Label style={{ color: "var(--foreground)" }}>{t("applicantName")}</Label>
+                        <Input value={appFormData.applicantName} onChange={(e) => setAppFormData({ ...appFormData, applicantName: e.target.value })} required className="mt-2" style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }} />
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <Label className="text-foreground">{t("applicantEmail")}</Label>
-                          <Input type="email" value={appFormData.applicantEmail} onChange={(e) => setAppFormData({ ...appFormData, applicantEmail: e.target.value })} required className="bg-background border-border text-foreground mt-2" />
+                          <Label style={{ color: "var(--foreground)" }}>{t("applicantEmail")}</Label>
+                          <Input type="email" value={appFormData.applicantEmail} onChange={(e) => setAppFormData({ ...appFormData, applicantEmail: e.target.value })} required className="mt-2" style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }} />
                         </div>
                         <div>
-                          <Label className="text-foreground">{t("applicantPhone")}</Label>
-                          <Input value={appFormData.applicantPhone} onChange={(e) => setAppFormData({ ...appFormData, applicantPhone: e.target.value })} required className="bg-background border-border text-foreground mt-2" />
+                          <Label style={{ color: "var(--foreground)" }}>{t("applicantPhone")}</Label>
+                          <Input value={appFormData.applicantPhone} onChange={(e) => setAppFormData({ ...appFormData, applicantPhone: e.target.value })} required className="mt-2" style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }} />
                         </div>
                       </div>
                       <div>
-                        <Label className="text-foreground">{t("building")}</Label>
+                        <Label style={{ color: "var(--foreground)" }}>{t("building")}</Label>
                         <Select value={appFormData.buildingId} onValueChange={(v) => setAppFormData({ ...appFormData, buildingId: v })}>
-                          <SelectTrigger className="bg-background border-border text-foreground mt-2"><SelectValue placeholder={t("selectBuilding")} /></SelectTrigger>
+                          <SelectTrigger className="mt-2" style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }}><SelectValue placeholder={t("selectBuilding")} /></SelectTrigger>
                           <SelectContent>
                             {buildings.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
                           </SelectContent>
                         </Select>
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <Label className="text-foreground">{t("desiredUnit")}</Label>
-                          <Input value={appFormData.desiredUnit} onChange={(e) => setAppFormData({ ...appFormData, desiredUnit: e.target.value })} required className="bg-background border-border text-foreground mt-2" />
+                          <Label style={{ color: "var(--foreground)" }}>{t("desiredUnit")}</Label>
+                          <Input value={appFormData.desiredUnit} onChange={(e) => setAppFormData({ ...appFormData, desiredUnit: e.target.value })} required className="mt-2" style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }} />
                         </div>
                         <div>
-                          <Label className="text-foreground">{t("desiredMoveIn")}</Label>
-                          <Input type="date" value={appFormData.desiredMoveIn} onChange={(e) => setAppFormData({ ...appFormData, desiredMoveIn: e.target.value })} required className="bg-background border-border text-foreground mt-2" />
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-3 gap-4">
-                        <div>
-                          <Label className="text-foreground">{t("monthlyIncome")}</Label>
-                          <Input type="number" value={appFormData.monthlyIncome} onChange={(e) => setAppFormData({ ...appFormData, monthlyIncome: parseInt(e.target.value) || 0 })} required className="bg-background border-border text-foreground mt-2" />
-                        </div>
-                        <div>
-                          <Label className="text-foreground">{t("householdSize")}</Label>
-                          <Input type="number" min={1} value={appFormData.householdSize} onChange={(e) => setAppFormData({ ...appFormData, householdSize: parseInt(e.target.value) || 1 })} required className="bg-background border-border text-foreground mt-2" />
-                        </div>
-                        <div>
-                          <Label className="text-foreground">{t("applicantOccupation")}</Label>
-                          <Input value={appFormData.occupation} onChange={(e) => setAppFormData({ ...appFormData, occupation: e.target.value })} className="bg-background border-border text-foreground mt-2" />
+                          <Label style={{ color: "var(--foreground)" }}>{t("desiredMoveIn")}</Label>
+                          <Input type="date" value={appFormData.desiredMoveIn} onChange={(e) => setAppFormData({ ...appFormData, desiredMoveIn: e.target.value })} required className="mt-2" style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }} />
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-3 gap-3">
                         <div>
-                          <Label className="text-foreground">{t("employer")}</Label>
-                          <Input value={appFormData.employer} onChange={(e) => setAppFormData({ ...appFormData, employer: e.target.value })} className="bg-background border-border text-foreground mt-2" />
+                          <Label style={{ color: "var(--foreground)" }}>{t("monthlyIncome")}</Label>
+                          <Input type="number" value={appFormData.monthlyIncome} onChange={(e) => setAppFormData({ ...appFormData, monthlyIncome: parseInt(e.target.value) || 0 })} required className="mt-2" style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }} />
                         </div>
                         <div>
-                          <Label className="text-foreground">{t("currentAddress")}</Label>
-                          <Input value={appFormData.currentAddress} onChange={(e) => setAppFormData({ ...appFormData, currentAddress: e.target.value })} required className="bg-background border-border text-foreground mt-2" />
+                          <Label style={{ color: "var(--foreground)" }}>{t("householdSize")}</Label>
+                          <Input type="number" min={1} value={appFormData.householdSize} onChange={(e) => setAppFormData({ ...appFormData, householdSize: parseInt(e.target.value) || 1 })} required className="mt-2" style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }} />
+                        </div>
+                        <div>
+                          <Label style={{ color: "var(--foreground)" }}>{t("applicantOccupation")}</Label>
+                          <Input value={appFormData.occupation} onChange={(e) => setAppFormData({ ...appFormData, occupation: e.target.value })} className="mt-2" style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }} />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label style={{ color: "var(--foreground)" }}>{t("employer")}</Label>
+                          <Input value={appFormData.employer} onChange={(e) => setAppFormData({ ...appFormData, employer: e.target.value })} className="mt-2" style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }} />
+                        </div>
+                        <div>
+                          <Label style={{ color: "var(--foreground)" }}>{t("currentAddress")}</Label>
+                          <Input value={appFormData.currentAddress} onChange={(e) => setAppFormData({ ...appFormData, currentAddress: e.target.value })} required className="mt-2" style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }} />
                         </div>
                       </div>
                       <div>
-                        <Label className="text-foreground">{t("applicationMessage")}</Label>
-                        <Textarea value={appFormData.message} onChange={(e) => setAppFormData({ ...appFormData, message: e.target.value })} rows={3} className="bg-background border-border text-foreground mt-2" />
+                        <Label style={{ color: "var(--foreground)" }}>{t("applicationMessage")}</Label>
+                        <Textarea value={appFormData.message} onChange={(e) => setAppFormData({ ...appFormData, message: e.target.value })} rows={3} className="mt-2" style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }} />
                       </div>
-                      <div className="flex gap-3 pt-4">
-                        <Button type="submit" className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground">{t("create")}</Button>
-                        <Button type="button" variant="outline" onClick={() => setIsAppDialogOpen(false)} className="flex-1 border-border text-foreground">{t("cancel")}</Button>
+                      <div className="flex gap-3 pt-2">
+                        <button type="submit" className="flex-1 rounded-xl text-[13px] font-semibold py-2.5" style={{ background: "var(--primary)", color: "var(--primary-foreground)" }}>{t("create")}</button>
+                        <button type="button" onClick={() => setIsAppDialogOpen(false)} className="flex-1 rounded-xl text-[13px] font-medium py-2.5" style={{ border: "1px solid var(--border)", color: "var(--foreground)", background: "var(--background)" }}>{t("cancel")}</button>
                       </div>
                     </form>
                   </DialogContent>
@@ -653,268 +686,399 @@ export function RequestsView() {
             </div>
           </div>
 
-          {/* Tabs - only show for admin */}
+          {/* Tabs (admin only) */}
           {isAdmin && (
-            <div className="flex items-center gap-1 mt-5">
-              <button
-                onClick={() => setActiveTab("maintenance")}
-                className={cn(
-                  "flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors",
-                  activeTab === "maintenance"
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                )}
-              >
-                <Wrench className="w-4 h-4" />
-                {t("maintenanceTab")}
-                {pendingCount > 0 && (
-                  <span className={cn(
-                    "ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold",
-                    activeTab === "maintenance" ? "bg-white/20 text-white" : "bg-amber-100 text-amber-700"
-                  )}>
-                    {pendingCount}
-                  </span>
-                )}
-              </button>
-              <button
-                onClick={() => setActiveTab("applications")}
-                className={cn(
-                  "flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors",
-                  activeTab === "applications"
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                )}
-              >
-                <FileText className="w-4 h-4" />
-                {t("rentalApplicationsTab")}
-                {receivedCount > 0 && (
-                  <span className={cn(
-                    "ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold",
-                    activeTab === "applications" ? "bg-white/20 text-white" : "bg-blue-100 text-blue-700"
-                  )}>
-                    {receivedCount}
-                  </span>
-                )}
-              </button>
+            <div className="flex items-center gap-2 mt-5">
+              {[
+                { key: "maintenance", icon: Wrench, label: t("maintenanceTab"), badge: pendingCount },
+                { key: "applications", icon: FileText, label: t("rentalApplicationsTab"), badge: receivedCount },
+              ].map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.key as any;
+                return (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setActiveTab(tab.key as any)}
+                    className="flex items-center gap-2 rounded-xl text-[13px] font-medium transition-all"
+                    style={{
+                      padding: "8px 16px",
+                      background: isActive ? "var(--primary)" : "transparent",
+                      color: isActive ? "var(--primary-foreground)" : "var(--muted-foreground)",
+                      boxShadow: isActive ? "0 1px 4px rgba(69,85,58,0.18)" : "none",
+                    }}
+                    onMouseEnter={(e) => { if (!isActive) { e.currentTarget.style.background = "var(--background)"; e.currentTarget.style.color = "var(--foreground)"; } }}
+                    onMouseLeave={(e) => { if (!isActive) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--muted-foreground)"; } }}
+                  >
+                    <Icon className="w-4 h-4" />
+                    {tab.label}
+                    {tab.badge > 0 && (
+                      <span
+                        className="rounded-full text-[10px] font-bold"
+                        style={{
+                          padding: "1px 6px",
+                          background: isActive ? "rgba(255,255,255,0.22)" : "rgba(245,158,11,0.15)",
+                          color: isActive ? "#fff" : "#B45309",
+                        }}
+                      >
+                        {tab.badge}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
       </div>
 
-      {/* Content */}
-      <div className="px-6 lg:px-8 py-6">
-        {/* ═══════════════ MAINTENANCE TAB ═══════════════ */}
+      {/* ── Content ───────────────────────────────────────── */}
+      <div className="max-w-[1200px] mx-auto px-8 py-6">
+
+        {/* ═══ MAINTENANCE TAB ═══ */}
         {activeTab === "maintenance" && (
-          <div className="space-y-4">
+          <div className="space-y-5">
             {/* Filters */}
-            <div className="flex flex-wrap gap-2 mb-2">
-              {(["all", "pending", "in-progress", "completed"] as const).map((f) => (
-                <button
-                  key={f}
-                  onClick={() => setFilter(f)}
-                  className={cn(
-                    "px-4 py-2 rounded-xl text-sm font-medium transition-colors",
-                    filter === f
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-muted/50"
+            <div className="flex flex-wrap gap-2">
+              {([
+                { key: "all",         label: t("filterAll") },
+                { key: "pending",     label: t("filterPending"),    count: pendingCount },
+                { key: "in-progress", label: t("filterInProgress"), count: inProgressCount },
+                { key: "completed",   label: t("filterCompleted") },
+              ] as const).map((f) => (
+                <FilterPill key={f.key} active={filter === f.key} onClick={() => setFilter(f.key)}>
+                  {f.label}
+                  {(f as any).count > 0 && (
+                    <span
+                      className="rounded-full text-[10px] font-bold"
+                      style={{
+                        padding: "1px 6px",
+                        background: filter === f.key ? "rgba(255,255,255,0.22)" : "rgba(245,158,11,0.15)",
+                        color: filter === f.key ? "#fff" : "#B45309",
+                      }}
+                    >
+                      {(f as any).count}
+                    </span>
                   )}
-                >
-                  {f === "all" ? t("filterAll") : f === "pending" ? t("filterPending") : f === "in-progress" ? t("filterInProgress") : t("filterCompleted")}
-                  {f === "pending" && pendingCount > 0 && (
-                    <span className="ml-1.5 text-xs opacity-80">{pendingCount}</span>
-                  )}
-                  {f === "in-progress" && inProgressCount > 0 && (
-                    <span className="ml-1.5 text-xs opacity-80">{inProgressCount}</span>
-                  )}
-                </button>
+                </FilterPill>
               ))}
             </div>
 
             {/* Request cards */}
             <div className="space-y-3">
-              {filteredRequests.map((request) => (
-                <div
-                  key={request.id}
-                  className="rounded-2xl bg-card border border-border p-5 hover:border-primary/20 transition-all group"
-                >
-                  <div className="flex items-start gap-4">
-                    <div className={cn(
-                      "w-10 h-10 rounded-xl flex items-center justify-center shrink-0",
-                      request.status === "pending" ? "bg-amber-50 text-amber-600" :
-                      request.status === "in-progress" ? "bg-blue-50 text-blue-600" :
-                      "bg-emerald-50 text-emerald-600"
-                    )}>
-                      {request.status === "pending" ? <Clock className="w-5 h-5" /> :
-                       request.status === "in-progress" ? <AlertCircle className="w-5 h-5" /> :
-                       <CheckCircle className="w-5 h-5" />}
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2 mb-2">
-                        <h3 className="text-base font-semibold text-foreground">{request.title}</h3>
-                        <MaintenanceStatusBadge status={request.status} t={t} />
-                        <PriorityBadge priority={request.priority} t={t} />
+              {filteredRequests.map((req) => {
+                const sc = MAINT_STATUS[req.status] ?? MAINT_STATUS.pending;
+                return (
+                  <div
+                    key={req.id}
+                    className="group rounded-2xl p-5 transition-all"
+                    style={{
+                      background: "var(--card)",
+                      border: "1px solid var(--border)",
+                      boxShadow: "0 1px 2px rgba(0,0,0,0.03)",
+                    }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(69,85,58,0.25)"; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = "var(--border)"; }}
+                  >
+                    <div className="flex items-start gap-4">
+                      {/* Status icon */}
+                      <div
+                        className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
+                        style={{ background: sc.bg, color: sc.fg }}
+                      >
+                        {statusIcon(req.status)}
                       </div>
 
-                      <p className="text-sm text-muted-foreground mb-3 leading-relaxed line-clamp-2">
-                        {request.description}
-                      </p>
-
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Home className="w-3.5 h-3.5" />
-                          {request.buildingName} &middot; {t("unit")} {request.unit}
-                        </span>
-                        {isAdmin && (
-                          <span className="flex items-center gap-1">
-                            <User className="w-3.5 h-3.5" />
-                            {request.tenantName}
-                          </span>
-                        )}
-                        <span className="flex items-center gap-1">
-                          <Calendar className="w-3.5 h-3.5" />
-                          {formatDate(request.createdAt)}
-                        </span>
-                      </div>
-
-                      {isAdmin && (
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {(["pending", "in-progress", "completed"] as const).map((s) => (
-                            <button
-                              key={s}
-                              onClick={() => handleStatusChange(request.id, s)}
-                              disabled={request.status === s}
-                              className={cn(
-                                "px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border",
-                                request.status === s
-                                  ? "bg-muted/50 text-muted-foreground border-border cursor-default"
-                                  : "bg-card border-border text-foreground hover:bg-muted/50"
-                              )}
-                            >
-                              {s === "pending" ? t("pending") : s === "in-progress" ? t("inProgress") : t("completed")}
-                            </button>
-                          ))}
+                      <div className="flex-1 min-w-0">
+                        {/* Title row */}
+                        <div className="flex items-start justify-between gap-3 mb-1">
+                          <h3 className="text-[14px] font-semibold leading-tight" style={{ color: "var(--foreground)" }}>
+                            {req.title}
+                          </h3>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <PriorityBadge priority={req.priority} t={t} />
+                            <MaintBadge status={req.status} t={t} />
+                          </div>
                         </div>
-                      )}
-                    </div>
 
-                    <button
-                      onClick={() => handleDelete(request.id)}
-                      className="p-2 rounded-lg transition-colors hover:bg-red-50 opacity-0 group-hover:opacity-100"
-                    >
-                      <Trash2 className="w-4 h-4 text-red-400" />
-                    </button>
+                        {/* Description */}
+                        <p className="text-[13px] mb-3 line-clamp-2" style={{ color: "var(--muted-foreground)" }}>
+                          {req.description}
+                        </p>
+
+                        {/* Meta row */}
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mb-3">
+                          <span className="flex items-center gap-1.5 text-[12px]" style={{ color: "var(--muted-foreground)" }}>
+                            <Home className="w-3.5 h-3.5" />
+                            {req.buildingName} · {t("unit")} {req.unit}
+                          </span>
+                          {isAdmin && (
+                            <span className="flex items-center gap-1.5 text-[12px]" style={{ color: "var(--muted-foreground)" }}>
+                              <User className="w-3.5 h-3.5" />
+                              {req.tenantName}
+                            </span>
+                          )}
+                          <span className="flex items-center gap-1.5 text-[12px]" style={{ color: "var(--muted-foreground)" }}>
+                            <Calendar className="w-3.5 h-3.5" />
+                            {formatDate(req.createdAt)}
+                          </span>
+                        </div>
+
+                        {/* Admin status actions */}
+                        {isAdmin && (
+                          <div className="flex flex-wrap gap-2">
+                            {(["pending", "in-progress", "completed"] as const).map((s) => {
+                              const sc2 = MAINT_STATUS[s];
+                              const isActive = req.status === s;
+                              return (
+                                <button
+                                  key={s}
+                                  type="button"
+                                  onClick={() => handleStatusChange(req.id, s)}
+                                  disabled={isActive}
+                                  className="flex items-center gap-1.5 rounded-lg text-[11px] font-semibold transition-all"
+                                  style={{
+                                    padding: "5px 10px",
+                                    background: isActive ? sc2.bg : "var(--background)",
+                                    color: isActive ? sc2.fg : "var(--muted-foreground)",
+                                    border: `1px solid ${isActive ? "transparent" : "var(--border)"}`,
+                                    cursor: isActive ? "default" : "pointer",
+                                  }}
+                                >
+                                  <StatusDot color={isActive ? sc2.dot : "var(--muted-foreground)"} />
+                                  {s === "pending" ? t("pending") : s === "in-progress" ? t("inProgress") : t("completed")}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Delete */}
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(req.id)}
+                        className="w-8 h-8 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shrink-0 mt-0.5"
+                        style={{ color: "var(--muted-foreground)" }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(239,68,68,0.08)"; e.currentTarget.style.color = "#DC2626"; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--muted-foreground)"; }}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {filteredRequests.length === 0 && (
-              <div className="text-center py-16 rounded-2xl bg-card border border-border">
-                <Wrench className="w-12 h-12 text-muted mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-foreground mb-2">{t("noRequests")}</h3>
-                <p className="text-sm text-muted-foreground">
-                  {filter === "all"
-                    ? isAdmin ? t("noRequestsAdmin") : t("noRequestsTenant")
-                    : t("noRequestsFilter")}
+              <div
+                className="rounded-2xl p-14 text-center"
+                style={{ background: "var(--card)", border: "1px solid var(--border)" }}
+              >
+                <Wrench className="w-10 h-10 mx-auto mb-3 opacity-20" style={{ color: "var(--muted-foreground)" }} />
+                <p className="text-[14px] font-semibold" style={{ color: "var(--foreground)" }}>{t("noRequests")}</p>
+                <p className="text-[12px] mt-1" style={{ color: "var(--muted-foreground)" }}>
+                  {filter === "all" ? (isAdmin ? t("noRequestsAdmin") : t("noRequestsTenant")) : t("noRequestsFilter")}
                 </p>
               </div>
             )}
           </div>
         )}
 
-        {/* ═══════════════ RENTAL APPLICATIONS TAB ═══════════════ */}
+        {/* ═══ APPLICATIONS TAB ═══ */}
         {activeTab === "applications" && isAdmin && (
-          <div className="space-y-4">
+          <div className="space-y-5">
             {/* Filters */}
-            <div className="flex flex-wrap gap-2 mb-2">
-              {(["all", "received", "under-review", "accepted", "rejected"] as const).map((f) => (
-                <button
-                  key={f}
-                  onClick={() => setAppFilter(f)}
-                  className={cn(
-                    "px-4 py-2 rounded-xl text-sm font-medium transition-colors",
-                    appFilter === f
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-muted/50"
+            <div className="flex flex-wrap gap-2">
+              {([
+                { key: "all",          label: t("filterAll") },
+                { key: "received",     label: t("received"),    count: receivedCount },
+                { key: "under-review", label: t("underReview"), count: reviewCount },
+                { key: "accepted",     label: t("accepted") },
+                { key: "rejected",     label: t("rejected") },
+              ] as const).map((f) => (
+                <FilterPill key={f.key} active={appFilter === f.key} onClick={() => setAppFilter(f.key)}>
+                  {f.label}
+                  {(f as any).count > 0 && (
+                    <span className="rounded-full text-[10px] font-bold" style={{ padding: "1px 6px", background: appFilter === f.key ? "rgba(255,255,255,0.22)" : "rgba(99,102,241,0.12)", color: appFilter === f.key ? "#fff" : "#4338CA" }}>
+                      {(f as any).count}
+                    </span>
                   )}
-                >
-                  {f === "all" ? t("filterAll") : f === "received" ? t("received") : f === "under-review" ? t("underReview") : f === "accepted" ? t("accepted") : t("rejected")}
-                  {f === "received" && receivedCount > 0 && <span className="ml-1.5 text-xs opacity-80">{receivedCount}</span>}
-                  {f === "under-review" && reviewCount > 0 && <span className="ml-1.5 text-xs opacity-80">{reviewCount}</span>}
-                </button>
+                </FilterPill>
               ))}
             </div>
 
             {/* Application cards */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {filteredApplications.map((app) => (
-                <div
-                  key={app.id}
-                  className="rounded-2xl bg-card border border-border p-5 hover:border-primary/20 hover:shadow-md transition-all cursor-pointer group"
-                  onClick={() => setDrawerAppId(app.id)}
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 rounded-xl bg-primary/8 flex items-center justify-center">
-                        <User className="w-5 h-5 text-primary" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-foreground">{app.applicantName}</h3>
-                        <p className="text-xs text-muted-foreground">{app.occupation}</p>
-                      </div>
-                    </div>
-                    <ApplicationStatusBadge status={app.status} t={t} />
-                  </div>
+            <div className="space-y-3">
+              {filteredApplications.map((app) => {
+                const sc = APP_STATUS[app.status];
+                return (
+                  <div
+                    key={app.id}
+                    className="group rounded-2xl overflow-hidden transition-all cursor-pointer"
+                    style={{
+                      background: "var(--card)",
+                      border: "1px solid var(--border)",
+                      boxShadow: "0 1px 2px rgba(0,0,0,0.03)",
+                    }}
+                    onClick={() => setDrawerAppId(app.id)}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(69,85,58,0.25)"; (e.currentTarget as HTMLDivElement).style.boxShadow = "0 2px 8px rgba(0,0,0,0.07)"; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = "var(--border)"; (e.currentTarget as HTMLDivElement).style.boxShadow = "0 1px 2px rgba(0,0,0,0.03)"; }}
+                  >
+                    {/* Status accent bar */}
+                    <div className="h-1 w-full" style={{ background: sc?.dot ?? "var(--border)" }} />
 
-                  <div className="grid grid-cols-2 gap-3 mb-3">
-                    <div className="flex items-center gap-2">
-                      <Home className="w-3.5 h-3.5 text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground">
-                        {app.buildingName} &middot; {t("unit")} {app.desiredUnit}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground">
-                        {new Date(app.desiredMoveIn).toLocaleDateString("fr-CH")}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <DollarSign className="w-3.5 h-3.5 text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground">{formatCHF(app.monthlyIncome)}/mois</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Users className="w-3.5 h-3.5 text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground">{app.householdSize} {t("numberOfPersons")}</span>
-                    </div>
-                  </div>
+                    <div className="p-5">
+                      {/* 3-column grid layout */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-6">
 
-                  <div className="flex items-center justify-between pt-3 border-t border-border">
-                    <span className="text-xs text-muted-foreground">
-                      {t("applicationDate")}: {formatDate(app.createdAt)}
-                    </span>
-                    <div className="flex items-center gap-1 text-xs text-primary font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-                      {t("reviewApplication")}
-                      <ChevronRight className="w-3.5 h-3.5" />
+                        {/* LEFT: Identity */}
+                        <div className="flex items-start gap-3">
+                          <div
+                            className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 text-[15px] font-bold"
+                            style={{ background: "var(--sidebar-accent)", color: "var(--primary)" }}
+                          >
+                            {app.applicantName.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-[14px] font-semibold leading-tight" style={{ color: "var(--foreground)" }}>
+                              {app.applicantName}
+                            </p>
+                            <p className="text-[12px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>
+                              {app.occupation}
+                            </p>
+                            <p className="text-[11px] mt-1" style={{ color: "var(--muted-foreground)" }}>
+                              {app.employer}
+                            </p>
+                            <div className="mt-2">
+                              <AppBadge status={app.status} />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* CENTER: Property + financials */}
+                        <div className="space-y-2.5">
+                          <div>
+                            <p className="text-[10px] font-semibold uppercase mb-0.5" style={{ color: "var(--muted-foreground)", letterSpacing: "0.06em" }}>
+                              Bien
+                            </p>
+                            <div className="flex items-center gap-1.5">
+                              <Home className="w-3.5 h-3.5 shrink-0" style={{ color: "var(--primary)" }} />
+                              <p className="text-[13px] font-medium" style={{ color: "var(--foreground)" }}>
+                                {app.buildingName}
+                              </p>
+                            </div>
+                            <p className="text-[12px] mt-0.5 ml-5" style={{ color: "var(--muted-foreground)" }}>
+                              {t("unit")} {app.desiredUnit}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-semibold uppercase mb-0.5" style={{ color: "var(--muted-foreground)", letterSpacing: "0.06em" }}>
+                              Revenu mensuel
+                            </p>
+                            <div className="flex items-center gap-1.5">
+                              <DollarSign className="w-3.5 h-3.5 shrink-0" style={{ color: "var(--primary)" }} />
+                              <p className="text-[13px] font-semibold" style={{ color: "var(--foreground)" }}>
+                                {formatCHF(app.monthlyIncome)}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* RIGHT: Dates, household, actions */}
+                        <div className="flex flex-col justify-between gap-3">
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <Calendar className="w-3.5 h-3.5 shrink-0" style={{ color: "var(--muted-foreground)" }} />
+                              <div>
+                                <p className="text-[10px]" style={{ color: "var(--muted-foreground)" }}>Entrée souhaitée</p>
+                                <p className="text-[12px] font-medium" style={{ color: "var(--foreground)" }}>
+                                  {new Date(app.desiredMoveIn).toLocaleDateString("fr-CH")}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Users className="w-3.5 h-3.5 shrink-0" style={{ color: "var(--muted-foreground)" }} />
+                              <p className="text-[12px]" style={{ color: "var(--muted-foreground)" }}>
+                                {app.householdSize} {t("numberOfPersons")}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Calendar className="w-3.5 h-3.5 shrink-0" style={{ color: "var(--muted-foreground)" }} />
+                              <p className="text-[12px]" style={{ color: "var(--muted-foreground)" }}>
+                                {t("applicationDate")}: {formatDate(app.createdAt)}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Quick actions */}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setDrawerAppId(app.id); }}
+                              className="flex items-center gap-1.5 rounded-lg text-[11px] font-semibold transition-colors"
+                              style={{ padding: "5px 10px", background: "var(--sidebar-accent)", color: "var(--primary)" }}
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              Dossier
+                            </button>
+                            {app.status !== "accepted" && (
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); handleAppStatusChange(app.id, "accepted"); }}
+                                className="flex items-center gap-1.5 rounded-lg text-[11px] font-semibold transition-colors"
+                                style={{ padding: "5px 10px", background: "rgba(34,197,94,0.10)", color: "#15803D" }}
+                              >
+                                <CheckCheck className="w-3.5 h-3.5" />
+                                {t("approve")}
+                              </button>
+                            )}
+                            {app.status !== "rejected" && (
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); handleAppStatusChange(app.id, "rejected"); }}
+                                className="flex items-center gap-1.5 rounded-lg text-[11px] font-semibold transition-colors"
+                                style={{ padding: "5px 10px", background: "rgba(239,68,68,0.08)", color: "#DC2626" }}
+                              >
+                                <X className="w-3.5 h-3.5" />
+                                {t("reject")}
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); handleAppDelete(app.id); }}
+                              className="w-7 h-7 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all ml-auto"
+                              style={{ color: "var(--muted-foreground)" }}
+                              onMouseEnter={(e2) => { e2.currentTarget.style.background = "rgba(239,68,68,0.08)"; e2.currentTarget.style.color = "#DC2626"; }}
+                              onMouseLeave={(e2) => { e2.currentTarget.style.background = "transparent"; e2.currentTarget.style.color = "var(--muted-foreground)"; }}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {filteredApplications.length === 0 && (
-              <div className="text-center py-16 rounded-2xl bg-card border border-border">
-                <FileText className="w-12 h-12 text-muted mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-foreground mb-2">{t("noApplications")}</h3>
-                <p className="text-sm text-muted-foreground">{t("noApplicationsSub")}</p>
+              <div
+                className="rounded-2xl p-14 text-center"
+                style={{ background: "var(--card)", border: "1px solid var(--border)" }}
+              >
+                <FileText className="w-10 h-10 mx-auto mb-3 opacity-20" style={{ color: "var(--muted-foreground)" }} />
+                <p className="text-[14px] font-semibold" style={{ color: "var(--foreground)" }}>{t("noApplications")}</p>
+                <p className="text-[12px] mt-1" style={{ color: "var(--muted-foreground)" }}>{t("noApplicationsSub")}</p>
               </div>
             )}
           </div>
         )}
       </div>
 
-      {/* Application detail drawer */}
+      {/* Application drawer */}
       <ApplicationDrawer
         app={drawerApp}
         open={!!drawerAppId}
