@@ -94,8 +94,6 @@ function AdminDashboard({
 
   return (
     <div style={{ padding: "32px 32px 48px" }}>
-      {/* TEST: big red square */}
-      <div style={{ width: 200, height: 200, background: "red", margin: "0 auto 32px" }} />
       {/* ── Page Header ───────────────────────────────────────── */}
       <div style={{ marginBottom: 28 }}>
         <div className="flex items-center gap-3 mb-1">
