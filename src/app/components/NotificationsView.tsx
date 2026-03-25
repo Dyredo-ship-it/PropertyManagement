@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Bell,
   Plus,
@@ -570,7 +571,7 @@ function ModalShell({
   children: React.ReactNode;
   onClose: () => void;
 }) {
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center"
       style={{ background: "rgba(0,0,0,0.35)", padding: 16 }}
@@ -602,7 +603,8 @@ function ModalShell({
         </button>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
