@@ -138,7 +138,7 @@ export function TopHeader() {
       <div className="flex-1" />
 
       {/* Right controls */}
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1.5">
 
         {/* Theme toggle */}
         <IconBtn onClick={toggleTheme} title={theme === "light" ? t("darkMode") : t("lightMode")}>
@@ -380,10 +380,13 @@ function IconBtn({
       type="button"
       onClick={onClick}
       title={title}
-      className="relative flex items-center gap-1 h-9 px-2.5 rounded-xl transition-colors"
+      className="relative flex items-center gap-1.5 h-9 px-2.5 rounded-xl transition-colors"
       style={{
         color: active ? "var(--foreground)" : "var(--muted-foreground)",
         background: active ? "var(--background)" : "transparent",
+        border: "none",
+        outline: "none",
+        boxShadow: "none",
       }}
       onMouseEnter={(e) => {
         if (!active) {
