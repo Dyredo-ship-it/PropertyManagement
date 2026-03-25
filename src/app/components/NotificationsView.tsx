@@ -249,7 +249,7 @@ export function NotificationsView() {
             style={{
               padding: "64px 24px",
               borderRadius: 16,
-              border: "1px solid var(--border)",
+              border: "none",
               background: "var(--card)",
             }}
           >
@@ -283,9 +283,7 @@ export function NotificationsView() {
                 key={notif.id}
                 style={{
                   borderRadius: 16,
-                  border: isUnread
-                    ? "1px solid var(--primary)"
-                    : "1px solid var(--border)",
+                  border: "none",
                   background: isUnread ? "var(--sidebar-accent)" : "var(--card)",
                   padding: "18px 20px",
                   opacity: isUnread ? 1 : 0.75,

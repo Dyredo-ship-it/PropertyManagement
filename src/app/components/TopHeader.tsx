@@ -208,12 +208,12 @@ export function TopHeader() {
             <Bell className="w-[17px] h-[17px]" />
             {unreadCount > 0 && (
               <span
-                className="absolute rounded-full text-[9px] font-bold text-white flex items-center justify-center"
+                className="absolute rounded-full text-[7px] font-bold text-white flex items-center justify-center"
                 style={{
-                  top: 2,
-                  right: 0,
-                  width: 16,
-                  height: 16,
+                  top: 0,
+                  right: -2,
+                  width: 14,
+                  height: 14,
                   background: "#EF4444",
                   boxShadow: "0 0 0 2px var(--card)",
                   lineHeight: 1,
