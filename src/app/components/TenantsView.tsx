@@ -343,7 +343,7 @@ function BuildingCard({
 }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   TENANT DETAIL DRAWER — premium slide-out panel
+   TENANT DETAIL POPUP — centered modal
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
 function TenantDetailDrawer({
@@ -354,19 +354,7 @@ function TenantDetailDrawer({
   onEdit,
   onDelete,
   onEmail,
-  ficheNotes,
   ficheDocs,
-  noteDate,
-  setNoteDate,
-  noteText,
-  setNoteText,
-  addNote,
-  deleteNote,
-  docCategory,
-  setDocCategory,
-  fileInputRef,
-  uploadDoc,
-  deleteDoc,
   requests,
 }: {
   tenant: any;
@@ -376,22 +364,9 @@ function TenantDetailDrawer({
   onEdit: () => void;
   onDelete: () => void;
   onEmail: () => void;
-  ficheNotes: TenantNote[];
   ficheDocs: TenantDocument[];
-  noteDate: string;
-  setNoteDate: (v: string) => void;
-  noteText: string;
-  setNoteText: (v: string) => void;
-  addNote: () => void;
-  deleteNote: (id: string) => void;
-  docCategory: TenantDocument["category"];
-  setDocCategory: (v: TenantDocument["category"]) => void;
-  fileInputRef: React.RefObject<HTMLInputElement | null>;
-  uploadDoc: (file: File) => Promise<void>;
-  deleteDoc: (id: string) => void;
   requests: MaintenanceRequest[];
 }) {
-  const [activeTab, setActiveTab] = useState<"overview" | "notes" | "documents">("overview");
   const [showSendDoc, setShowSendDoc] = useState(false);
   const [sendDocFile, setSendDocFile] = useState<File | null>(null);
   const [sendDocCategory, setSendDocCategory] = useState<TenantDocument["category"]>("Communication");
@@ -444,7 +419,7 @@ function TenantDetailDrawer({
     setShowSendDoc(false);
   };
 
-  if (!tenant) return null;
+  if (!tenant || !open) return null;
 
   const rentNet = Number(tenant.rentNet ?? tenant.rent ?? 0) || 0;
   const charges = Number(tenant.charges ?? 0) || 0;
@@ -453,336 +428,170 @@ function TenantDetailDrawer({
   const openReqs = tenantRequests.filter((r) => r.status === "pending" || r.status === "in-progress");
   const closedReqs = tenantRequests.filter((r) => r.status === "completed");
 
-  const tabs = [
-    { key: "overview" as const, label: t("details"), icon: User },
-    { key: "notes" as const, label: t("tenantNotes"), icon: MessageSquare },
-    { key: "documents" as const, label: t("viewDocuments"), icon: FileText },
-  ];
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: "rgba(0,0,0,0.4)", padding: 24 }}
+      onClick={onClose}
+    >
 
-  return (
-    <>
-      {/* Backdrop */}
       <div
-        className={cn(
-          "fixed inset-0 z-40 transition-all duration-300",
-          open ? "opacity-100 backdrop-blur-sm bg-black/30" : "opacity-0 pointer-events-none"
-        )}
-        onClick={onClose}
-      />
-
-      {/* Panel */}
-      <div
-        className={cn(
-          "fixed right-0 top-0 h-full w-full max-w-[520px] z-50 transform transition-transform duration-300 ease-out flex flex-col shadow-2xl",
-          open ? "translate-x-0" : "translate-x-full"
-        )}
-        style={{ background: "var(--card)" }}
+        className="w-full max-w-2xl relative max-h-[85vh] overflow-y-auto"
+        style={{
+          borderRadius: 24,
+          background: "var(--card)",
+          boxShadow: "0 24px 64px rgba(0,0,0,0.18)",
+        }}
+        onClick={(e) => e.stopPropagation()}
       >
-        {/* ─── Header with colored banner ─── */}
-        <div className="shrink-0">
-          <div className="relative h-28 bg-gradient-to-br from-[#45553A] via-[#5A6B4F] to-[#3D4A33] overflow-hidden">
-            <div className="absolute inset-0 opacity-10"
-              style={{ backgroundImage: "url('data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"60\" height=\"60\" viewBox=\"0 0 60 60\"><circle cx=\"30\" cy=\"30\" r=\"1.5\" fill=\"white\" opacity=\"0.3\"/></svg>')" }}
-            />
-            <div className="absolute inset-0 flex items-end p-5">
-              <div className="flex items-center gap-4 flex-1">
-                <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-lg font-bold shadow-lg"
-                  style={{
-                    background: "rgba(255,255,255,0.2)",
-                    backdropFilter: "blur(12px)",
-                    color: "white",
-                    border: "1px solid rgba(255,255,255,0.2)",
-                  }}
-                >
-                  {getInitials(tenant.name)}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h2 className="text-xl font-bold text-white drop-shadow-sm truncate">{tenant.name}</h2>
-                  <p className="text-sm text-white/70 mt-0.5">
-                    {tenant.buildingName} &middot; {t("unit")} {tenant.unit}
-                  </p>
-                </div>
+        {/* ─── Header banner ─── */}
+        <div className="relative h-32 bg-gradient-to-br from-[#45553A] via-[#5A6B4F] to-[#3D4A33] overflow-hidden"
+          style={{ borderRadius: "24px 24px 0 0" }}
+        >
+          <div className="absolute inset-0 flex items-end p-6">
+            <div className="flex items-center gap-4 flex-1">
+              <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-lg font-bold shadow-lg"
+                style={{
+                  background: "rgba(255,255,255,0.2)",
+                  backdropFilter: "blur(12px)",
+                  color: "white",
+                }}
+              >
+                {getInitials(tenant.name)}
               </div>
-              <button onClick={onClose} className="p-2 rounded-xl hover:bg-white/10 transition-colors self-start">
-                <X className="w-5 h-5 text-white/70" />
-              </button>
+              <div className="min-w-0 flex-1">
+                <h2 className="text-xl font-bold text-white drop-shadow-sm truncate">{tenant.name}</h2>
+                <p className="text-sm text-white/70 mt-0.5">
+                  {tenant.buildingName} &middot; {t("unit")} {tenant.unit}
+                </p>
+              </div>
+              <StatusDotLight status={tenant.status} t={t} />
             </div>
-          </div>
-
-          {/* Quick actions bar */}
-          <div className="flex items-center gap-2 px-5 py-3 border-b" style={{ borderColor: "var(--border)" }}>
-            <StatusDotLight status={tenant.status} t={t} />
-            <div className="flex-1" />
-            <button onClick={onEdit}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-              style={{ background: "var(--primary)", color: "var(--primary-foreground)" }}
-            >
-              <Edit className="w-3.5 h-3.5" />
-              {t("edit")}
+            <button onClick={onClose} className="p-2 rounded-xl hover:bg-white/10 transition-colors self-start ml-3">
+              <X className="w-5 h-5 text-white/70" />
             </button>
-            <button onClick={onEmail}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors"
-              style={{ borderColor: "var(--border)", color: "var(--foreground)" }}
-            >
-              <Mail className="w-3.5 h-3.5" />
-              {t("contactTenant")}
-            </button>
-            <button onClick={() => setShowSendDoc(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors"
-              style={{ borderColor: "var(--border)", color: "var(--foreground)" }}
-            >
-              <Send className="w-3.5 h-3.5" />
-              {t("sendDocument")}
-            </button>
-            <button onClick={onDelete}
-              className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* Tabs */}
-          <div className="flex px-5 border-b" style={{ borderColor: "var(--border)" }}>
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              return (
-                <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-                  className={cn(
-                    "flex items-center gap-1.5 px-4 py-3 text-sm font-medium transition-colors relative",
-                    activeTab === tab.key ? "text-[var(--primary)]" : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
-                  )}
-                >
-                  <Icon className="w-3.5 h-3.5" />
-                  {tab.label}
-                  {activeTab === tab.key && (
-                    <div className="absolute bottom-0 left-3 right-3 h-[2px] rounded-full" style={{ background: "var(--primary)" }} />
-                  )}
-                </button>
-              );
-            })}
           </div>
         </div>
 
-        {/* ─── Tab content ─── */}
-        <div className="flex-1 overflow-y-auto">
-          {activeTab === "overview" && (
-            <div className="p-5 space-y-5">
-              {/* Contact */}
-              <Section title={t("contactTenant")}>
-                <div className="grid grid-cols-2 gap-3">
-                  <InfoCard icon={Mail} label={t("email")} value={tenant.email} />
-                  <InfoCard icon={Phone} label={t("phone")} value={tenant.phone} />
-                </div>
-              </Section>
+        {/* ─── Content ─── */}
+        <div className="p-6 space-y-6">
 
-              {/* Lease */}
-              <Section title={t("leaseDetails")}>
-                <div className="rounded-2xl overflow-hidden border" style={{ borderColor: "var(--border)" }}>
-                  <div className="grid grid-cols-2 divide-x" style={{ "borderColor": "var(--border)" } as any}>
-                    <LabelValue label={t("leaseStart")} value={tenant.leaseStart ? new Date(tenant.leaseStart).toLocaleDateString("fr-CH") : "—"} />
-                    <LabelValue label={t("leaseEnd")} value={tenant.leaseEnd ? new Date(tenant.leaseEnd).toLocaleDateString("fr-CH") : "—"} />
-                  </div>
-                  <div className="grid grid-cols-2 divide-x border-t" style={{ borderColor: "var(--border)" }}>
-                    <LabelValue label={t("building")} value={tenant.buildingName} />
-                    <LabelValue label={t("unit")} value={tenant.unit} />
-                  </div>
-                </div>
-              </Section>
-
-              {/* Financials */}
-              <Section title={t("financials")}>
-                <div className="rounded-2xl p-4 space-y-3 border" style={{ borderColor: "var(--border)" }}>
-                  <div className="flex justify-between">
-                    <span className="text-sm" style={{ color: "var(--muted-foreground)" }}>{t("netRentLabel")}</span>
-                    <span className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{formatCHF(rentNet)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm" style={{ color: "var(--muted-foreground)" }}>{t("chargesLabel")}</span>
-                    <span className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{formatCHF(charges)}</span>
-                  </div>
-                  <div className="flex justify-between pt-3 border-t" style={{ borderColor: "var(--border)" }}>
-                    <span className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>{t("totalMonthly")}</span>
-                    <span className="text-lg font-bold" style={{ color: "var(--primary)" }}>{formatCHF(total)}</span>
-                  </div>
-                </div>
-              </Section>
-
-              {/* Requests */}
-              <Section title={t("recentActivity")}>
-                <div className="grid grid-cols-2 gap-3 mb-3">
-                  <div className="rounded-xl p-3 text-center border" style={{ borderColor: "var(--border)" }}>
-                    <div className="flex items-center justify-center gap-2 mb-1">
-                      <AlertCircle className="w-4 h-4 text-amber-500" />
-                      <span className="text-xl font-bold" style={{ color: "var(--foreground)" }}>{openReqs.length}</span>
-                    </div>
-                    <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>{t("openRequests")}</p>
-                  </div>
-                  <div className="rounded-xl p-3 text-center border" style={{ borderColor: "var(--border)" }}>
-                    <div className="flex items-center justify-center gap-2 mb-1">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                      <span className="text-xl font-bold" style={{ color: "var(--foreground)" }}>{closedReqs.length}</span>
-                    </div>
-                    <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>{t("closedRequests")}</p>
-                  </div>
-                </div>
-                {tenantRequests.length > 0 ? (
-                  <div className="space-y-2">
-                    {tenantRequests.slice(0, 4).map((req) => (
-                      <div key={req.id} className="flex items-center gap-3 p-3 rounded-xl border" style={{ borderColor: "var(--border)" }}>
-                        <div className={cn("w-2 h-2 rounded-full shrink-0",
-                          req.status === "completed" ? "bg-emerald-500" : req.status === "in-progress" ? "bg-blue-500" : "bg-amber-500"
-                        )} />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm truncate" style={{ color: "var(--foreground)" }}>{req.title}</p>
-                          <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>
-                            {new Date(req.createdAt).toLocaleDateString("fr-CH")}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-6 rounded-xl" style={{ background: "var(--muted)", opacity: 0.5 }}>
-                    <Clock className="w-8 h-8 mx-auto mb-2" style={{ color: "var(--muted-foreground)" }} />
-                    <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>{t("noActivity")}</p>
-                  </div>
-                )}
-              </Section>
+          {/* Contact info */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex items-center gap-3 p-3.5 rounded-xl" style={{ background: "var(--background)" }}>
+              <Mail className="w-4 h-4 shrink-0" style={{ color: "var(--primary)" }} />
+              <div className="min-w-0">
+                <p className="text-[10px] uppercase tracking-wider font-medium" style={{ color: "var(--muted-foreground)" }}>{t("email")}</p>
+                <p className="text-sm truncate" style={{ color: "var(--foreground)" }}>{tenant.email}</p>
+              </div>
             </div>
-          )}
-
-          {activeTab === "notes" && (
-            <div className="p-5 space-y-4">
-              <Section title={t("internalNotes")} subtitle={t("managementNotes")}>
-                {/* Add note */}
-                <div className="rounded-2xl p-4 space-y-3 border" style={{ borderColor: "var(--border)" }}>
-                  <div className="flex gap-3">
-                    <div className="w-28">
-                      <Label className="text-[10px] uppercase tracking-wider font-medium" style={{ color: "var(--muted-foreground)" }}>{t("noteDate")}</Label>
-                      <Input type="date" value={noteDate} onChange={(e) => setNoteDate(e.target.value)}
-                        className="mt-1 text-sm h-9" style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }} />
-                    </div>
-                    <div className="flex-1">
-                      <Label className="text-[10px] uppercase tracking-wider font-medium" style={{ color: "var(--muted-foreground)" }}>{t("tenantNotes")}</Label>
-                      <div className="flex gap-2 mt-1">
-                        <Input value={noteText} onChange={(e) => setNoteText(e.target.value)}
-                          placeholder={t("writeNote")} className="text-sm h-9"
-                          style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }}
-                          onKeyDown={(e) => { if (e.key === "Enter") addNote(); }}
-                        />
-                        <Button type="button" onClick={addNote} size="sm" className="h-9 px-3"
-                          style={{ background: "var(--primary)", color: "var(--primary-foreground)" }}>
-                          <Plus className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-2 mt-3">
-                  {ficheNotes.length === 0 ? (
-                    <div className="text-center py-10 rounded-xl" style={{ background: "var(--background)" }}>
-                      <MessageSquare className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--muted)" }} />
-                      <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>{t("noNotesYet")}</p>
-                    </div>
-                  ) : (
-                    ficheNotes.slice().sort((a, b) => b.date.localeCompare(a.date)).map((n) => (
-                      <div key={n.id} className="rounded-xl p-4 group/note hover:shadow-sm transition-all border"
-                        style={{ borderColor: "var(--border)" }}>
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2 mb-1.5">
-                              <Calendar className="w-3.5 h-3.5" style={{ color: "var(--primary)" }} />
-                              <span className="text-xs font-semibold" style={{ color: "var(--primary)" }}>
-                                {new Date(n.date).toLocaleDateString("fr-CH")}
-                              </span>
-                            </div>
-                            <p className="text-sm whitespace-pre-wrap leading-relaxed" style={{ color: "var(--foreground)" }}>
-                              {n.text}
-                            </p>
-                          </div>
-                          <button onClick={() => deleteNote(n.id)}
-                            className="p-1.5 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors opacity-0 group-hover/note:opacity-100">
-                            <Trash2 className="w-3.5 h-3.5 text-red-400" />
-                          </button>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </Section>
+            <div className="flex items-center gap-3 p-3.5 rounded-xl" style={{ background: "var(--background)" }}>
+              <Phone className="w-4 h-4 shrink-0" style={{ color: "var(--primary)" }} />
+              <div className="min-w-0">
+                <p className="text-[10px] uppercase tracking-wider font-medium" style={{ color: "var(--muted-foreground)" }}>{t("phone")}</p>
+                <p className="text-sm truncate" style={{ color: "var(--foreground)" }}>{tenant.phone}</p>
+              </div>
             </div>
-          )}
+          </div>
 
-          {activeTab === "documents" && (
-            <div className="p-5 space-y-4">
-              <Section title={t("documents")}>
-                {/* Upload */}
-                <div className="rounded-2xl p-4 space-y-3 border" style={{ borderColor: "var(--border)" }}>
-                  <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-3 items-end">
-                    <div>
-                      <Label className="text-[10px] uppercase tracking-wider font-medium" style={{ color: "var(--muted-foreground)" }}>{t("category")}</Label>
-                      <Select value={docCategory} onValueChange={(v: any) => setDocCategory(v)}>
-                        <SelectTrigger className="mt-1 text-sm h-9" style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }}>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {DOC_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-[10px] uppercase tracking-wider font-medium" style={{ color: "var(--muted-foreground)" }}>{t("file")}</Label>
-                      <Input ref={fileInputRef} type="file" className="mt-1 text-sm h-9"
-                        style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }}
-                        onChange={async (e) => {
-                          const file = e.target.files?.[0];
-                          if (file) { try { await uploadDoc(file); } catch { if (fileInputRef.current) fileInputRef.current.value = ""; } }
-                        }}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-2 mt-3">
-                  {ficheDocs.length === 0 ? (
-                    <div className="text-center py-10 rounded-xl" style={{ background: "var(--background)" }}>
-                      <FileText className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--muted)" }} />
-                      <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>{t("noDocuments")}</p>
-                    </div>
-                  ) : (
-                    ficheDocs.map((d) => (
-                      <div key={d.id} className="rounded-xl p-4 group/doc hover:shadow-sm transition-all border flex items-center gap-3"
-                        style={{ borderColor: "var(--border)" }}>
-                        <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
-                          style={{ background: "color-mix(in srgb, var(--primary) 10%, transparent)" }}>
-                          <Paperclip className="w-4 h-4" style={{ color: "var(--primary)" }} />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium truncate" style={{ color: "var(--foreground)" }}>{d.filename}</p>
-                          <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>
-                            {d.category} &middot; {t("addedOn")} {new Date(d.uploadedAt).toLocaleDateString("fr-CH")}
-                          </p>
-                        </div>
-                        <a href={d.dataUrl} download={d.filename} className="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg transition-colors">
-                          <Download className="w-4 h-4" style={{ color: "var(--primary)" }} />
-                        </a>
-                        <button onClick={() => deleteDoc(d.id)}
-                          className="p-2 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors opacity-0 group-hover/doc:opacity-100">
-                          <Trash2 className="w-3.5 h-3.5 text-red-400" />
-                        </button>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </Section>
+          {/* Lease & financials */}
+          <div className="grid grid-cols-4 gap-3">
+            <div className="p-3 rounded-xl text-center" style={{ background: "var(--background)" }}>
+              <p className="text-[10px] uppercase tracking-wider font-medium mb-1" style={{ color: "var(--muted-foreground)" }}>{t("leaseStart")}</p>
+              <p className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
+                {tenant.leaseStart ? new Date(tenant.leaseStart).toLocaleDateString("fr-CH") : "—"}
+              </p>
             </div>
-          )}
+            <div className="p-3 rounded-xl text-center" style={{ background: "var(--background)" }}>
+              <p className="text-[10px] uppercase tracking-wider font-medium mb-1" style={{ color: "var(--muted-foreground)" }}>{t("leaseEnd")}</p>
+              <p className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
+                {tenant.leaseEnd ? new Date(tenant.leaseEnd).toLocaleDateString("fr-CH") : "—"}
+              </p>
+            </div>
+            <div className="p-3 rounded-xl text-center" style={{ background: "var(--background)" }}>
+              <p className="text-[10px] uppercase tracking-wider font-medium mb-1" style={{ color: "var(--muted-foreground)" }}>{t("netRentLabel")}</p>
+              <p className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>{formatCHF(rentNet)}</p>
+            </div>
+            <div className="p-3 rounded-xl text-center" style={{ background: "color-mix(in srgb, var(--primary) 8%, transparent)" }}>
+              <p className="text-[10px] uppercase tracking-wider font-medium mb-1" style={{ color: "var(--primary)" }}>{t("totalMonthly")}</p>
+              <p className="text-lg font-bold" style={{ color: "var(--primary)" }}>{formatCHF(total)}</p>
+            </div>
+          </div>
+
+          {/* Requests summary */}
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-amber-500" />
+              <span className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{openReqs.length}</span>
+              <span className="text-xs" style={{ color: "var(--muted-foreground)" }}>{t("openRequests")}</span>
+            </div>
+            <div className="w-px h-4" style={{ background: "var(--border)" }} />
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+              <span className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{closedReqs.length}</span>
+              <span className="text-xs" style={{ color: "var(--muted-foreground)" }}>{t("closedRequests")}</span>
+            </div>
+            <div className="w-px h-4" style={{ background: "var(--border)" }} />
+            <div className="flex items-center gap-2">
+              <FileText className="w-4 h-4" style={{ color: "var(--primary)" }} />
+              <span className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{ficheDocs.length}</span>
+              <span className="text-xs" style={{ color: "var(--muted-foreground)" }}>{t("documents")}</span>
+            </div>
+          </div>
+
+          {/* ─── Action buttons ─── */}
+          <div className="flex items-center gap-3 pt-2">
+            <button
+              onClick={onEmail}
+              className="flex-1 flex items-center justify-center gap-2 text-[13px] font-medium py-2.5 rounded-xl transition-colors"
+              style={{ background: "var(--primary)", color: "var(--primary-foreground)" }}
+              onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.9"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
+            >
+              <Mail className="w-4 h-4" />
+              {t("sendEmail")}
+            </button>
+            <button
+              onClick={() => { window.location.href = `tel:${tenant.phone}`; }}
+              className="flex-1 flex items-center justify-center gap-2 text-[13px] font-medium py-2.5 rounded-xl transition-colors"
+              style={{ background: "var(--background)", color: "var(--foreground)" }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "color-mix(in srgb, var(--primary) 8%, transparent)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "var(--background)"; }}
+            >
+              <Phone className="w-4 h-4" />
+              {t("call")}
+            </button>
+            <button
+              onClick={() => setShowSendDoc(true)}
+              className="flex-1 flex items-center justify-center gap-2 text-[13px] font-medium py-2.5 rounded-xl transition-colors"
+              style={{ background: "var(--background)", color: "var(--foreground)" }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "color-mix(in srgb, var(--primary) 8%, transparent)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "var(--background)"; }}
+            >
+              <Send className="w-4 h-4" />
+              {t("sendDocument")}
+            </button>
+            <button
+              onClick={onEdit}
+              className="flex items-center justify-center gap-2 text-[13px] font-medium py-2.5 px-4 rounded-xl transition-colors"
+              style={{ background: "var(--background)", color: "var(--foreground)" }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "color-mix(in srgb, var(--primary) 8%, transparent)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "var(--background)"; }}
+            >
+              <Edit className="w-4 h-4" />
+            </button>
+            <button
+              onClick={onDelete}
+              className="flex items-center justify-center py-2.5 px-4 rounded-xl transition-colors hover:bg-red-50 dark:hover:bg-red-500/10"
+            >
+              <Trash2 className="w-4 h-4 text-red-500" />
+            </button>
+          </div>
         </div>
       </div>
 
       {/* ─── Send Document Modal ─── */}
-      {showSendDoc && createPortal(
+      {showSendDoc && (
         <div
           className="fixed inset-0 z-[60] flex items-center justify-center"
           style={{ background: "rgba(0,0,0,0.35)", padding: 16 }}
@@ -792,7 +601,6 @@ function TenantDetailDrawer({
             className="w-full max-w-lg relative"
             style={{
               borderRadius: 20,
-              border: "1px solid var(--border)",
               background: "var(--card)",
               padding: 28,
               boxShadow: "0 16px 48px rgba(0,0,0,0.14)",
@@ -809,10 +617,7 @@ function TenantDetailDrawer({
               <X className="w-4 h-4" />
             </button>
 
-            <h2
-              className="text-[17px] font-semibold mb-1"
-              style={{ color: "var(--foreground)" }}
-            >
+            <h2 className="text-[17px] font-semibold mb-1" style={{ color: "var(--foreground)" }}>
               {t("sendDocumentTitle")}
             </h2>
             <p className="text-[13px] mb-6" style={{ color: "var(--muted-foreground)" }}>
@@ -820,59 +625,33 @@ function TenantDetailDrawer({
             </p>
 
             <div className="space-y-5">
-              {/* Document category */}
               <div>
-                <label className="block text-[12px] font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
-                  {t("docType")}
-                </label>
-                <select
-                  value={sendDocCategory}
-                  onChange={(e) => setSendDocCategory(e.target.value as TenantDocument["category"])}
+                <label className="block text-[12px] font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>{t("docType")}</label>
+                <select value={sendDocCategory} onChange={(e) => setSendDocCategory(e.target.value as TenantDocument["category"])}
                   className="w-full text-[13px] outline-none"
-                  style={{
-                    padding: "10px 14px",
-                    borderRadius: 12,
-                    border: "1px solid var(--border)",
-                    background: "var(--background)",
-                    color: "var(--foreground)",
-                  }}
+                  style={{ padding: "10px 14px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--background)", color: "var(--foreground)" }}
                 >
-                  {DOC_CATEGORIES.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
+                  {DOC_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
 
-              {/* File picker */}
               <div>
-                <label className="block text-[12px] font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
-                  {t("selectFile")}
-                </label>
-                <div
-                  className="relative rounded-xl border-2 border-dashed p-6 text-center transition-colors cursor-pointer hover:border-[var(--primary)]"
+                <label className="block text-[12px] font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>{t("selectFile")}</label>
+                <div className="relative rounded-xl border-2 border-dashed p-6 text-center transition-colors cursor-pointer hover:border-[var(--primary)]"
                   style={{ borderColor: "var(--border)", background: "var(--background)" }}
                   onClick={() => sendDocFileRef.current?.click()}
                 >
-                  <input
-                    ref={sendDocFileRef}
-                    type="file"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) setSendDocFile(file);
-                    }}
+                  <input ref={sendDocFileRef} type="file" className="hidden"
+                    onChange={(e) => { const file = e.target.files?.[0]; if (file) setSendDocFile(file); }}
                   />
                   {sendDocFile ? (
                     <div className="flex items-center justify-center gap-3">
                       <Paperclip className="w-5 h-5" style={{ color: "var(--primary)" }} />
                       <div className="text-left">
                         <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{sendDocFile.name}</p>
-                        <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>
-                          {(sendDocFile.size / 1024).toFixed(1)} KB
-                        </p>
+                        <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>{(sendDocFile.size / 1024).toFixed(1)} KB</p>
                       </div>
-                      <button
-                        type="button"
+                      <button type="button"
                         onClick={(e) => { e.stopPropagation(); setSendDocFile(null); if (sendDocFileRef.current) sendDocFileRef.current.value = ""; }}
                         className="ml-2 p-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10"
                       >
@@ -883,65 +662,34 @@ function TenantDetailDrawer({
                     <>
                       <Upload className="w-8 h-8 mx-auto mb-2" style={{ color: "var(--muted-foreground)" }} />
                       <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>{t("clickToSelectFile")}</p>
-                      <p className="text-xs mt-1" style={{ color: "var(--muted-foreground)", opacity: 0.6 }}>
-                        PDF, DOCX, JPG, PNG...
-                      </p>
+                      <p className="text-xs mt-1" style={{ color: "var(--muted-foreground)", opacity: 0.6 }}>PDF, DOCX, JPG, PNG...</p>
                     </>
                   )}
                 </div>
               </div>
 
-              {/* Optional message */}
               <div>
-                <label className="block text-[12px] font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
-                  {t("optionalMessage")}
-                </label>
-                <textarea
-                  value={sendDocMessage}
-                  onChange={(e) => setSendDocMessage(e.target.value)}
-                  placeholder={t("sendDocMessagePlaceholder")}
-                  rows={3}
+                <label className="block text-[12px] font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>{t("optionalMessage")}</label>
+                <textarea value={sendDocMessage} onChange={(e) => setSendDocMessage(e.target.value)}
+                  placeholder={t("sendDocMessagePlaceholder")} rows={3}
                   className="w-full text-[13px] outline-none resize-none"
-                  style={{
-                    padding: "10px 14px",
-                    borderRadius: 12,
-                    border: "1px solid var(--border)",
-                    background: "var(--background)",
-                    color: "var(--foreground)",
-                  }}
+                  style={{ padding: "10px 14px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--background)", color: "var(--foreground)" }}
                 />
               </div>
 
-              {/* Action buttons */}
               <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={handleSendDocument}
-                  disabled={!sendDocFile}
+                <button type="button" onClick={handleSendDocument} disabled={!sendDocFile}
                   className="flex-1 flex items-center justify-center gap-2 text-[13px] font-medium transition-colors disabled:opacity-40"
-                  style={{
-                    padding: "10px 0",
-                    borderRadius: 12,
-                    background: "var(--primary)",
-                    color: "var(--primary-foreground)",
-                  }}
+                  style={{ padding: "10px 0", borderRadius: 12, background: "var(--primary)", color: "var(--primary-foreground)" }}
                   onMouseEnter={(e) => { if (sendDocFile) e.currentTarget.style.opacity = "0.9"; }}
                   onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
                 >
                   <Send className="w-3.5 h-3.5" />
                   {t("sendToTenant")}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setShowSendDoc(false)}
+                <button type="button" onClick={() => setShowSendDoc(false)}
                   className="flex-1 flex items-center justify-center gap-2 text-[13px] font-medium transition-colors"
-                  style={{
-                    padding: "10px 0",
-                    borderRadius: 12,
-                    background: "var(--card)",
-                    color: "var(--foreground)",
-                    border: "1px solid var(--border)",
-                  }}
+                  style={{ padding: "10px 0", borderRadius: 12, background: "var(--card)", color: "var(--foreground)", border: "1px solid var(--border)" }}
                   onMouseEnter={(e) => { e.currentTarget.style.background = "var(--background)"; }}
                   onMouseLeave={(e) => { e.currentTarget.style.background = "var(--card)"; }}
                 >
@@ -950,10 +698,10 @@ function TenantDetailDrawer({
               </div>
             </div>
           </div>
-        </div>,
-        document.body
+        </div>
       )}
-    </>
+    </div>,
+    document.body
   );
 }
 
@@ -1457,7 +1205,7 @@ export function TenantsView() {
         )}
       </div>
 
-      {/* ═══ DETAIL DRAWER ═══ */}
+      {/* ═══ TENANT PROFILE POPUP ═══ */}
       <TenantDetailDrawer
         tenant={drawerTenant}
         open={!!drawerTenantId}
@@ -1466,19 +1214,7 @@ export function TenantsView() {
         onEdit={() => drawerTenant && handleEdit(drawerTenant)}
         onDelete={() => drawerTenant && handleDelete(drawerTenant.id)}
         onEmail={() => drawerTenant && handleEmailTenant(drawerTenant)}
-        ficheNotes={ficheNotes}
         ficheDocs={ficheDocs}
-        noteDate={noteDate}
-        setNoteDate={setNoteDate}
-        noteText={noteText}
-        setNoteText={setNoteText}
-        addNote={addNote}
-        deleteNote={deleteNote}
-        docCategory={docCategory}
-        setDocCategory={setDocCategory}
-        fileInputRef={fileInputRef}
-        uploadDoc={uploadDoc}
-        deleteDoc={deleteDoc}
         requests={requests}
       />
     </div>
