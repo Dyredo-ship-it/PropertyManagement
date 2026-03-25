@@ -156,8 +156,9 @@ export function TopHeader() {
 
           {isLangOpen && (
             <div
-              className="absolute right-0 top-full mt-2 rounded-2xl overflow-hidden z-50"
+              className="absolute top-full mt-2 rounded-2xl overflow-hidden z-50"
               style={{
+                right: -40,
                 width: 200,
                 background: "var(--card)",
                 border: "1px solid var(--border)",
