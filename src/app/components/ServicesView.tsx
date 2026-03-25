@@ -8,7 +8,6 @@ import {
   Wind,
   Lock,
   Trash2,
-  Users,
   Shield,
   Phone,
   Mail,
@@ -16,13 +15,15 @@ import {
   Star,
   ExternalLink,
   Search,
-  Filter,
   Award,
   Clock,
   DollarSign,
   CheckCircle,
+  X,
 } from "lucide-react";
 import { useLanguage } from "../i18n/LanguageContext";
+
+/* ─── Types ───────────────────────────────────────────────────── */
 
 type ServiceCategory =
   | "plumbing"
@@ -44,8 +45,8 @@ interface ServiceProvider {
   logo?: string;
   rating: number;
   reviewCount: number;
-  responseTime: string; // e.g., "< 2h"
-  pricing: "\u20AC" | "\u20AC\u20AC" | "\u20AC\u20AC\u20AC";
+  responseTime: string;
+  pricing: "€" | "€€" | "€€€";
   verified: boolean;
   featured: boolean;
   services: string[];
@@ -57,7 +58,8 @@ interface ServiceProvider {
   certifications?: string[];
 }
 
-// Mock data - This would come from a database
+/* ─── Mock data ───────────────────────────────────────────────── */
+
 const MOCK_PROVIDERS: ServiceProvider[] = [
   {
     id: "1",
@@ -67,66 +69,51 @@ const MOCK_PROVIDERS: ServiceProvider[] = [
     rating: 4.8,
     reviewCount: 127,
     responseTime: "< 1h",
-    pricing: "\u20AC\u20AC",
+    pricing: "€€",
     verified: true,
     featured: true,
-    services: [
-      "R\u00E9paration fuites",
-      "Installation sanitaire",
-      "D\u00E9bouchage",
-      "Urgences 24/7",
-    ],
+    services: ["Réparation fuites", "Installation sanitaire", "Débouchage", "Urgences 24/7"],
     phone: "+41 22 123 45 67",
     email: "contact@swissplumb.ch",
-    address: "Rue de la Fontaine 12, 1200 Gen\u00E8ve",
+    address: "Rue de la Fontaine 12, 1200 Genève",
     website: "www.swissplumb.ch",
     availableNow: true,
-    certifications: ["ISO 9001", "Label Qualit\u00E9 CH"],
+    certifications: ["ISO 9001", "Label Qualité CH"],
   },
   {
     id: "2",
     name: "ElectroTech Services",
     category: "electrical",
-    description: "Installation et d\u00E9pannage \u00E9lectrique pour professionnels.",
+    description: "Installation et dépannage électrique pour professionnels.",
     rating: 4.9,
     reviewCount: 203,
     responseTime: "< 2h",
-    pricing: "\u20AC\u20AC\u20AC",
+    pricing: "€€€",
     verified: true,
     featured: true,
-    services: [
-      "Tableaux \u00E9lectriques",
-      "Installation prises",
-      "Mise aux normes",
-      "D\u00E9pannage",
-    ],
+    services: ["Tableaux électriques", "Installation prises", "Mise aux normes", "Dépannage"],
     phone: "+41 22 234 56 78",
     email: "info@electrotech.ch",
-    address: "Avenue du L\u00E9man 45, 1005 Lausanne",
+    address: "Avenue du Léman 45, 1005 Lausanne",
     website: "www.electrotech.ch",
     availableNow: true,
-    certifications: ["Electricien certifi\u00E9 ESTI", "Formation continue"],
+    certifications: ["Electricien certifié ESTI", "Formation continue"],
   },
   {
     id: "3",
     name: "Chauffage Plus",
     category: "heating",
-    description: "Sp\u00E9cialiste chauffage et climatisation pour immeubles.",
+    description: "Spécialiste chauffage et climatisation pour immeubles.",
     rating: 4.7,
     reviewCount: 89,
     responseTime: "< 3h",
-    pricing: "\u20AC\u20AC",
+    pricing: "€€",
     verified: true,
     featured: false,
-    services: [
-      "Entretien chaudi\u00E8res",
-      "Installation pompes \u00E0 chaleur",
-      "R\u00E9parations",
-      "Contrats maintenance",
-    ],
+    services: ["Entretien chaudières", "Installation pompes à chaleur", "Réparations", "Contrats maintenance"],
     phone: "+41 22 345 67 89",
     email: "contact@chauffageplus.ch",
-    address: "Chemin des Acacias 8, 1227 Gen\u00E8ve",
+    address: "Chemin des Acacias 8, 1227 Genève",
     availableNow: false,
     certifications: ["Cecb Expert", "Swisstherm"],
   },
@@ -134,19 +121,14 @@ const MOCK_PROVIDERS: ServiceProvider[] = [
     id: "4",
     name: "Peinture Pro SA",
     category: "painting",
-    description: "Peinture int\u00E9rieure et ext\u00E9rieure pour tous types de b\u00E2timents.",
+    description: "Peinture intérieure et extérieure pour tous types de bâtiments.",
     rating: 4.6,
     reviewCount: 156,
     responseTime: "< 1 jour",
-    pricing: "\u20AC",
+    pricing: "€",
     verified: true,
     featured: false,
-    services: [
-      "Peinture int\u00E9rieure",
-      "Peinture ext\u00E9rieure",
-      "Papier peint",
-      "Rev\u00EAtements",
-    ],
+    services: ["Peinture intérieure", "Peinture extérieure", "Papier peint", "Revêtements"],
     phone: "+41 22 456 78 90",
     email: "devis@peinturepro.ch",
     address: "Route de Meyrin 23, 1217 Meyrin",
@@ -161,18 +143,13 @@ const MOCK_PROVIDERS: ServiceProvider[] = [
     rating: 4.8,
     reviewCount: 312,
     responseTime: "< 4h",
-    pricing: "\u20AC",
+    pricing: "€",
     verified: true,
     featured: true,
-    services: [
-      "Nettoyage parties communes",
-      "Nettoyage fin de chantier",
-      "D\u00E9sinfection",
-      "Contrats r\u00E9guliers",
-    ],
+    services: ["Nettoyage parties communes", "Nettoyage fin de chantier", "Désinfection", "Contrats réguliers"],
     phone: "+41 22 567 89 01",
     email: "info@netpro.ch",
-    address: "Rue du Commerce 56, 1204 Gen\u00E8ve",
+    address: "Rue du Commerce 56, 1204 Genève",
     website: "www.netpro.ch",
     availableNow: true,
   },
@@ -180,33 +157,47 @@ const MOCK_PROVIDERS: ServiceProvider[] = [
     id: "6",
     name: "SecureHome Systems",
     category: "security",
-    description: "Installation et maintenance de syst\u00E8mes de s\u00E9curit\u00E9.",
+    description: "Installation et maintenance de systèmes de sécurité.",
     rating: 4.9,
     reviewCount: 178,
     responseTime: "< 2h",
-    pricing: "\u20AC\u20AC\u20AC",
+    pricing: "€€€",
     verified: true,
     featured: true,
-    services: [
-      "Vid\u00E9osurveillance",
-      "Contr\u00F4le d'acc\u00E8s",
-      "Alarmes",
-      "Interphones",
-    ],
+    services: ["Vidéosurveillance", "Contrôle d'accès", "Alarmes", "Interphones"],
     phone: "+41 22 678 90 12",
     email: "contact@securehome.ch",
-    address: "Boulevard Carl-Vogt 89, 1205 Gen\u00E8ve",
+    address: "Boulevard Carl-Vogt 89, 1205 Genève",
     website: "www.securehome.ch",
     availableNow: true,
-    certifications: ["Certifi\u00E9 VdS", "EN 50131"],
+    certifications: ["Certifié VdS", "EN 50131"],
   },
 ];
+
+/* ─── Category icon map ───────────────────────────────────────── */
+
+const CATEGORY_ICON: Record<string, React.ElementType> = {
+  plumbing: Droplet,
+  electrical: Zap,
+  heating: Wind,
+  hvac: Wind,
+  painting: Paintbrush,
+  "general-maintenance": Hammer,
+  locksmith: Lock,
+  cleaning: Trash2,
+  security: Shield,
+};
+
+function getCatIcon(cat: string) {
+  return CATEGORY_ICON[cat] || Wrench;
+}
+
+/* ─── Main Component ──────────────────────────────────────────── */
 
 export function ServicesView() {
   const { t } = useLanguage();
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [showFilters, setShowFilters] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<ServiceProvider | null>(null);
 
   const CATEGORIES = [
@@ -224,22 +215,18 @@ export function ServicesView() {
 
   const filteredProviders = useMemo(() => {
     let filtered = MOCK_PROVIDERS;
-
     if (selectedCategory !== "all") {
       filtered = filtered.filter((p) => p.category === selectedCategory);
     }
-
     if (searchQuery) {
-      const query = searchQuery.toLowerCase();
+      const q = searchQuery.toLowerCase();
       filtered = filtered.filter(
         (p) =>
-          p.name.toLowerCase().includes(query) ||
-          p.description.toLowerCase().includes(query) ||
-          p.services.some((s) => s.toLowerCase().includes(query))
+          p.name.toLowerCase().includes(q) ||
+          p.description.toLowerCase().includes(q) ||
+          p.services.some((s) => s.toLowerCase().includes(q))
       );
     }
-
-    // Featured providers first
     return filtered.sort((a, b) => {
       if (a.featured && !b.featured) return -1;
       if (!a.featured && b.featured) return 1;
@@ -247,140 +234,167 @@ export function ServicesView() {
     });
   }, [selectedCategory, searchQuery]);
 
-  const featuredProviders = useMemo(() => {
-    return MOCK_PROVIDERS.filter((p) => p.featured).slice(0, 3);
-  }, []);
+  const featuredProviders = useMemo(
+    () => MOCK_PROVIDERS.filter((p) => p.featured).slice(0, 3),
+    []
+  );
 
   return (
-    <div className="min-h-screen bg-[#FAF5F2]">
-      <div className="max-w-7xl mx-auto px-6 py-8 space-y-6">
-        {/* Header */}
-        <div className="rounded-3xl border border-[#E8E5DB] p-8 bg-white shadow-sm">
-          <div className="flex items-start justify-between gap-6 mb-6">
-            <div>
-              <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-[#171414]">
-                {t("servicesTitle")}
-              </h1>
-              <p className="mt-2 text-[#6B6560]">
-                {t("servicesSub")}
-              </p>
-            </div>
-
-            <div className="flex items-center gap-2 px-4 py-2 rounded-2xl border border-[#45553A]/30 bg-[#45553A]/10">
-              <Award className="w-5 h-5 text-[#45553A]" />
-              <span className="text-sm font-medium text-[#45553A]">
-                {t("premiumPartners")}
-              </span>
-            </div>
-          </div>
-
-          {/* Search Bar */}
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[#6B6560]" />
-            <input
-              type="text"
-              placeholder={t("searchServicePlaceholder")}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-12 pr-4 py-4 rounded-2xl border border-[#E8E5DB] text-base bg-[#FAF5F2] text-[#171414]"
-            />
-          </div>
+    <div style={{ padding: "32px 32px 48px" }}>
+      {/* ── Header ────────────────────────────────────────────── */}
+      <div className="flex items-start justify-between gap-4" style={{ marginBottom: 24 }}>
+        <div>
+          <h1
+            className="text-[22px] font-semibold leading-tight"
+            style={{ color: "var(--foreground)" }}
+          >
+            {t("servicesTitle")}
+          </h1>
+          <p className="text-[13px] mt-1" style={{ color: "var(--muted-foreground)" }}>
+            {t("servicesSub")}
+          </p>
         </div>
-
-        {/* Featured Providers */}
-        {selectedCategory === "all" && !searchQuery && (
-          <div className="rounded-3xl border border-[#E8E5DB] p-7 bg-white shadow-sm">
-            <div className="flex items-center gap-2 mb-5">
-              <Award className="w-5 h-5 text-[#45553A]" />
-              <h2 className="text-xl font-semibold text-[#171414]">
-                {t("premiumPartners")}
-              </h2>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {featuredProviders.map((provider) => (
-                <FeaturedProviderCard
-                  key={provider.id}
-                  provider={provider}
-                  onClick={() => setSelectedProvider(provider)}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Categories */}
-        <div className="rounded-3xl border border-[#E8E5DB] p-7 bg-white shadow-sm">
-          <h2 className="text-lg font-semibold mb-4 text-[#171414]">
-            {t("categories")}
-          </h2>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-            {CATEGORIES.map((category) => {
-              const Icon = category.icon;
-              const isActive = selectedCategory === category.id;
-
-              return (
-                <button
-                  key={category.id}
-                  onClick={() => setSelectedCategory(category.id)}
-                  className={[
-                    "flex items-center gap-3 px-4 py-3 rounded-2xl border transition-all text-left",
-                    isActive
-                      ? "border-[#45553A] bg-[#45553A]/10"
-                      : "border-[#E8E5DB] bg-[#FAF5F2] hover:bg-[#E8E5DB]/50",
-                  ].join(" ")}
-                >
-                  <Icon className="w-5 h-5 shrink-0 text-[#6B6560]" />
-                  <span className="text-sm font-medium truncate text-[#171414]">
-                    {category.label}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Providers List */}
-        <div className="rounded-3xl border border-[#E8E5DB] p-7 bg-white shadow-sm">
-          <div className="flex items-center justify-between mb-5">
-            <h2 className="text-xl font-semibold text-[#171414]">
-              {selectedCategory === "all"
-                ? t("allServices")
-                : CATEGORIES.find((c) => c.id === selectedCategory)?.label}
-            </h2>
-            <span className="text-sm text-[#6B6560]">
-              {filteredProviders.length} {filteredProviders.length > 1 ? t("results") : t("result")}
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4">
-            {filteredProviders.length === 0 ? (
-              <div className="text-center py-16">
-                <Search className="w-16 h-16 mx-auto mb-4 text-[#E8E5DB]" />
-                <p className="text-base font-medium text-[#6B6560]">
-                  {t("noProviders")}
-                </p>
-                <p className="text-sm mt-1 text-[#6B6560]">
-                  {t("tryOtherCriteria")}
-                </p>
-              </div>
-            ) : (
-              filteredProviders.map((provider) => (
-                <ProviderCard
-                  key={provider.id}
-                  provider={provider}
-                  onClick={() => setSelectedProvider(provider)}
-                />
-              ))
-            )}
-          </div>
+        <div
+          className="flex items-center gap-2 text-[12px] font-medium shrink-0"
+          style={{
+            padding: "8px 14px",
+            borderRadius: 12,
+            background: "rgba(69,85,58,0.06)",
+            color: "var(--primary)",
+          }}
+        >
+          <Award className="w-4 h-4" />
+          {t("premiumPartners")}
         </div>
       </div>
 
-      {/* Provider Detail Modal */}
+      {/* ── Search ────────────────────────────────────────────── */}
+      <div className="relative" style={{ marginBottom: 20 }}>
+        <Search
+          className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none"
+          style={{ color: "var(--muted-foreground)" }}
+        />
+        <input
+          type="text"
+          placeholder={t("searchServicePlaceholder")}
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full text-[13px] outline-none transition-all"
+          style={{
+            padding: "11px 14px 11px 38px",
+            borderRadius: 14,
+            border: "1px solid var(--border)",
+            background: "var(--card)",
+            color: "var(--foreground)",
+          }}
+          onFocus={(e) => {
+            e.currentTarget.style.borderColor = "var(--primary)";
+            e.currentTarget.style.boxShadow = "0 0 0 3px rgba(69,85,58,0.06)";
+          }}
+          onBlur={(e) => {
+            e.currentTarget.style.borderColor = "var(--border)";
+            e.currentTarget.style.boxShadow = "none";
+          }}
+        />
+      </div>
+
+      {/* ── Categories ────────────────────────────────────────── */}
+      <div
+        className="flex flex-wrap gap-2"
+        style={{ marginBottom: 24 }}
+      >
+        {CATEGORIES.map((cat) => {
+          const Icon = cat.icon;
+          const active = selectedCategory === cat.id;
+          return (
+            <button
+              key={cat.id}
+              onClick={() => setSelectedCategory(cat.id)}
+              className="flex items-center gap-2 text-[12px] font-medium transition-colors"
+              style={{
+                padding: "7px 14px",
+                borderRadius: 10,
+                border: active ? "1px solid var(--primary)" : "1px solid var(--border)",
+                background: active ? "rgba(69,85,58,0.07)" : "var(--card)",
+                color: active ? "var(--primary)" : "var(--muted-foreground)",
+              }}
+              onMouseEnter={(e) => {
+                if (!active) e.currentTarget.style.background = "var(--background)";
+              }}
+              onMouseLeave={(e) => {
+                if (!active) e.currentTarget.style.background = "var(--card)";
+              }}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              {cat.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── Featured ──────────────────────────────────────────── */}
+      {selectedCategory === "all" && !searchQuery && (
+        <div style={{ marginBottom: 24 }}>
+          <h2
+            className="flex items-center gap-2 text-[13px] font-semibold uppercase mb-3"
+            style={{ color: "var(--muted-foreground)", letterSpacing: "0.06em" }}
+          >
+            <Award className="w-4 h-4" style={{ color: "var(--primary)" }} />
+            {t("premiumPartners")}
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {featuredProviders.map((p) => (
+              <FeaturedCard key={p.id} provider={p} onClick={() => setSelectedProvider(p)} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Provider list ─────────────────────────────────────── */}
+      <div className="flex items-center justify-between mb-3">
+        <h2
+          className="text-[14px] font-semibold"
+          style={{ color: "var(--foreground)" }}
+        >
+          {selectedCategory === "all"
+            ? t("allServices")
+            : CATEGORIES.find((c) => c.id === selectedCategory)?.label}
+        </h2>
+        <span className="text-[12px]" style={{ color: "var(--muted-foreground)" }}>
+          {filteredProviders.length}{" "}
+          {filteredProviders.length > 1 ? t("results") : t("result")}
+        </span>
+      </div>
+
+      <div className="space-y-3">
+        {filteredProviders.length === 0 ? (
+          <div
+            className="flex flex-col items-center justify-center text-center"
+            style={{
+              padding: "64px 24px",
+              borderRadius: 16,
+              border: "1px solid var(--border)",
+              background: "var(--card)",
+            }}
+          >
+            <Search className="w-12 h-12 mb-4" style={{ color: "var(--border)" }} />
+            <p className="text-[14px] font-medium" style={{ color: "var(--foreground)" }}>
+              {t("noProviders")}
+            </p>
+            <p className="text-[12px] mt-1" style={{ color: "var(--muted-foreground)" }}>
+              {t("tryOtherCriteria")}
+            </p>
+          </div>
+        ) : (
+          filteredProviders.map((p) => (
+            <ProviderRow key={p.id} provider={p} onClick={() => setSelectedProvider(p)} />
+          ))
+        )}
+      </div>
+
+      {/* ── Detail Modal ──────────────────────────────────────── */}
       {selectedProvider && (
-        <ProviderDetailModal
+        <ProviderModal
           provider={selectedProvider}
           onClose={() => setSelectedProvider(null)}
         />
@@ -389,8 +403,9 @@ export function ServicesView() {
   );
 }
 
-// Featured Provider Card
-function FeaturedProviderCard({
+/* ─── Featured Card ───────────────────────────────────────────── */
+
+function FeaturedCard({
   provider,
   onClick,
 }: {
@@ -398,73 +413,78 @@ function FeaturedProviderCard({
   onClick: () => void;
 }) {
   const { t } = useLanguage();
-  const getCategoryIcon = (category: ServiceCategory) => {
-    switch (category) {
-      case "plumbing":
-        return Droplet;
-      case "electrical":
-        return Zap;
-      case "heating":
-      case "hvac":
-        return Wind;
-      case "painting":
-        return Paintbrush;
-      case "locksmith":
-        return Lock;
-      case "cleaning":
-        return Trash2;
-      case "security":
-        return Shield;
-      default:
-        return Wrench;
-    }
-  };
-
-  const Icon = getCategoryIcon(provider.category);
+  const Icon = getCatIcon(provider.category);
 
   return (
     <button
       onClick={onClick}
-      className="text-left rounded-2xl border border-[#45553A]/30 p-5 transition-all hover:scale-105 bg-[#45553A]/5"
+      className="text-left transition-all"
+      style={{
+        borderRadius: 16,
+        border: "1px solid var(--border)",
+        background: "var(--card)",
+        padding: "20px",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.borderColor = "var(--primary)";
+        e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,0,0,0.06)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = "var(--border)";
+        e.currentTarget.style.boxShadow = "none";
+      }}
     >
       <div className="flex items-start justify-between gap-3 mb-4">
-        <div className="w-12 h-12 rounded-2xl border border-[#45553A]/30 bg-[#45553A]/10 flex items-center justify-center">
-          <Icon className="w-6 h-6 text-[#45553A]" />
+        <div
+          className="w-11 h-11 rounded-xl flex items-center justify-center"
+          style={{
+            background: "rgba(69,85,58,0.07)",
+            color: "var(--primary)",
+          }}
+        >
+          <Icon className="w-5 h-5" />
         </div>
-
         {provider.verified && (
-          <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-green-100">
-            <CheckCircle className="w-3 h-3 text-green-600" />
-            <span className="text-xs font-medium text-green-600">
-              {t("verified")}
-            </span>
-          </div>
+          <span
+            className="flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full"
+            style={{ background: "rgba(34,197,94,0.08)", color: "#15803D" }}
+          >
+            <CheckCircle className="w-3 h-3" />
+            {t("verified")}
+          </span>
         )}
       </div>
 
-      <h3 className="font-semibold text-base mb-1 text-[#171414]">
+      <h3
+        className="text-[14px] font-semibold leading-snug mb-1"
+        style={{ color: "var(--foreground)" }}
+      >
         {provider.name}
       </h3>
 
-      <div className="flex items-center gap-1 mb-3">
-        <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-        <span className="text-sm font-medium text-[#171414]">
+      <div className="flex items-center gap-1 mb-2.5">
+        <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+        <span className="text-[12px] font-medium" style={{ color: "var(--foreground)" }}>
           {provider.rating}
         </span>
-        <span className="text-xs text-[#6B6560]">
-          ({provider.reviewCount} {t("reviews")})
+        <span className="text-[11px]" style={{ color: "var(--muted-foreground)" }}>
+          ({provider.reviewCount})
         </span>
       </div>
 
-      <p className="text-sm line-clamp-2 text-[#6B6560]">
+      <p
+        className="text-[12px] leading-relaxed line-clamp-2"
+        style={{ color: "var(--muted-foreground)" }}
+      >
         {provider.description}
       </p>
     </button>
   );
 }
 
-// Provider Card
-function ProviderCard({
+/* ─── Provider Row ────────────────────────────────────────────── */
+
+function ProviderRow({
   provider,
   onClick,
 }: {
@@ -472,125 +492,139 @@ function ProviderCard({
   onClick: () => void;
 }) {
   const { t } = useLanguage();
-  const getCategoryIcon = (category: ServiceCategory) => {
-    switch (category) {
-      case "plumbing":
-        return Droplet;
-      case "electrical":
-        return Zap;
-      case "heating":
-      case "hvac":
-        return Wind;
-      case "painting":
-        return Paintbrush;
-      case "locksmith":
-        return Lock;
-      case "cleaning":
-        return Trash2;
-      case "security":
-        return Shield;
-      default:
-        return Wrench;
-    }
-  };
-
-  const Icon = getCategoryIcon(provider.category);
+  const Icon = getCatIcon(provider.category);
 
   return (
     <button
       onClick={onClick}
-      className={[
-        "text-left rounded-2xl border p-6 transition-all hover:bg-[#FAF5F2]",
-        provider.featured
-          ? "border-[#45553A]/20"
-          : "border-[#E8E5DB]",
-        "bg-white",
-      ].join(" ")}
+      className="w-full text-left transition-all"
+      style={{
+        borderRadius: 16,
+        border: "1px solid var(--border)",
+        background: "var(--card)",
+        padding: "18px 20px",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = "var(--background)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = "var(--card)";
+      }}
     >
       <div className="flex items-start gap-4">
         {/* Icon */}
-        <div className="w-14 h-14 rounded-2xl border border-[#E8E5DB] bg-[#FAF5F2] flex items-center justify-center shrink-0">
-          <Icon className="w-7 h-7 text-[#6B6560]" />
+        <div
+          className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
+          style={{
+            background: "var(--background)",
+            border: "1px solid var(--border)",
+            color: "var(--muted-foreground)",
+          }}
+        >
+          <Icon className="w-5 h-5" />
         </div>
 
         {/* Content */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-4 mb-2">
+          <div className="flex items-start justify-between gap-4 mb-1.5">
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <h3 className="font-semibold text-lg truncate text-[#171414]">
+              <div className="flex items-center gap-2 mb-0.5">
+                <h3
+                  className="text-[14px] font-semibold truncate"
+                  style={{ color: "var(--foreground)" }}
+                >
                   {provider.name}
                 </h3>
                 {provider.featured && (
-                  <Award className="w-4 h-4 shrink-0 text-[#45553A]" />
+                  <Award className="w-3.5 h-3.5 shrink-0" style={{ color: "var(--primary)" }} />
                 )}
               </div>
-
-              <p className="text-sm line-clamp-1 text-[#6B6560]">
+              <p
+                className="text-[12px] line-clamp-1"
+                style={{ color: "var(--muted-foreground)" }}
+              >
                 {provider.description}
               </p>
             </div>
 
             {/* Rating */}
             <div className="shrink-0 text-right">
-              <div className="flex items-center gap-1 mb-1">
-                <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                <span className="text-base font-semibold text-[#171414]">
+              <div className="flex items-center gap-1">
+                <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                <span
+                  className="text-[14px] font-semibold"
+                  style={{ color: "var(--foreground)" }}
+                >
                   {provider.rating}
                 </span>
               </div>
-              <p className="text-xs text-[#6B6560]">
+              <p className="text-[11px]" style={{ color: "var(--muted-foreground)" }}>
                 {provider.reviewCount} {t("reviews")}
               </p>
             </div>
           </div>
 
-          {/* Services */}
-          <div className="flex flex-wrap gap-2 mb-3">
-            {provider.services.slice(0, 3).map((service, idx) => (
+          {/* Service tags */}
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {provider.services.slice(0, 3).map((s, i) => (
               <span
-                key={idx}
-                className="px-2.5 py-1 rounded-full text-xs bg-[#FAF5F2] text-[#6B6560] border border-[#E8E5DB]"
+                key={i}
+                className="text-[11px] px-2.5 py-0.5 rounded-full"
+                style={{
+                  background: "var(--background)",
+                  border: "1px solid var(--border)",
+                  color: "var(--muted-foreground)",
+                }}
               >
-                {service}
+                {s}
               </span>
             ))}
             {provider.services.length > 3 && (
-              <span className="px-2.5 py-1 rounded-full text-xs bg-[#FAF5F2] text-[#6B6560] border border-[#E8E5DB]">
+              <span
+                className="text-[11px] px-2.5 py-0.5 rounded-full"
+                style={{
+                  background: "var(--background)",
+                  border: "1px solid var(--border)",
+                  color: "var(--muted-foreground)",
+                }}
+              >
                 +{provider.services.length - 3}
               </span>
             )}
           </div>
 
-          {/* Meta */}
+          {/* Meta row */}
           <div className="flex items-center gap-4 flex-wrap">
-            <div className="flex items-center gap-1.5">
-              <Clock className="w-4 h-4 text-[#6B6560]" />
-              <span className="text-xs text-[#6B6560]">
-                {t("responds")} {provider.responseTime}
-              </span>
-            </div>
-
-            <div className="flex items-center gap-1.5">
-              <DollarSign className="w-4 h-4 text-[#6B6560]" />
-              <span className="text-xs text-[#6B6560]">
-                {provider.pricing}
-              </span>
-            </div>
-
+            <span
+              className="flex items-center gap-1.5 text-[11px]"
+              style={{ color: "var(--muted-foreground)" }}
+            >
+              <Clock className="w-3.5 h-3.5" />
+              {t("responds")} {provider.responseTime}
+            </span>
+            <span
+              className="flex items-center gap-1.5 text-[11px]"
+              style={{ color: "var(--muted-foreground)" }}
+            >
+              <DollarSign className="w-3.5 h-3.5" />
+              {provider.pricing}
+            </span>
             {provider.verified && (
-              <div className="flex items-center gap-1.5">
-                <CheckCircle className="w-4 h-4 text-green-600" />
-                <span className="text-xs text-green-600">
-                  {t("verified")}
-                </span>
-              </div>
+              <span
+                className="flex items-center gap-1 text-[11px]"
+                style={{ color: "#15803D" }}
+              >
+                <CheckCircle className="w-3.5 h-3.5" />
+                {t("verified")}
+              </span>
             )}
-
             {provider.availableNow && (
-              <div className="px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+              <span
+                className="text-[10px] font-medium px-2 py-0.5 rounded-full"
+                style={{ background: "rgba(34,197,94,0.08)", color: "#15803D" }}
+              >
                 {t("available")}
-              </div>
+              </span>
             )}
           </div>
         </div>
@@ -599,8 +633,9 @@ function ProviderCard({
   );
 }
 
-// Provider Detail Modal
-function ProviderDetailModal({
+/* ─── Provider Modal ──────────────────────────────────────────── */
+
+function ProviderModal({
   provider,
   onClose,
 }: {
@@ -608,149 +643,225 @@ function ProviderDetailModal({
   onClose: () => void;
 }) {
   const { t } = useLanguage();
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: "rgba(0,0,0,0.35)", padding: 16 }}
       onClick={onClose}
     >
       <div
-        className="w-full max-w-3xl rounded-3xl border border-[#E8E5DB] p-8 max-h-[90vh] overflow-y-auto bg-white shadow-lg"
+        className="w-full max-w-2xl max-h-[85vh] overflow-y-auto"
+        style={{
+          borderRadius: 20,
+          border: "1px solid var(--border)",
+          background: "var(--card)",
+          padding: 32,
+          boxShadow: "0 16px 48px rgba(0,0,0,0.14)",
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-start justify-between mb-6">
           <div className="flex-1">
-            <div className="flex items-center gap-3 mb-2">
-              <h2 className="text-2xl font-semibold text-[#171414]">
+            <div className="flex items-center gap-2.5 mb-2">
+              <h2
+                className="text-[20px] font-semibold"
+                style={{ color: "var(--foreground)" }}
+              >
                 {provider.name}
               </h2>
               {provider.featured && (
-                <Award className="w-6 h-6 text-[#45553A]" />
+                <Award className="w-5 h-5" style={{ color: "var(--primary)" }} />
               )}
               {provider.verified && (
-                <CheckCircle className="w-5 h-5 text-green-600" />
+                <CheckCircle className="w-4 h-4" style={{ color: "#15803D" }} />
               )}
             </div>
 
-            <div className="flex items-center gap-2 mb-4">
-              <Star className="w-5 h-5 fill-yellow-400 text-yellow-400" />
-              <span className="text-lg font-semibold text-[#171414]">
+            <div className="flex items-center gap-2 mb-3">
+              <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
+              <span
+                className="text-[15px] font-semibold"
+                style={{ color: "var(--foreground)" }}
+              >
                 {provider.rating}
               </span>
-              <span className="text-sm text-[#6B6560]">
+              <span className="text-[12px]" style={{ color: "var(--muted-foreground)" }}>
                 ({provider.reviewCount} {t("reviews")})
               </span>
             </div>
 
-            <p className="text-base text-[#6B6560]">
+            <p
+              className="text-[13px] leading-relaxed"
+              style={{ color: "var(--muted-foreground)" }}
+            >
               {provider.description}
             </p>
           </div>
 
           <button
             onClick={onClose}
-            className="p-2 rounded-xl transition-colors hover:bg-[#E8E5DB]/50 text-[#6B6560]"
+            className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors shrink-0 ml-4"
+            style={{ color: "var(--muted-foreground)" }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "var(--background)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "transparent";
+            }}
           >
-            <ExternalLink className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Services */}
-        <div className="mb-6">
-          <h3 className="text-lg font-semibold mb-3 text-[#171414]">
-            {t("offeredServices")}
-          </h3>
+        <Section title={t("offeredServices")}>
           <div className="flex flex-wrap gap-2">
-            {provider.services.map((service, idx) => (
+            {provider.services.map((s, i) => (
               <span
-                key={idx}
-                className="px-3 py-1.5 rounded-xl text-sm bg-[#FAF5F2] text-[#6B6560] border border-[#E8E5DB]"
+                key={i}
+                className="text-[12px] px-3 py-1.5 rounded-lg"
+                style={{
+                  background: "var(--background)",
+                  border: "1px solid var(--border)",
+                  color: "var(--foreground)",
+                }}
               >
-                {service}
+                {s}
               </span>
             ))}
           </div>
-        </div>
+        </Section>
 
-        {/* Contact Info */}
-        <div className="mb-6">
-          <h3 className="text-lg font-semibold mb-3 text-[#171414]">
-            {t("contactInfo")}
-          </h3>
+        {/* Contact */}
+        <Section title={t("contactInfo")}>
           <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <Phone className="w-5 h-5 text-[#6B6560]" />
-              <span className="text-[#171414]">
-                {provider.phone}
-              </span>
-            </div>
-            <div className="flex items-center gap-3">
-              <Mail className="w-5 h-5 text-[#6B6560]" />
-              <span className="text-[#171414]">
-                {provider.email}
-              </span>
-            </div>
-            <div className="flex items-center gap-3">
-              <MapPin className="w-5 h-5 text-[#6B6560]" />
-              <span className="text-[#171414]">
-                {provider.address}
-              </span>
-            </div>
+            <ContactRow icon={Phone} text={provider.phone} />
+            <ContactRow icon={Mail} text={provider.email} />
+            <ContactRow icon={MapPin} text={provider.address} />
             {provider.website && (
               <div className="flex items-center gap-3">
-                <ExternalLink className="w-5 h-5 text-[#6B6560]" />
+                <ExternalLink className="w-4 h-4" style={{ color: "var(--muted-foreground)" }} />
                 <a
                   href={`https://${provider.website}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hover:underline text-[#45553A]"
+                  className="text-[13px] hover:underline"
+                  style={{ color: "var(--primary)" }}
                 >
                   {provider.website}
                 </a>
               </div>
             )}
           </div>
-        </div>
+        </Section>
 
         {/* Certifications */}
         {provider.certifications && provider.certifications.length > 0 && (
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold mb-3 text-[#171414]">
-              {t("certifications")}
-            </h3>
+          <Section title={t("certifications")}>
             <div className="flex flex-wrap gap-2">
-              {provider.certifications.map((cert, idx) => (
+              {provider.certifications.map((cert, i) => (
                 <span
-                  key={idx}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm bg-green-100 text-green-700"
+                  key={i}
+                  className="flex items-center gap-1.5 text-[12px] px-3 py-1.5 rounded-lg"
+                  style={{
+                    background: "rgba(34,197,94,0.06)",
+                    color: "#15803D",
+                  }}
                 >
-                  <Award className="w-4 h-4" />
+                  <Award className="w-3.5 h-3.5" />
                   {cert}
                 </span>
               ))}
             </div>
-          </div>
+          </Section>
         )}
 
         {/* Actions */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3 mt-8">
           <button
-            className="flex items-center justify-center gap-2 px-5 py-3 rounded-2xl border border-[#E8E5DB] font-medium transition-colors hover:bg-[#E8E5DB]/50 text-[#171414] bg-[#FAF5F2]"
-            onClick={() => window.location.href = `tel:${provider.phone}`}
+            className="flex items-center justify-center gap-2 text-[13px] font-medium transition-colors"
+            style={{
+              padding: "11px 0",
+              borderRadius: 12,
+              border: "1px solid var(--border)",
+              background: "var(--card)",
+              color: "var(--foreground)",
+            }}
+            onClick={() => (window.location.href = `tel:${provider.phone}`)}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "var(--background)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "var(--card)";
+            }}
           >
-            <Phone className="w-5 h-5" />
+            <Phone className="w-4 h-4" />
             {t("call")}
           </button>
-
           <button
-            className="flex items-center justify-center gap-2 px-5 py-3 rounded-2xl font-medium transition-all hover:bg-[#3a4930] bg-[#45553A] text-white"
-            onClick={() => window.location.href = `mailto:${provider.email}?subject=Demande de devis`}
+            className="flex items-center justify-center gap-2 text-[13px] font-medium transition-colors"
+            style={{
+              padding: "11px 0",
+              borderRadius: 12,
+              background: "var(--primary)",
+              color: "var(--primary-foreground)",
+            }}
+            onClick={() =>
+              (window.location.href = `mailto:${provider.email}?subject=Demande de devis`)
+            }
+            onMouseEnter={(e) => {
+              e.currentTarget.style.opacity = "0.9";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.opacity = "1";
+            }}
           >
-            <Mail className="w-5 h-5" />
+            <Mail className="w-4 h-4" />
             {t("requestQuote")}
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ─── Helpers ─────────────────────────────────────────────────── */
+
+function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div style={{ marginBottom: 24 }}>
+      <h3
+        className="text-[12px] font-semibold uppercase mb-3"
+        style={{ color: "var(--muted-foreground)", letterSpacing: "0.06em" }}
+      >
+        {title}
+      </h3>
+      {children}
+    </div>
+  );
+}
+
+function ContactRow({
+  icon: Icon,
+  text,
+}: {
+  icon: React.ElementType;
+  text: string;
+}) {
+  return (
+    <div className="flex items-center gap-3">
+      <Icon className="w-4 h-4" style={{ color: "var(--muted-foreground)" }} />
+      <span className="text-[13px]" style={{ color: "var(--foreground)" }}>
+        {text}
+      </span>
     </div>
   );
 }

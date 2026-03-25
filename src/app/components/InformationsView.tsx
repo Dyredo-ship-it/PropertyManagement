@@ -1,6 +1,5 @@
 import React from "react";
-import { Card } from "./ui/card";
-import { Info, FileText } from "lucide-react";
+import { Info, FileText, Phone, Shield, Heart } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../i18n/LanguageContext";
 
@@ -8,93 +7,223 @@ export function InformationsView() {
   const { user } = useAuth();
   const { t } = useLanguage();
 
-  if (user?.role === 'admin') {
+  if (user?.role === "admin") {
     return (
-      <div className="p-8 space-y-6">
-        <div>
-          <h1 className="text-3xl mb-2 text-[#171414]">{t("informationsTitle")}</h1>
-          <p className="text-[#6B6560]">
+      <div style={{ padding: "32px 32px 48px" }}>
+        <div style={{ marginBottom: 28 }}>
+          <h1
+            className="text-[22px] font-semibold leading-tight"
+            style={{ color: "var(--foreground)" }}
+          >
+            {t("informationsTitle")}
+          </h1>
+          <p
+            className="text-[13px] mt-1"
+            style={{ color: "var(--muted-foreground)" }}
+          >
             {t("informationsSub")}
           </p>
         </div>
 
-        <Card className="p-6 border border-[#E8E5DB] space-y-6 bg-white shadow-sm rounded-xl">
+        <div
+          style={{
+            borderRadius: 16,
+            border: "1px solid var(--border)",
+            background: "var(--card)",
+            padding: "24px",
+          }}
+        >
           <div className="flex gap-4">
-            <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 bg-[#45553A]/10">
-              <Info className="w-6 h-6 text-[#45553A]" />
+            <div
+              className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+              style={{
+                background: "rgba(69,85,58,0.07)",
+                color: "var(--primary)",
+              }}
+            >
+              <Info className="w-5 h-5" />
             </div>
 
-            <div className="space-y-4 text-sm leading-relaxed text-[#6B6560]">
-              <p>
-                <strong className="text-[#171414]">{t("referenceRate")}</strong><br />
-                {t("referenceRateText")}
-              </p>
-
-              <p>
-                <strong className="text-[#171414]">{t("cpiIndexation")}</strong><br />
-                {t("cpiIndexationText")}
-              </p>
-
-              <p>
-                <strong className="text-[#171414]">{t("maintenanceReserves")}</strong><br />
-                {t("maintenanceReservesText")}
-              </p>
+            <div className="space-y-5 text-[13px] leading-relaxed">
+              <InfoBlock
+                title={t("referenceRate")}
+                text={t("referenceRateText")}
+              />
+              <InfoBlock
+                title={t("cpiIndexation")}
+                text={t("cpiIndexationText")}
+              />
+              <InfoBlock
+                title={t("maintenanceReserves")}
+                text={t("maintenanceReservesText")}
+              />
             </div>
           </div>
-        </Card>
+        </div>
       </div>
     );
   }
 
+  /* ── Tenant view ──────────────────────────────────────────── */
   return (
-    <div className="p-8 space-y-6">
-      <div>
-        <h1 className="text-3xl mb-2 text-[#171414]">{t("infoTenantTitle")}</h1>
-        <p className="text-[#6B6560]">
+    <div style={{ padding: "32px 32px 48px" }}>
+      <div style={{ marginBottom: 28 }}>
+        <h1
+          className="text-[22px] font-semibold leading-tight"
+          style={{ color: "var(--foreground)" }}
+        >
+          {t("infoTenantTitle")}
+        </h1>
+        <p
+          className="text-[13px] mt-1"
+          style={{ color: "var(--muted-foreground)" }}
+        >
           {t("infoTenantSub")}
         </p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card className="p-6 border border-[#E8E5DB] space-y-4 bg-white shadow-sm rounded-xl">
-          <h2 className="text-xl font-semibold text-[#171414]">{t("regulations")}</h2>
-          <ul className="space-y-3 text-[#6B6560]">
-            <li className="flex items-center gap-3">
-              <FileText className="w-5 h-5 text-[#6B6560]" />
-              <a href="#" className="hover:text-[#171414] transition-colors">{t("buildingRules")}</a>
-            </li>
-            <li className="flex items-center gap-3">
-              <FileText className="w-5 h-5 text-[#6B6560]" />
-              <a href="#" className="hover:text-[#171414] transition-colors">{t("laundryRules")}</a>
-            </li>
-            <li className="flex items-center gap-3">
-              <FileText className="w-5 h-5 text-[#6B6560]" />
-              <a href="#" className="hover:text-[#171414] transition-colors">{t("wasteRules")}</a>
-            </li>
-          </ul>
-        </Card>
-
-        <Card className="p-6 border border-[#E8E5DB] space-y-4 bg-white shadow-sm rounded-xl">
-          <h2 className="text-xl font-semibold text-[#171414]">{t("usefulContacts")}</h2>
-          <div className="space-y-4 text-[#6B6560]">
-            <div>
-              <p className="font-medium text-[#171414]">{t("managementEmergency")}</p>
-              <p className="text-sm">022 123 45 67</p>
-            </div>
-            <div>
-              <p className="font-medium text-[#171414]">{t("concierge")}</p>
-              <p className="text-sm">M. Dupont - 079 123 45 67<br/>Pr\u00E9sent lu-ve 8h-12h</p>
-            </div>
-            <div>
-              <p className="font-medium text-[#171414]">{t("medicalEmergency")}</p>
-              <p className="text-sm">144</p>
-            </div>
-            <div>
-              <p className="font-medium text-[#171414]">{t("police")}</p>
-              <p className="text-sm">117</p>
-            </div>
+      <div className="grid gap-5 md:grid-cols-2">
+        {/* Regulations */}
+        <div
+          style={{
+            borderRadius: 16,
+            border: "1px solid var(--border)",
+            background: "var(--card)",
+            padding: "24px",
+          }}
+        >
+          <h2
+            className="text-[15px] font-semibold mb-5"
+            style={{ color: "var(--foreground)" }}
+          >
+            {t("regulations")}
+          </h2>
+          <div className="space-y-2">
+            {[
+              t("buildingRules"),
+              t("laundryRules"),
+              t("wasteRules"),
+            ].map((label) => (
+              <a
+                key={label}
+                href="#"
+                className="flex items-center gap-3 transition-colors"
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  color: "var(--foreground)",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "var(--background)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "transparent";
+                }}
+              >
+                <FileText
+                  className="w-4 h-4 shrink-0"
+                  style={{ color: "var(--muted-foreground)" }}
+                />
+                <span className="text-[13px]">{label}</span>
+              </a>
+            ))}
           </div>
-        </Card>
+        </div>
+
+        {/* Contacts */}
+        <div
+          style={{
+            borderRadius: 16,
+            border: "1px solid var(--border)",
+            background: "var(--card)",
+            padding: "24px",
+          }}
+        >
+          <h2
+            className="text-[15px] font-semibold mb-5"
+            style={{ color: "var(--foreground)" }}
+          >
+            {t("usefulContacts")}
+          </h2>
+          <div className="space-y-4">
+            <ContactItem
+              icon={Phone}
+              label={t("managementEmergency")}
+              value="022 123 45 67"
+            />
+            <ContactItem
+              icon={Shield}
+              label={t("concierge")}
+              value="M. Dupont - 079 123 45 67"
+              sub="Présent lu-ve 8h-12h"
+            />
+            <ContactItem
+              icon={Heart}
+              label={t("medicalEmergency")}
+              value="144"
+            />
+            <ContactItem
+              icon={Shield}
+              label={t("police")}
+              value="117"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Sub-components ──────────────────────────────────────────── */
+
+function InfoBlock({ title, text }: { title: string; text: string }) {
+  return (
+    <div>
+      <p
+        className="font-semibold text-[13px] mb-1"
+        style={{ color: "var(--foreground)" }}
+      >
+        {title}
+      </p>
+      <p style={{ color: "var(--muted-foreground)" }}>{text}</p>
+    </div>
+  );
+}
+
+function ContactItem({
+  icon: Icon,
+  label,
+  value,
+  sub,
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: string;
+  sub?: string;
+}) {
+  return (
+    <div className="flex items-start gap-3">
+      <div
+        className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
+        style={{ background: "var(--background)" }}
+      >
+        <Icon className="w-4 h-4" style={{ color: "var(--muted-foreground)" }} />
+      </div>
+      <div>
+        <p
+          className="text-[13px] font-medium"
+          style={{ color: "var(--foreground)" }}
+        >
+          {label}
+        </p>
+        <p className="text-[12px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>
+          {value}
+        </p>
+        {sub && (
+          <p className="text-[11px] mt-0.5" style={{ color: "var(--muted-foreground)", opacity: 0.7 }}>
+            {sub}
+          </p>
+        )}
       </div>
     </div>
   );

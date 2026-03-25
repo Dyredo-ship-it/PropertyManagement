@@ -1,24 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Bell, Plus, Send, Trash2, CheckCircle, Megaphone } from "lucide-react";
-import { Card } from "./ui/card";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import { Label } from "./ui/label";
-import { Textarea } from "./ui/textarea";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "./ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "./ui/select";
+  Bell,
+  Plus,
+  Send,
+  Trash2,
+  CheckCircle,
+  Megaphone,
+  X,
+} from "lucide-react";
 import {
   getNotifications,
   saveNotifications,
@@ -28,6 +17,8 @@ import {
 } from "../utils/storage";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../i18n/LanguageContext";
+
+/* ─── Helpers ─────────────────────────────────────────────────── */
 
 function formatRelativeDate(dateString: string) {
   const date = new Date(dateString);
@@ -46,18 +37,20 @@ function todayFr() {
 }
 
 function inspectionTemplate(params: { buildingName?: string }) {
-  return `Objet : Inspection annuelle \u2013 ${params.buildingName ?? "B\u00E2timent"}
+  return `Objet : Inspection annuelle – ${params.buildingName ?? "Bâtiment"}
 
 Bonjour,
 
 Nous vous informons qu'une inspection annuelle aura lieu prochainement.
-Merci de vous assurer qu'une personne soit pr\u00E9sente ou de nous contacter pour convenir d'un cr\u00E9neau.
+Merci de vous assurer qu'une personne soit présente ou de nous contacter pour convenir d'un créneau.
 
 Cordialement,
-La g\u00E9rance / Le propri\u00E9taire
+La gérance / Le propriétaire
 
-Envoy\u00E9 le ${todayFr()}`;
+Envoyé le ${todayFr()}`;
 }
+
+/* ─── Component ───────────────────────────────────────────────── */
 
 export function NotificationsView() {
   const { user } = useAuth();
@@ -67,7 +60,7 @@ export function NotificationsView() {
   const [buildings, setBuildings] = useState<any[]>([]);
   const [tenants, setTenants] = useState<any[]>([]);
 
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
     message: "",
@@ -75,7 +68,7 @@ export function NotificationsView() {
     recipientId: "",
   });
 
-  const [isBroadcastOpen, setIsBroadcastOpen] = useState(false);
+  const [showBroadcast, setShowBroadcast] = useState(false);
   const [broadcastData, setBroadcastData] = useState({
     title: "Inspection annuelle",
     message: "",
@@ -84,7 +77,6 @@ export function NotificationsView() {
 
   useEffect(() => {
     loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const buildingsById = useMemo(() => {
@@ -95,7 +87,6 @@ export function NotificationsView() {
 
   const loadData = () => {
     const allNotifications = getNotifications();
-
     if (user?.role === "tenant") {
       setNotifications(
         allNotifications.filter((n) => n.recipientId === user.id || !n.recipientId)
@@ -103,14 +94,12 @@ export function NotificationsView() {
     } else {
       setNotifications(allNotifications);
     }
-
     setBuildings(getBuildings());
     setTenants(getTenants());
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
     const newNotification: Notification = {
       id: Date.now().toString(),
       title: formData.title,
@@ -120,18 +109,18 @@ export function NotificationsView() {
       buildingId: formData.buildingId || undefined,
       recipientId: formData.recipientId || undefined,
     };
-
     const allNotifications = getNotifications();
     saveNotifications([...allNotifications, newNotification]);
-
-    setIsDialogOpen(false);
+    setShowCreate(false);
     setFormData({ title: "", message: "", buildingId: "", recipientId: "" });
     loadData();
   };
 
   const handleMarkAsRead = (id: string) => {
     const allNotifications = getNotifications();
-    const updated = allNotifications.map((n) => (n.id === id ? { ...n, read: true } : n));
+    const updated = allNotifications.map((n) =>
+      n.id === id ? { ...n, read: true } : n
+    );
     saveNotifications(updated);
     loadData();
   };
@@ -139,47 +128,42 @@ export function NotificationsView() {
   const handleDelete = (id: string) => {
     if (confirm(t("confirmDeleteNotif"))) {
       const allNotifications = getNotifications();
-      const updated = allNotifications.filter((n) => n.id !== id);
-      saveNotifications(updated);
+      saveNotifications(allNotifications.filter((n) => n.id !== id));
       loadData();
     }
   };
 
-  const isInspection = (title: string) => title.toLowerCase().includes("inspection");
+  const isInspection = (title: string) =>
+    title.toLowerCase().includes("inspection");
 
   const openBroadcast = (notification: Notification) => {
     const inferredBuildingId = (notification as any).buildingId ?? "";
-
     const buildingName = inferredBuildingId
       ? buildingsById.get(inferredBuildingId)?.name
       : undefined;
-
     setBroadcastData({
       title: "Inspection annuelle",
       buildingId: inferredBuildingId,
       message: inspectionTemplate({ buildingName }),
     });
-
-    setIsBroadcastOpen(true);
+    setShowBroadcast(true);
   };
 
   const sendBroadcast = (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!broadcastData.buildingId) {
-      alert("Choisis un b\u00E2timent avant d'envoyer.");
+      alert("Choisis un bâtiment avant d'envoyer.");
       return;
     }
-
-    const recipients = tenants.filter((tn) => tn.buildingId === broadcastData.buildingId);
+    const recipients = tenants.filter(
+      (tn) => tn.buildingId === broadcastData.buildingId
+    );
     if (recipients.length === 0) {
-      alert("Aucun locataire trouv\u00E9 pour ce b\u00E2timent.");
+      alert("Aucun locataire trouvé pour ce bâtiment.");
       return;
     }
-
     const nowIso = new Date().toISOString();
     const allNotifications = getNotifications();
-
     const generated: Notification[] = recipients.map((tn) => ({
       id: `${Date.now()}-${tn.id}-${Math.random().toString(16).slice(2)}`,
       title: broadcastData.title,
@@ -189,18 +173,44 @@ export function NotificationsView() {
       buildingId: broadcastData.buildingId,
       recipientId: tn.id,
     }));
-
     saveNotifications([...allNotifications, ...generated]);
-    setIsBroadcastOpen(false);
+    setShowBroadcast(false);
     loadData();
   };
 
+  const unreadCount = notifications.filter((n) => !n.read).length;
+
   return (
-    <div className="p-8">
-      <div className="flex items-center justify-between mb-8">
+    <div style={{ padding: "32px 32px 48px" }}>
+      {/* ── Header ────────────────────────────────────────────── */}
+      <div
+        className="flex items-start justify-between gap-4"
+        style={{ marginBottom: 28 }}
+      >
         <div>
-          <h1 className="text-3xl mb-2 text-[#171414]">{t("notificationsTitle")}</h1>
-          <p className="text-[#6B6560]">
+          <div className="flex items-center gap-3">
+            <h1
+              className="text-[22px] font-semibold leading-tight"
+              style={{ color: "var(--foreground)" }}
+            >
+              {t("notificationsTitle")}
+            </h1>
+            {unreadCount > 0 && (
+              <span
+                className="text-[11px] font-bold px-2.5 py-0.5 rounded-full"
+                style={{
+                  background: "rgba(239,68,68,0.08)",
+                  color: "#DC2626",
+                }}
+              >
+                {unreadCount}
+              </span>
+            )}
+          </div>
+          <p
+            className="text-[13px] mt-1"
+            style={{ color: "var(--muted-foreground)" }}
+          >
             {user?.role === "admin"
               ? t("notificationsSub")
               : t("notificationsSubTenant")}
@@ -208,279 +218,543 @@ export function NotificationsView() {
         </div>
 
         {user?.role === "admin" && (
-          <>
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="bg-[#45553A] hover:bg-[#3a4930] text-white">
-                  <Plus className="w-5 h-5 mr-2" />
-                  {t("newNotification")}
-                </Button>
-              </DialogTrigger>
-
-              <DialogContent className="bg-white border-[#E8E5DB]">
-                <DialogHeader>
-                  <DialogTitle className="text-[#171414]">{t("newNotification")}</DialogTitle>
-                </DialogHeader>
-
-                <form onSubmit={handleSubmit} className="space-y-4 mt-4">
-                  <div>
-                    <Label htmlFor="title" className="text-[#171414]">{t("notifTitle")}</Label>
-                    <Input
-                      id="title"
-                      value={formData.title}
-                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                      required
-                      placeholder="Ex: R\u00E9paration de la porte d'entr\u00E9e"
-                      className="bg-[#FAF5F2] border-[#E8E5DB] text-[#171414] mt-2"
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="message" className="text-[#171414]">{t("notifMessage")}</Label>
-                    <Textarea
-                      id="message"
-                      value={formData.message}
-                      onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                      required
-                      placeholder="Ex: Bonjour, la porte d'entr\u00E9e du b\u00E2timent a \u00E9t\u00E9 r\u00E9par\u00E9e."
-                      rows={4}
-                      className="bg-[#FAF5F2] border-[#E8E5DB] text-[#171414] mt-2"
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="building" className="text-[#171414]">{t("notifBuilding")}</Label>
-                    <Select
-                      value={formData.buildingId}
-                      onValueChange={(value) => setFormData({ ...formData, buildingId: value })}
-                    >
-                      <SelectTrigger className="bg-[#FAF5F2] border-[#E8E5DB] text-[#171414] mt-2">
-                        <SelectValue placeholder={t("allBuildingsOption")} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="">{t("allBuildingsOption")}</SelectItem>
-                        {buildings.map((building) => (
-                          <SelectItem key={building.id} value={building.id}>
-                            {building.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="recipient" className="text-[#171414]">{t("notifRecipient")}</Label>
-                    <Select
-                      value={formData.recipientId}
-                      onValueChange={(value) => setFormData({ ...formData, recipientId: value })}
-                    >
-                      <SelectTrigger className="bg-[#FAF5F2] border-[#E8E5DB] text-[#171414] mt-2">
-                        <SelectValue placeholder={t("allTenantsOption")} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="">{t("allTenantsOption")}</SelectItem>
-                        {tenants.map((tenant) => (
-                          <SelectItem key={tenant.id} value={tenant.id}>
-                            {tenant.name} - {tenant.buildingName}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="flex gap-3 pt-4">
-                    <Button type="submit" className="flex-1 bg-[#45553A] hover:bg-[#3a4930] text-white">
-                      <Send className="w-4 h-4 mr-2" />
-                      {t("send")}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setIsDialogOpen(false)}
-                      className="flex-1 border-[#E8E5DB] text-[#171414]"
-                    >
-                      {t("cancel")}
-                    </Button>
-                  </div>
-                </form>
-              </DialogContent>
-            </Dialog>
-
-            {/* Dialog broadcast */}
-            <Dialog open={isBroadcastOpen} onOpenChange={setIsBroadcastOpen}>
-              <DialogContent className="bg-white border-[#E8E5DB]">
-                <DialogHeader>
-                  <DialogTitle className="text-[#171414]">{t("broadcastTitle")}</DialogTitle>
-                </DialogHeader>
-
-                <form onSubmit={sendBroadcast} className="space-y-4 mt-4">
-                  <div>
-                    <Label className="text-[#171414]">{t("building")}</Label>
-                    <Select
-                      value={broadcastData.buildingId}
-                      onValueChange={(value) => {
-                        const buildingName = value ? buildingsById.get(value)?.name : undefined;
-                        setBroadcastData((prev) => ({
-                          ...prev,
-                          buildingId: value,
-                          message: inspectionTemplate({ buildingName }),
-                        }));
-                      }}
-                    >
-                      <SelectTrigger className="bg-[#FAF5F2] border-[#E8E5DB] text-[#171414] mt-2">
-                        <SelectValue placeholder={t("selectBuilding")} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {buildings.map((building) => (
-                          <SelectItem key={building.id} value={building.id}>
-                            {building.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-
-                    <p className="mt-2 text-xs text-[#6B6560]">
-                      {t("recipients")}:{" "}
-                      <span className="text-[#171414]">
-                        {broadcastData.buildingId
-                          ? tenants.filter((tn) => tn.buildingId === broadcastData.buildingId).length
-                          : 0}
-                      </span>
-                    </p>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="btitle" className="text-[#171414]">{t("broadcastSubject")}</Label>
-                    <Input
-                      id="btitle"
-                      value={broadcastData.title}
-                      onChange={(e) => setBroadcastData({ ...broadcastData, title: e.target.value })}
-                      className="bg-[#FAF5F2] border-[#E8E5DB] text-[#171414] mt-2"
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="bmsg" className="text-[#171414]">{t("broadcastMessage")}</Label>
-                    <Textarea
-                      id="bmsg"
-                      value={broadcastData.message}
-                      onChange={(e) => setBroadcastData({ ...broadcastData, message: e.target.value })}
-                      rows={8}
-                      className="bg-[#FAF5F2] border-[#E8E5DB] text-[#171414] mt-2"
-                    />
-                  </div>
-
-                  <div className="flex gap-3 pt-2">
-                    <Button type="submit" className="flex-1 bg-[#45553A] hover:bg-[#3a4930] text-white">
-                      <Send className="w-4 h-4 mr-2" />
-                      {t("sendToAll")}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="flex-1 border-[#E8E5DB] text-[#171414]"
-                      onClick={() => setIsBroadcastOpen(false)}
-                    >
-                      {t("cancel")}
-                    </Button>
-                  </div>
-                </form>
-              </DialogContent>
-            </Dialog>
-          </>
+          <button
+            onClick={() => setShowCreate(true)}
+            className="flex items-center gap-2 text-[13px] font-medium transition-colors shrink-0"
+            style={{
+              padding: "10px 20px",
+              borderRadius: 14,
+              background: "var(--primary)",
+              color: "var(--primary-foreground)",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.opacity = "0.9";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.opacity = "1";
+            }}
+          >
+            <Plus className="w-4 h-4" />
+            {t("newNotification")}
+          </button>
         )}
       </div>
 
-      <div className="space-y-4">
-        {notifications.map((notification) => (
-          <Card
-            key={notification.id}
-            className={`p-6 bg-white border border-[#E8E5DB] shadow-sm rounded-xl ${
-              notification.read ? "opacity-60" : "border-[#45553A]/30"
-            }`}
+      {/* ── Notification list ─────────────────────────────────── */}
+      <div className="space-y-3">
+        {notifications.length === 0 ? (
+          <div
+            className="flex flex-col items-center justify-center text-center"
+            style={{
+              padding: "64px 24px",
+              borderRadius: 16,
+              border: "1px solid var(--border)",
+              background: "var(--card)",
+            }}
           >
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2">
-                  <div
-                    className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                      notification.read ? "bg-gray-100" : "bg-[#45553A]/10"
-                    }`}
-                  >
-                    <Bell
-                      className={`w-5 h-5 ${
-                        notification.read ? "text-[#6B6560]" : "text-[#45553A]"
-                      }`}
-                    />
-                  </div>
-
-                  <div className="flex-1">
-                    <h3 className="text-lg text-[#171414]">{notification.title}</h3>
-                    <p className="text-sm text-[#6B6560]">
-                      {formatRelativeDate(notification.date)}
-                    </p>
-                  </div>
-
-                  {!notification.read && (
-                    <span className="px-3 py-1 bg-[#45553A]/10 text-[#45553A] rounded-full text-xs">
-                      {t("newLabel")}
-                    </span>
-                  )}
-                </div>
-
-                <p className="text-[#6B6560] ml-13">{notification.message}</p>
-
-                {user?.role === "admin" && isInspection(notification.title) && (
-                  <div className="mt-4 ml-13">
-                    <Button
-                      type="button"
-                      className="bg-[#FAF5F2] hover:bg-[#E8E5DB]/50 border border-[#E8E5DB] text-[#171414]"
-                      onClick={() => openBroadcast(notification)}
-                    >
-                      <Megaphone className="w-4 h-4 mr-2" />
-                      {t("alertTenants")}
-                    </Button>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex gap-2 ml-4">
-                {!notification.read && user?.role === "tenant" && (
-                  <button
-                    onClick={() => handleMarkAsRead(notification.id)}
-                    className="p-2 hover:bg-green-50 rounded-lg transition-colors"
-                    title={t("markAsRead")}
-                  >
-                    <CheckCircle className="w-5 h-5 text-green-600" />
-                  </button>
-                )}
-
-                {user?.role === "admin" && (
-                  <button
-                    onClick={() => handleDelete(notification.id)}
-                    className="p-2 hover:bg-red-50 rounded-lg transition-colors"
-                    title={t("confirmDeleteNotif")}
-                  >
-                    <Trash2 className="w-5 h-5 text-red-500" />
-                  </button>
-                )}
-              </div>
+            <div
+              className="w-14 h-14 rounded-2xl flex items-center justify-center"
+              style={{ background: "var(--sidebar-accent)" }}
+            >
+              <Bell
+                className="w-6 h-6"
+                style={{ color: "var(--muted-foreground)" }}
+              />
             </div>
-          </Card>
-        ))}
+            <p
+              className="text-[14px] font-medium mt-4"
+              style={{ color: "var(--foreground)" }}
+            >
+              {t("noNotifications")}
+            </p>
+            <p
+              className="text-[12px] mt-1"
+              style={{ color: "var(--muted-foreground)" }}
+            >
+              {user?.role === "admin" ? t("noNotifAdmin") : t("noNotifTenant")}
+            </p>
+          </div>
+        ) : (
+          notifications.map((notif) => {
+            const isUnread = !notif.read;
+            return (
+              <div
+                key={notif.id}
+                style={{
+                  borderRadius: 16,
+                  border: isUnread
+                    ? "1px solid var(--primary)"
+                    : "1px solid var(--border)",
+                  background: isUnread ? "var(--sidebar-accent)" : "var(--card)",
+                  padding: "18px 20px",
+                  opacity: isUnread ? 1 : 0.75,
+                  transition: "all 0.15s ease",
+                }}
+              >
+                <div className="flex items-start gap-3.5">
+                  {/* Icon */}
+                  <div
+                    className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
+                    style={{
+                      background: isUnread
+                        ? "rgba(69,85,58,0.08)"
+                        : "var(--background)",
+                      color: isUnread
+                        ? "var(--primary)"
+                        : "var(--muted-foreground)",
+                    }}
+                  >
+                    <Bell className="w-[18px] h-[18px]" />
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-3 mb-1">
+                      <h3
+                        className="text-[14px] leading-snug"
+                        style={{
+                          color: "var(--foreground)",
+                          fontWeight: isUnread ? 600 : 400,
+                        }}
+                      >
+                        {notif.title}
+                      </h3>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {isUnread && (
+                          <span
+                            className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                            style={{
+                              background: "rgba(69,85,58,0.08)",
+                              color: "var(--primary)",
+                            }}
+                          >
+                            {t("newLabel")}
+                          </span>
+                        )}
+                        <span
+                          className="text-[11px]"
+                          style={{ color: "var(--muted-foreground)" }}
+                        >
+                          {formatRelativeDate(notif.date)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <p
+                      className="text-[12px] leading-relaxed"
+                      style={{ color: "var(--muted-foreground)" }}
+                    >
+                      {notif.message}
+                    </p>
+
+                    {/* Broadcast button for inspection notifications */}
+                    {user?.role === "admin" && isInspection(notif.title) && (
+                      <button
+                        onClick={() => openBroadcast(notif)}
+                        className="flex items-center gap-1.5 text-[12px] font-medium mt-3 transition-colors"
+                        style={{
+                          padding: "6px 12px",
+                          borderRadius: 8,
+                          background: "var(--background)",
+                          border: "1px solid var(--border)",
+                          color: "var(--foreground)",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.borderColor = "var(--primary)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.borderColor = "var(--border)";
+                        }}
+                      >
+                        <Megaphone className="w-3.5 h-3.5" />
+                        {t("alertTenants")}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-1 shrink-0">
+                    {isUnread && user?.role === "tenant" && (
+                      <IconBtn
+                        onClick={() => handleMarkAsRead(notif.id)}
+                        title={t("markAsRead")}
+                      >
+                        <CheckCircle className="w-4 h-4" style={{ color: "#15803D" }} />
+                      </IconBtn>
+                    )}
+                    {user?.role === "admin" && (
+                      <IconBtn
+                        onClick={() => handleDelete(notif.id)}
+                        title={t("confirmDeleteNotif")}
+                      >
+                        <Trash2 className="w-4 h-4" style={{ color: "#DC2626" }} />
+                      </IconBtn>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
       </div>
 
-      {notifications.length === 0 && (
-        <Card className="p-12 bg-white border border-[#E8E5DB] shadow-sm text-center rounded-xl">
-          <Bell className="w-16 h-16 text-[#6B6560] mx-auto mb-4" />
-          <h3 className="text-xl mb-2 text-[#171414]">{t("noNotifications")}</h3>
-          <p className="text-[#6B6560]">
-            {user?.role === "admin"
-              ? t("noNotifAdmin")
-              : t("noNotifTenant")}
-          </p>
-        </Card>
+      {/* ── Create Modal ──────────────────────────────────────── */}
+      {showCreate && (
+        <ModalShell onClose={() => setShowCreate(false)}>
+          <h2
+            className="text-[17px] font-semibold mb-6"
+            style={{ color: "var(--foreground)" }}
+          >
+            {t("newNotification")}
+          </h2>
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <FieldGroup label={t("notifTitle")}>
+              <ModalInput
+                value={formData.title}
+                onChange={(v) => setFormData({ ...formData, title: v })}
+                placeholder="Ex: Réparation de la porte d'entrée"
+                required
+              />
+            </FieldGroup>
+
+            <FieldGroup label={t("notifMessage")}>
+              <ModalTextarea
+                value={formData.message}
+                onChange={(v) => setFormData({ ...formData, message: v })}
+                placeholder="Ex: Bonjour, la porte d'entrée du bâtiment a été réparée."
+                rows={4}
+                required
+              />
+            </FieldGroup>
+
+            <FieldGroup label={t("notifBuilding")}>
+              <ModalSelect
+                value={formData.buildingId}
+                onChange={(v) => setFormData({ ...formData, buildingId: v })}
+                placeholder={t("allBuildingsOption")}
+                options={buildings.map((b) => ({ value: b.id, label: b.name }))}
+              />
+            </FieldGroup>
+
+            <FieldGroup label={t("notifRecipient")}>
+              <ModalSelect
+                value={formData.recipientId}
+                onChange={(v) => setFormData({ ...formData, recipientId: v })}
+                placeholder={t("allTenantsOption")}
+                options={tenants.map((tn) => ({
+                  value: tn.id,
+                  label: `${tn.name} - ${tn.buildingName}`,
+                }))}
+              />
+            </FieldGroup>
+
+            <div className="flex gap-3 pt-2">
+              <ModalBtn type="submit" primary>
+                <Send className="w-3.5 h-3.5" />
+                {t("send")}
+              </ModalBtn>
+              <ModalBtn type="button" onClick={() => setShowCreate(false)}>
+                {t("cancel")}
+              </ModalBtn>
+            </div>
+          </form>
+        </ModalShell>
+      )}
+
+      {/* ── Broadcast Modal ───────────────────────────────────── */}
+      {showBroadcast && (
+        <ModalShell onClose={() => setShowBroadcast(false)}>
+          <h2
+            className="text-[17px] font-semibold mb-6"
+            style={{ color: "var(--foreground)" }}
+          >
+            {t("broadcastTitle")}
+          </h2>
+
+          <form onSubmit={sendBroadcast} className="space-y-5">
+            <FieldGroup label={t("building")}>
+              <ModalSelect
+                value={broadcastData.buildingId}
+                onChange={(v) => {
+                  const buildingName = v ? buildingsById.get(v)?.name : undefined;
+                  setBroadcastData((prev) => ({
+                    ...prev,
+                    buildingId: v,
+                    message: inspectionTemplate({ buildingName }),
+                  }));
+                }}
+                placeholder={t("selectBuilding")}
+                options={buildings.map((b) => ({ value: b.id, label: b.name }))}
+              />
+              <p className="mt-2 text-[11px]" style={{ color: "var(--muted-foreground)" }}>
+                {t("recipients")}:{" "}
+                <span style={{ color: "var(--foreground)", fontWeight: 500 }}>
+                  {broadcastData.buildingId
+                    ? tenants.filter((tn) => tn.buildingId === broadcastData.buildingId)
+                        .length
+                    : 0}
+                </span>
+              </p>
+            </FieldGroup>
+
+            <FieldGroup label={t("broadcastSubject")}>
+              <ModalInput
+                value={broadcastData.title}
+                onChange={(v) =>
+                  setBroadcastData({ ...broadcastData, title: v })
+                }
+              />
+            </FieldGroup>
+
+            <FieldGroup label={t("broadcastMessage")}>
+              <ModalTextarea
+                value={broadcastData.message}
+                onChange={(v) =>
+                  setBroadcastData({ ...broadcastData, message: v })
+                }
+                rows={8}
+              />
+            </FieldGroup>
+
+            <div className="flex gap-3 pt-2">
+              <ModalBtn type="submit" primary>
+                <Send className="w-3.5 h-3.5" />
+                {t("sendToAll")}
+              </ModalBtn>
+              <ModalBtn type="button" onClick={() => setShowBroadcast(false)}>
+                {t("cancel")}
+              </ModalBtn>
+            </div>
+          </form>
+        </ModalShell>
       )}
     </div>
+  );
+}
+
+/* ─── Reusable sub-components ─────────────────────────────────── */
+
+function IconBtn({
+  children,
+  onClick,
+  title,
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+  title?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
+      style={{ color: "var(--muted-foreground)" }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = "var(--background)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = "transparent";
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function ModalShell({
+  children,
+  onClose,
+}: {
+  children: React.ReactNode;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: "rgba(0,0,0,0.35)", padding: 16 }}
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-lg relative"
+        style={{
+          borderRadius: 20,
+          border: "1px solid var(--border)",
+          background: "var(--card)",
+          padding: 28,
+          boxShadow: "0 16px 48px rgba(0,0,0,0.14)",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
+          style={{ color: "var(--muted-foreground)" }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "var(--background)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "transparent";
+          }}
+        >
+          <X className="w-4 h-4" />
+        </button>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function FieldGroup({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label
+        className="block text-[12px] font-medium mb-1.5"
+        style={{ color: "var(--muted-foreground)" }}
+      >
+        {label}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+function ModalInput({
+  value,
+  onChange,
+  placeholder,
+  required,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  required?: boolean;
+}) {
+  return (
+    <input
+      type="text"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      required={required}
+      className="w-full text-[13px] outline-none"
+      style={{
+        padding: "10px 14px",
+        borderRadius: 12,
+        border: "1px solid var(--border)",
+        background: "var(--background)",
+        color: "var(--foreground)",
+      }}
+    />
+  );
+}
+
+function ModalTextarea({
+  value,
+  onChange,
+  placeholder,
+  rows,
+  required,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  rows?: number;
+  required?: boolean;
+}) {
+  return (
+    <textarea
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      rows={rows || 4}
+      required={required}
+      className="w-full text-[13px] outline-none resize-none"
+      style={{
+        padding: "10px 14px",
+        borderRadius: 12,
+        border: "1px solid var(--border)",
+        background: "var(--background)",
+        color: "var(--foreground)",
+      }}
+    />
+  );
+}
+
+function ModalSelect({
+  value,
+  onChange,
+  placeholder,
+  options,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+  options: { value: string; label: string }[];
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-full text-[13px] outline-none"
+      style={{
+        padding: "10px 14px",
+        borderRadius: 12,
+        border: "1px solid var(--border)",
+        background: "var(--background)",
+        color: "var(--foreground)",
+      }}
+    >
+      <option value="">{placeholder}</option>
+      {options.map((opt) => (
+        <option key={opt.value} value={opt.value}>
+          {opt.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+function ModalBtn({
+  children,
+  type,
+  primary,
+  onClick,
+}: {
+  children: React.ReactNode;
+  type: "submit" | "button";
+  primary?: boolean;
+  onClick?: () => void;
+}) {
+  return (
+    <button
+      type={type}
+      onClick={onClick}
+      className="flex-1 flex items-center justify-center gap-2 text-[13px] font-medium transition-colors"
+      style={{
+        padding: "10px 0",
+        borderRadius: 12,
+        background: primary ? "var(--primary)" : "var(--card)",
+        color: primary ? "var(--primary-foreground)" : "var(--foreground)",
+        border: primary ? "none" : "1px solid var(--border)",
+      }}
+      onMouseEnter={(e) => {
+        if (primary) e.currentTarget.style.opacity = "0.9";
+        else e.currentTarget.style.background = "var(--background)";
+      }}
+      onMouseLeave={(e) => {
+        if (primary) e.currentTarget.style.opacity = "1";
+        else e.currentTarget.style.background = "var(--card)";
+      }}
+    >
+      {children}
+    </button>
   );
 }
