@@ -343,20 +343,6 @@ export function TopHeader() {
           )}
         </div>
 
-        {/* Divider */}
-        <div style={{ width: 1, height: 28, background: "var(--border)", margin: "0 8px" }} />
-
-        {/* User name */}
-        <div className="flex items-center gap-2.5">
-          <div className="text-right">
-            <p className="text-[13px] font-semibold leading-tight" style={{ color: "var(--foreground)" }}>
-              {user?.name}
-            </p>
-            <p className="text-[11px]" style={{ color: "var(--muted-foreground)" }}>
-              {user?.role === "admin" ? t("admin") : t("tenant")}
-            </p>
-          </div>
-        </div>
       </div>
     </header>
   );
