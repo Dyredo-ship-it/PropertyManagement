@@ -13,6 +13,11 @@ import {
   ArrowUpRight,
   MapPin,
   Home,
+  Plus,
+  Circle,
+  Clock,
+  CheckCircle2,
+  Calendar,
 } from "lucide-react";
 import {
   getBuildings,
@@ -24,7 +29,6 @@ import {
 } from "../utils/storage";
 import { useAuth } from "../context/AuthContext";
 import { BuildingDetailsView } from "./BuildingDetailsView";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { useLanguage } from "../i18n/LanguageContext";
 
 /* ─── Helpers ───────────────────────────────────────────────── */
@@ -38,72 +42,15 @@ const BUILDING_PHOTOS = [
 const formatCHF = (v: number) =>
   `CHF ${new Intl.NumberFormat("de-CH", { maximumFractionDigits: 0 }).format(v)}`;
 
-/* ─── SVG Donut ─────────────────────────────────────────────── */
-
-function Donut({
-  pct,
-  size = 96,
-  stroke = 10,
-  color = "var(--primary)",
-}: {
-  pct: number;
-  size?: number;
-  stroke?: number;
-  color?: string;
-}) {
-  const r = (size - stroke) / 2;
-  const circ = 2 * Math.PI * r;
-  const fill = (Math.min(100, Math.max(0, pct)) / 100) * circ;
-
-  return (
-    <div className="relative" style={{ width: size, height: size }}>
-      <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--muted)" strokeWidth={stroke} />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          fill="none"
-          stroke={color}
-          strokeWidth={stroke}
-          strokeDasharray={`${fill} ${circ}`}
-          strokeLinecap="round"
-        />
-      </svg>
-      <div className="absolute inset-0 flex items-center justify-center">
-        <span className="text-lg font-bold" style={{ color: "var(--foreground)" }}>
-          {pct.toFixed(0)}%
-        </span>
-      </div>
-    </div>
-  );
-}
-
-/* ─── Status Badge ──────────────────────────────────────────── */
-
-function Badge({ status, t }: { status: string; t: (k: string) => string }) {
-  const map: Record<string, { bg: string; fg: string; key: string }> = {
-    pending: { bg: "rgba(201,168,76,0.12)", fg: "#8A6A14", key: "pending" },
-    "in-progress": { bg: "rgba(69,85,58,0.10)", fg: "#45553A", key: "inProgress" },
-    completed: { bg: "rgba(69,85,58,0.16)", fg: "#2D4025", key: "completed" },
-  };
-  const c = map[status] ?? { bg: "var(--muted)", fg: "var(--muted-foreground)", key: status };
-  return (
-    <span
-      className="rounded-full text-[11px] font-semibold shrink-0"
-      style={{ padding: "3px 10px", background: c.bg, color: c.fg }}
-    >
-      {t(c.key)}
-    </span>
-  );
-}
-
-/* ─── Info Dialog item type ─────────────────────────────────── */
-
-type InfoItem = { Title: string; Description: string; Tag?: string };
+const PRIORITY_STYLES: Record<string, { bg: string; fg: string; dot: string; label: string }> = {
+  urgent:  { bg: "rgba(239,68,68,0.08)",  fg: "#DC2626", dot: "#EF4444", label: "Critical" },
+  high:    { bg: "rgba(245,158,11,0.08)", fg: "#B45309", dot: "#F59E0B", label: "High" },
+  medium:  { bg: "rgba(59,130,246,0.08)", fg: "#1D4ED8", dot: "#3B82F6", label: "Medium" },
+  low:     { bg: "rgba(107,114,128,0.08)", fg: "#4B5563", dot: "#6B7280", label: "Low" },
+};
 
 /* ═══════════════════════════════════════════════════════════════
-   ADMIN DASHBOARD
+   ADMIN DASHBOARD — Kanban style
 ═══════════════════════════════════════════════════════════════ */
 
 function AdminDashboard({
@@ -118,487 +65,441 @@ function AdminDashboard({
   onSelectBuilding: (id: string) => void;
 }) {
   const { t } = useLanguage();
-  const [featIdx, setFeatIdx] = useState(0);
-  const [isInfoOpen, setIsInfoOpen] = useState(false);
+  const [filter, setFilter] = useState<"all" | "pending" | "in-progress" | "completed">("all");
 
   const totalUnits = buildings.reduce((s, b) => s + (b.units ?? 0), 0);
   const occupied = buildings.reduce((s, b) => s + (b.occupiedUnits ?? 0), 0);
   const revenue = buildings.reduce((s, b) => s + (b.monthlyRevenue ?? 0), 0);
   const occPct = totalUnits > 0 ? (occupied / totalUnits) * 100 : 0;
-  const pending = requests.filter((r) => r.status === "pending").length;
 
-  const feat = buildings[featIdx] ?? null;
-  const featPhoto = feat?.imageUrl || BUILDING_PHOTOS[featIdx % BUILDING_PHOTOS.length];
-  const featUnits = feat?.units ?? 0;
-  const featOccupied = feat?.occupiedUnits ?? 0;
-  const featOccPct = featUnits > 0 ? (featOccupied / featUnits) * 100 : 0;
+  const filteredRequests = useMemo(() => {
+    if (filter === "all") return requests;
+    return requests.filter((r) => r.status === filter);
+  }, [requests, filter]);
 
-  const prev = () => setFeatIdx((i) => (i - 1 + Math.max(1, buildings.length)) % Math.max(1, buildings.length));
-  const next = () => setFeatIdx((i) => (i + 1) % Math.max(1, buildings.length));
+  const cols = useMemo(() => {
+    const pending = filteredRequests.filter((r) => r.status === "pending");
+    const inProgress = filteredRequests.filter((r) => r.status === "in-progress");
+    const completed = filteredRequests.filter((r) => r.status === "completed");
+    return { pending, inProgress, completed };
+  }, [filteredRequests]);
 
-  const infoItems: InfoItem[] = useMemo(
-    () => [
-      { Title: t("infoReferenceRate"), Tag: t("tagSwitzerland"), Description: t("infoReferenceRateDesc") },
-      { Title: t("infoCpiIndex"), Tag: t("tagManagement"), Description: t("infoCpiIndexDesc") },
-      { Title: t("infoRenewal"), Tag: t("tagProcess"), Description: t("infoRenewalDesc") },
-      { Title: t("infoMaintenance"), Tag: t("tagExploitation"), Description: t("infoMaintenanceDesc") },
-      { Title: t("infoInsurance"), Tag: t("tagRisk"), Description: t("infoInsuranceDesc") },
-      { Title: t("infoCharges"), Tag: t("tagFinance"), Description: t("infoChargesDesc") },
-      { Title: t("infoVacancy"), Tag: t("tagRental"), Description: t("infoVacancyDesc") },
-      { Title: t("infoDocumentation"), Tag: t("tagCompliance"), Description: t("infoDocumentationDesc") },
-    ],
-    [t],
-  );
+  /* Unique tenants with request count for the avatar row */
+  const activePeople = useMemo(() => {
+    const map = new Map<string, { name: string; count: number }>();
+    requests.forEach((r) => {
+      const existing = map.get(r.tenantId);
+      if (existing) existing.count++;
+      else map.set(r.tenantId, { name: r.tenantName, count: 1 });
+    });
+    // Also add building managers (buildings)
+    buildings.forEach((b) => {
+      if (!map.has(b.id)) {
+        map.set(b.id, { name: b.name, count: b.units ?? 0 });
+      }
+    });
+    return Array.from(map.entries())
+      .slice(0, 6)
+      .map(([id, data]) => ({
+        id,
+        name: data.name,
+        count: data.count,
+        initials: data.name
+          .split(" ")
+          .map((n) => n[0])
+          .join("")
+          .toUpperCase()
+          .slice(0, 2),
+      }));
+  }, [requests, buildings]);
 
-  /* ── Card wrapper ─── */
-  const Card = ({
-    children,
-    className = "",
-    style = {},
-  }: {
-    children: React.ReactNode;
-    className?: string;
-    style?: React.CSSProperties;
-  }) => (
-    <div
-      className={`rounded-2xl ${className}`}
-      style={{
-        background: "var(--card)",
-        border: "1px solid var(--border)",
-        boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
-        ...style,
-      }}
-    >
-      {children}
-    </div>
-  );
+  const filters = [
+    { key: "all" as const, label: t("all") || "All" },
+    { key: "pending" as const, label: t("pending") },
+    { key: "in-progress" as const, label: t("inProgress") },
+    { key: "completed" as const, label: t("completed") },
+  ];
 
   return (
-    <div className="max-w-[1200px] mx-auto px-8 py-8 space-y-6" style={{ background: "var(--background)" }}>
-
-      {/* ── HERO: Split Building Card ──────────────────── */}
-      <Card className="overflow-hidden" style={{ minHeight: 320 }}>
-        <div className="flex flex-col lg:flex-row">
-          {/* Image side */}
-          <div className="relative lg:w-[55%] min-h-[240px] lg:min-h-[320px]">
-            <img
-              src={featPhoto}
-              alt={feat?.name ?? "Building"}
-              className="absolute inset-0 w-full h-full object-cover"
-              key={featPhoto}
-            />
-            {/* Subtle gradient for nav dots only */}
-            <div
-              className="absolute inset-x-0 bottom-0 h-20"
-              style={{ background: "linear-gradient(to top, rgba(0,0,0,0.35), transparent)" }}
-            />
-
-            {/* Building dots */}
-            {buildings.length > 1 && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={prev}
-                  className="w-7 h-7 rounded-full flex items-center justify-center"
-                  style={{ background: "rgba(255,255,255,0.2)", backdropFilter: "blur(8px)" }}
-                >
-                  <ChevronLeft className="w-3.5 h-3.5 text-white" />
-                </button>
-
-                <div className="flex items-center gap-1.5">
-                  {buildings.map((_, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => setFeatIdx(i)}
-                      className="transition-all duration-200 rounded-full"
-                      style={{
-                        width: i === featIdx ? 20 : 7,
-                        height: 7,
-                        background: i === featIdx ? "#fff" : "rgba(255,255,255,0.45)",
-                      }}
-                    />
-                  ))}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={next}
-                  className="w-7 h-7 rounded-full flex items-center justify-center"
-                  style={{ background: "rgba(255,255,255,0.2)", backdropFilter: "blur(8px)" }}
-                >
-                  <ChevronRight className="w-3.5 h-3.5 text-white" />
-                </button>
-              </div>
-            )}
+    <div style={{ padding: "32px 32px 48px" }}>
+      {/* ── Page Header ───────────────────────────────────────── */}
+      <div style={{ marginBottom: 28 }}>
+        <div className="flex items-center gap-3 mb-1">
+          <div
+            className="w-9 h-9 rounded-lg flex items-center justify-center"
+            style={{ background: "var(--sidebar-accent)" }}
+          >
+            <Building2 className="w-[18px] h-[18px]" style={{ color: "var(--primary)" }} />
           </div>
-
-          {/* Info side */}
-          <div className="lg:w-[45%] p-7 lg:p-8 flex flex-col justify-between">
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <span
-                  className="text-[10px] font-semibold uppercase px-2.5 py-1 rounded-full"
-                  style={{
-                    background: "var(--sidebar-accent)",
-                    color: "var(--primary)",
-                    letterSpacing: "0.08em",
-                  }}
-                >
-                  {t("buildingsPortfolio")}
-                </span>
-              </div>
-
-              <h2 className="text-2xl font-bold leading-tight" style={{ color: "var(--foreground)" }}>
-                {feat?.name ?? t("dashboardTitle")}
-              </h2>
-
-              {feat && (
-                <div className="flex items-center gap-1.5 mt-1.5">
-                  <MapPin className="w-3.5 h-3.5 shrink-0" style={{ color: "var(--muted-foreground)" }} />
-                  <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>
-                    {feat.address}
-                  </p>
-                </div>
-              )}
-
-              {/* Mini stats row */}
-              <div className="grid grid-cols-3 gap-3 mt-6">
-                {[
-                  { label: t("totalUnits"), value: featUnits },
-                  { label: t("occupancy"), value: `${featOccPct.toFixed(0)}%` },
-                  { label: t("monthlyRevenue"), value: formatCHF(feat?.monthlyRevenue ?? 0) },
-                ].map((s) => (
-                  <div
-                    key={s.label}
-                    className="rounded-xl p-3"
-                    style={{ background: "var(--background)", border: "1px solid var(--border)" }}
-                  >
-                    <p className="text-[10px] font-semibold uppercase" style={{ color: "var(--muted-foreground)", letterSpacing: "0.06em" }}>
-                      {s.label}
-                    </p>
-                    <p className="text-lg font-bold mt-0.5" style={{ color: "var(--foreground)" }}>
-                      {s.value}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* CTAs */}
-            <div className="flex items-center gap-3 mt-6">
-              {feat && (
-                <button
-                  type="button"
-                  onClick={() => onSelectBuilding(feat.id)}
-                  className="flex items-center gap-2 text-sm font-semibold rounded-xl transition-colors"
-                  style={{
-                    padding: "9px 18px",
-                    background: "var(--primary)",
-                    color: "var(--primary-foreground)",
-                  }}
-                >
-                  <ArrowUpRight className="w-4 h-4" />
-                  Détails
-                </button>
-              )}
-
-              <button
-                type="button"
-                onClick={() => setIsInfoOpen(true)}
-                className="flex items-center gap-2 text-sm font-medium rounded-xl transition-colors"
-                style={{
-                  padding: "9px 18px",
-                  background: "var(--background)",
-                  color: "var(--foreground)",
-                  border: "1px solid var(--border)",
-                }}
-              >
-                <Info className="w-4 h-4" />
-                {t("importantInfo")}
-              </button>
-            </div>
+          <div>
+            <h1
+              className="text-[22px] font-semibold leading-tight"
+              style={{ color: "var(--foreground)" }}
+            >
+              {t("dashboardTitle")}
+            </h1>
+            <p className="text-[13px]" style={{ color: "var(--muted-foreground)" }}>
+              {t("dashboardSub") || "Portfolio Overview & Task Management"}
+            </p>
           </div>
         </div>
-      </Card>
+      </div>
 
-      {/* ── KPI CARDS ──────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* ── Filter Pills ──────────────────────────────────────── */}
+      <div className="flex items-center gap-2" style={{ marginBottom: 24 }}>
+        {filters.map((f) => {
+          const active = filter === f.key;
+          return (
+            <button
+              key={f.key}
+              onClick={() => setFilter(f.key)}
+              className="text-[13px] font-medium transition-all"
+              style={{
+                padding: "7px 16px",
+                borderRadius: 10,
+                border: active ? "1px solid var(--foreground)" : "1px solid var(--border)",
+                background: active ? "var(--foreground)" : "var(--card)",
+                color: active ? "var(--card)" : "var(--foreground)",
+              }}
+              onMouseEnter={(e) => {
+                if (!active) e.currentTarget.style.borderColor = "var(--foreground)";
+              }}
+              onMouseLeave={(e) => {
+                if (!active) e.currentTarget.style.borderColor = "var(--border)";
+              }}
+            >
+              {f.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── Team / Buildings Row ───────────────────────────────── */}
+      <div
+        className="flex items-center gap-4 overflow-x-auto pb-1"
+        style={{ marginBottom: 28 }}
+      >
+        {activePeople.map((person) => (
+          <div
+            key={person.id}
+            className="flex items-center gap-3 shrink-0"
+            style={{
+              padding: "10px 16px 10px 10px",
+              borderRadius: 14,
+              border: "1px solid var(--border)",
+              background: "var(--card)",
+            }}
+          >
+            <div
+              className="w-10 h-10 rounded-full flex items-center justify-center text-[12px] font-semibold shrink-0"
+              style={{
+                background: "var(--primary)",
+                color: "var(--primary-foreground)",
+              }}
+            >
+              {person.initials}
+            </div>
+            <div className="min-w-0">
+              <p
+                className="text-[13px] font-medium leading-tight truncate"
+                style={{ color: "var(--foreground)", maxWidth: 120 }}
+              >
+                {person.name}
+              </p>
+            </div>
+            <span
+              className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0"
+              style={{
+                background: "var(--sidebar-accent)",
+                color: "var(--primary)",
+              }}
+            >
+              {person.count}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {/* ── KPI Strip ─────────────────────────────────────────── */}
+      <div
+        className="grid grid-cols-2 lg:grid-cols-4 gap-4"
+        style={{ marginBottom: 28 }}
+      >
         {[
           {
             icon: Building2,
             label: t("totalBuildings"),
             value: buildings.length,
             sub: `${totalUnits} ${t("totalUnits")}`,
-            accent: false,
-            trend: true,
           },
           {
             icon: Users,
             label: t("occupancyRate"),
             value: `${occPct.toFixed(1)}%`,
-            sub: `${occupied} ${t("occupiedOf")} ${totalUnits}`,
-            accent: true,
-            trend: true,
+            sub: `${occupied} / ${totalUnits}`,
           },
           {
             icon: DollarSign,
             label: t("monthlyRevenue"),
             value: formatCHF(revenue),
             sub: t("combinedTotal"),
-            accent: true,
-            trend: true,
           },
           {
             icon: Wrench,
             label: t("pendingRequests"),
-            value: pending,
-            sub: `${requests.length} ${t("totalRequests")}`,
-            accent: false,
-            trend: false,
-            alert: pending > 0,
+            value: cols.pending.length,
+            sub: `${requests.length} total`,
           },
         ].map((kpi) => {
           const Icon = kpi.icon;
           return (
-            <Card key={kpi.label} className="p-5 flex flex-col gap-4">
-              <div className="flex items-center justify-between">
+            <div
+              key={kpi.label}
+              style={{
+                padding: "20px",
+                borderRadius: 14,
+                border: "1px solid var(--border)",
+                background: "var(--card)",
+              }}
+            >
+              <div className="flex items-center justify-between mb-3">
                 <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center"
-                  style={{
-                    background: kpi.accent ? "rgba(69,85,58,0.08)" : "var(--background)",
-                    border: kpi.accent ? "none" : "1px solid var(--border)",
-                  }}
+                  className="w-9 h-9 rounded-lg flex items-center justify-center"
+                  style={{ background: "var(--sidebar-accent)" }}
                 >
-                  <Icon className="w-[18px] h-[18px]" style={{ color: "var(--primary)" }} />
+                  <Icon className="w-[16px] h-[16px]" style={{ color: "var(--primary)" }} />
                 </div>
-
-                {kpi.trend && <TrendingUp className="w-4 h-4" style={{ color: "var(--primary)" }} />}
-                {(kpi as any).alert && (
-                  <span
-                    className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold"
-                    style={{ background: "rgba(201,168,76,0.12)", color: "#8A6A14" }}
-                  >
-                    <AlertCircle className="w-3 h-3" />
-                    {t("actionNeeded")}
-                  </span>
-                )}
+                <TrendingUp className="w-4 h-4" style={{ color: "var(--primary)", opacity: 0.5 }} />
               </div>
-
-              <div>
-                <p
-                  className="text-[10px] font-semibold uppercase mb-0.5"
-                  style={{ color: "var(--muted-foreground)", letterSpacing: "0.08em" }}
-                >
-                  {kpi.label}
-                </p>
-                <p className="text-2xl font-bold leading-none" style={{ color: "var(--foreground)" }}>
-                  {kpi.value}
-                </p>
-                <p className="text-xs mt-1" style={{ color: "var(--muted-foreground)" }}>
-                  {kpi.sub}
-                </p>
-              </div>
-            </Card>
+              <p
+                className="text-[11px] font-medium uppercase"
+                style={{ color: "var(--muted-foreground)", letterSpacing: "0.05em" }}
+              >
+                {kpi.label}
+              </p>
+              <p
+                className="text-[22px] font-bold leading-tight mt-0.5"
+                style={{ color: "var(--foreground)" }}
+              >
+                {kpi.value}
+              </p>
+              <p className="text-[12px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>
+                {kpi.sub}
+              </p>
+            </div>
           );
         })}
       </div>
 
-      {/* ── BOTTOM GRID ────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+      {/* ── Kanban Board ──────────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <KanbanColumn
+          icon={Circle}
+          title={t("pending")}
+          count={cols.pending.length}
+          color="#F59E0B"
+          requests={cols.pending}
+        />
+        <KanbanColumn
+          icon={Clock}
+          title={t("inProgress")}
+          count={cols.inProgress.length}
+          color="var(--primary)"
+          requests={cols.inProgress}
+        />
+        <KanbanColumn
+          icon={CheckCircle2}
+          title={t("completed")}
+          count={cols.completed.length}
+          color="#22C55E"
+          requests={cols.completed}
+        />
+      </div>
+    </div>
+  );
+}
 
-        {/* Recent Requests — 3 cols */}
-        <Card className="lg:col-span-3 p-6">
-          <div className="flex items-center justify-between mb-5">
-            <div>
-              <h3 className="text-[15px] font-semibold" style={{ color: "var(--foreground)" }}>
-                {t("recentRequests")}
-              </h3>
-              <p className="text-xs mt-0.5" style={{ color: "var(--muted-foreground)" }}>
-                {t("recentRequestsSub")}
-              </p>
-            </div>
-            <span
-              className="text-[10px] font-semibold uppercase rounded-full"
-              style={{
-                padding: "4px 10px",
-                background: "var(--background)",
-                color: "var(--muted-foreground)",
-                border: "1px solid var(--border)",
-                letterSpacing: "0.06em",
-              }}
-            >
-              {t("liveData")}
-            </span>
-          </div>
+/* ─── Kanban Column ───────────────────────────────────────────── */
 
-          <div className="space-y-2">
-            {requests.slice(0, 5).map((req) => (
-              <div
-                key={req.id}
-                className="flex items-center gap-4 rounded-xl p-3.5 transition-colors cursor-pointer"
-                style={{ background: "var(--background)", border: "1px solid var(--border)" }}
-                onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--primary)"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
-              >
-                <div
-                  className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
-                  style={{ background: "rgba(69,85,58,0.07)" }}
-                >
-                  <Wrench className="w-4 h-4" style={{ color: "var(--primary)" }} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate" style={{ color: "var(--foreground)" }}>
-                    {req.title}
-                  </p>
-                  <p className="text-[11px] mt-0.5 truncate" style={{ color: "var(--muted-foreground)" }}>
-                    {req.buildingName} · Apt {req.unit} · {req.tenantName}
-                  </p>
-                </div>
-                <Badge status={req.status} t={t} />
-              </div>
-            ))}
-
-            {requests.length === 0 && (
-              <div className="text-center py-10">
-                <Wrench className="w-8 h-8 mx-auto mb-2 opacity-20" style={{ color: "var(--muted-foreground)" }} />
-                <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{t("noRequestsYet")}</p>
-                <p className="text-xs mt-1" style={{ color: "var(--muted-foreground)" }}>{t("allRequestsHere")}</p>
-              </div>
-            )}
-          </div>
-        </Card>
-
-        {/* Portfolio Health — 2 cols */}
-        <Card className="lg:col-span-2 p-6 flex flex-col gap-5">
-          <div>
-            <h3 className="text-[15px] font-semibold" style={{ color: "var(--foreground)" }}>
-              {t("quickStats")}
-            </h3>
-            <p className="text-xs mt-0.5" style={{ color: "var(--muted-foreground)" }}>
-              {t("quickStatsSub")}
-            </p>
-          </div>
-
-          {/* Donut */}
-          <div className="flex items-center gap-5 justify-center py-2">
-            <Donut pct={occPct} />
-            <div>
-              <p className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
-                {t("occupancy")}
-              </p>
-              <p className="text-xs mt-0.5" style={{ color: "var(--muted-foreground)" }}>
-                {occupied} {t("unitsOccupied")}
-              </p>
-              <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>
-                {totalUnits - occupied} {t("totalUnits")} vacants
-              </p>
-            </div>
-          </div>
-
-          {/* Stat rows */}
-          <div className="space-y-3 flex-1">
-            {[
-              { label: t("totalProperties"), value: buildings.length.toString(), bar: 100, color: "var(--primary)" },
-              { label: t("activeTenants"), value: occupied.toString(), bar: occPct, color: "var(--primary)" },
-              { label: t("pendingRequests"), value: pending.toString(), bar: requests.length > 0 ? (pending / requests.length) * 100 : 0, color: "#C9A84C" },
-            ].map((row) => (
-              <div
-                key={row.label}
-                className="rounded-xl p-3.5"
-                style={{ background: "var(--background)", border: "1px solid var(--border)" }}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs font-medium" style={{ color: "var(--foreground)" }}>{row.label}</p>
-                  <p className="text-lg font-bold" style={{ color: "var(--foreground)" }}>{row.value}</p>
-                </div>
-                <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: "var(--muted)" }}>
-                  <div
-                    className="h-full rounded-full transition-all"
-                    style={{ width: `${Math.max(2, Math.min(100, row.bar))}%`, background: row.color }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
+function KanbanColumn({
+  icon: Icon,
+  title,
+  count,
+  color,
+  requests,
+}: {
+  icon: React.ElementType;
+  title: string;
+  count: number;
+  color: string;
+  requests: MaintenanceRequest[];
+}) {
+  return (
+    <div>
+      {/* Column header */}
+      <div
+        className="flex items-center justify-between"
+        style={{ marginBottom: 14, padding: "0 2px" }}
+      >
+        <div className="flex items-center gap-2">
+          <Icon className="w-4 h-4" style={{ color }} />
+          <h3
+            className="text-[14px] font-semibold"
+            style={{ color: "var(--foreground)" }}
+          >
+            {title}
+          </h3>
+        </div>
+        <span
+          className="text-[12px] font-medium"
+          style={{ color: "var(--muted-foreground)" }}
+        >
+          {count}
+        </span>
       </div>
 
-      {/* ── Bottom metrics strip ───────────────────────── */}
-      <Card className="px-6 py-4">
-        <div className="flex items-center justify-between gap-4 flex-wrap">
-          {[
-            { label: t("totalUnits"), value: totalUnits.toString() },
-            { label: t("occupancyRate"), value: `${occPct.toFixed(1)}%` },
-            { label: t("monthlyRevenue"), value: formatCHF(revenue) },
-            { label: t("pendingRequests"), value: pending.toString() },
-            { label: t("activeTenants"), value: occupied.toString() },
-          ].map((m, i, arr) => (
-            <React.Fragment key={m.label}>
-              <div className="text-center">
-                <p
-                  className="text-[10px] font-semibold uppercase"
-                  style={{ color: "var(--muted-foreground)", letterSpacing: "0.06em" }}
-                >
-                  {m.label}
-                </p>
-                <p className="text-lg font-bold mt-0.5" style={{ color: "var(--foreground)" }}>
-                  {m.value}
-                </p>
-              </div>
-              {i < arr.length - 1 && (
-                <div className="h-8 w-px hidden sm:block" style={{ background: "var(--border)" }} />
-              )}
-            </React.Fragment>
-          ))}
-        </div>
-      </Card>
+      {/* Cards */}
+      <div className="space-y-3">
+        {requests.length === 0 ? (
+          <div
+            className="flex flex-col items-center justify-center text-center"
+            style={{
+              padding: "40px 16px",
+              borderRadius: 14,
+              border: "1px dashed var(--border)",
+              background: "var(--card)",
+            }}
+          >
+            <p className="text-[12px]" style={{ color: "var(--muted-foreground)" }}>
+              Aucune demande
+            </p>
+          </div>
+        ) : (
+          requests.map((req) => <TaskCard key={req.id} request={req} />)
+        )}
+      </div>
+    </div>
+  );
+}
 
-      {/* ── Info Dialog ────────────────────────────────── */}
-      <Dialog open={isInfoOpen} onOpenChange={setIsInfoOpen}>
-        <DialogContent
-          className="max-w-2xl rounded-2xl"
-          style={{
-            background: "var(--card)",
-            border: "1px solid var(--border)",
-          }}
-        >
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold" style={{ color: "var(--foreground)" }}>
-              {t("importantInformation")}
-            </DialogTitle>
-          </DialogHeader>
+/* ─── Task Card (kanban card) ─────────────────────────────────── */
 
-          <div className="space-y-2.5 mt-4 max-h-[60vh] overflow-y-auto pr-1">
-            {infoItems.map((item) => (
-              <div
-                key={item.Title}
-                className="rounded-xl p-4"
-                style={{ background: "var(--background)", border: "1px solid var(--border)" }}
-              >
-                <div className="flex items-start justify-between gap-3 mb-1.5">
-                  <p className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>{item.Title}</p>
-                  {item.Tag && (
-                    <span
-                      className="px-2 py-0.5 rounded-full text-[10px] font-semibold shrink-0"
-                      style={{ background: "rgba(69,85,58,0.08)", color: "var(--primary)" }}
-                    >
-                      {item.Tag}
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs leading-relaxed" style={{ color: "var(--muted-foreground)" }}>
-                  {item.Description}
-                </p>
-              </div>
-            ))}
+function TaskCard({ request }: { request: MaintenanceRequest }) {
+  const priority = PRIORITY_STYLES[request.priority] || PRIORITY_STYLES.medium;
+  const dateStr = request.createdAt
+    ? new Date(request.createdAt).toLocaleDateString("fr-CH", {
+        month: "short",
+        day: "numeric",
+      })
+    : "";
+
+  /* progress bar (visual only — estimate based on status) */
+  const progressPct =
+    request.status === "completed"
+      ? 100
+      : request.status === "in-progress"
+      ? Math.floor(Math.random() * 40 + 30) // 30-70%
+      : 0;
+
+  return (
+    <div
+      className="transition-all cursor-pointer"
+      style={{
+        padding: "16px 18px",
+        borderRadius: 14,
+        border: "1px solid var(--border)",
+        background: "var(--card)",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.06)";
+        e.currentTarget.style.borderColor = "var(--primary)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.boxShadow = "none";
+        e.currentTarget.style.borderColor = "var(--border)";
+      }}
+    >
+      {/* Title */}
+      <h4
+        className="text-[14px] font-semibold leading-snug"
+        style={{ color: "var(--foreground)" }}
+      >
+        {request.title}
+      </h4>
+
+      {/* Description */}
+      <p
+        className="text-[12px] leading-relaxed mt-1 line-clamp-2"
+        style={{ color: "var(--muted-foreground)" }}
+      >
+        {request.description || `${request.buildingName} · Apt ${request.unit}`}
+      </p>
+
+      {/* Meta row: avatar + date + priority */}
+      <div className="flex items-center justify-between mt-3.5">
+        <div className="flex items-center gap-2.5">
+          {/* Avatar */}
+          <div
+            className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-semibold"
+            style={{
+              background: "var(--primary)",
+              color: "var(--primary-foreground)",
+            }}
+          >
+            {request.tenantName
+              ?.split(" ")
+              .map((n) => n[0])
+              .join("")
+              .toUpperCase()
+              .slice(0, 2) || "?"}
           </div>
 
-          <p className="mt-3 text-[11px]" style={{ color: "var(--muted-foreground)" }}>
-            {t("infoDisclaimer")}
-          </p>
-        </DialogContent>
-      </Dialog>
+          {/* Date */}
+          <span
+            className="flex items-center gap-1 text-[11px]"
+            style={{ color: "var(--muted-foreground)" }}
+          >
+            <Calendar className="w-3 h-3" />
+            {dateStr}
+          </span>
+        </div>
+
+        {/* Priority badge */}
+        <span
+          className="flex items-center gap-1.5 text-[11px] font-medium px-2 py-0.5 rounded-full"
+          style={{ background: priority.bg, color: priority.fg }}
+        >
+          <span
+            className="w-1.5 h-1.5 rounded-full"
+            style={{ background: priority.dot }}
+          />
+          {priority.label}
+        </span>
+      </div>
+
+      {/* Progress bar (in-progress only) */}
+      {request.status === "in-progress" && (
+        <div className="mt-3 flex items-center gap-2">
+          <div
+            className="flex-1 h-1.5 rounded-full overflow-hidden"
+            style={{ background: "var(--border)" }}
+          >
+            <div
+              className="h-full rounded-full"
+              style={{
+                width: `${progressPct}%`,
+                background: "var(--primary)",
+              }}
+            />
+          </div>
+          <span
+            className="text-[10px] font-medium shrink-0"
+            style={{ color: "var(--muted-foreground)" }}
+          >
+            {progressPct}%
+          </span>
+        </div>
+      )}
     </div>
   );
 }
@@ -630,53 +531,48 @@ function TenantDashboard({
   const inProgressCount = myRequests.filter((r) => r.status === "in-progress").length;
   const heroPhoto = myBuilding?.imageUrl || BUILDING_PHOTOS[0];
 
-  const Card = ({
-    children,
-    className = "",
-    style = {},
-  }: {
-    children: React.ReactNode;
-    className?: string;
-    style?: React.CSSProperties;
-  }) => (
-    <div
-      className={`rounded-2xl ${className}`}
-      style={{
-        background: "var(--card)",
-        border: "1px solid var(--border)",
-        boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
-        ...style,
-      }}
-    >
-      {children}
-    </div>
-  );
-
   return (
-    <div className="max-w-[1200px] mx-auto px-8 py-8 space-y-6" style={{ background: "var(--background)" }}>
+    <div style={{ padding: "32px 32px 48px" }}>
       {/* Hero */}
-      <Card className="overflow-hidden">
-        <div className="flex flex-col lg:flex-row">
-          <div className="relative lg:w-[50%] min-h-[220px] lg:min-h-[280px]">
-            <img src={heroPhoto} alt={myBuilding?.name ?? ""} className="absolute inset-0 w-full h-full object-cover" />
-          </div>
-          <div className="lg:w-[50%] p-7 flex flex-col justify-center">
-            <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>{t("hello")},</p>
-            <h2 className="text-2xl font-bold mt-1" style={{ color: "var(--foreground)" }}>{userName}</h2>
-            {myBuilding && (
-              <div className="flex items-center gap-1.5 mt-2">
-                <MapPin className="w-3.5 h-3.5" style={{ color: "var(--muted-foreground)" }} />
-                <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>
-                  {myBuilding.name} — {myBuilding.address}
-                </p>
-              </div>
-            )}
-          </div>
+      <div
+        className="overflow-hidden flex flex-col lg:flex-row"
+        style={{
+          borderRadius: 16,
+          border: "1px solid var(--border)",
+          background: "var(--card)",
+          marginBottom: 24,
+        }}
+      >
+        <div className="relative lg:w-[50%] min-h-[220px] lg:min-h-[280px]">
+          <img
+            src={heroPhoto}
+            alt={myBuilding?.name ?? ""}
+            className="absolute inset-0 w-full h-full object-cover"
+          />
         </div>
-      </Card>
+        <div className="lg:w-[50%] p-7 flex flex-col justify-center">
+          <p className="text-[12px]" style={{ color: "var(--muted-foreground)" }}>
+            {t("hello")},
+          </p>
+          <h2
+            className="text-[22px] font-bold mt-1"
+            style={{ color: "var(--foreground)" }}
+          >
+            {userName}
+          </h2>
+          {myBuilding && (
+            <div className="flex items-center gap-1.5 mt-2">
+              <MapPin className="w-3.5 h-3.5" style={{ color: "var(--muted-foreground)" }} />
+              <p className="text-[13px]" style={{ color: "var(--muted-foreground)" }}>
+                {myBuilding.name} — {myBuilding.address}
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4" style={{ marginBottom: 24 }}>
         {[
           { icon: Home, label: t("myBuilding"), value: myBuilding?.name ?? "—", sub: myTenant?.unit ? `Apt ${myTenant.unit}` : undefined },
           { icon: DollarSign, label: t("monthlyRent"), value: myTenant ? formatCHF(myTenant.rent) : "—", sub: t("currentAmount") },
@@ -685,26 +581,56 @@ function TenantDashboard({
         ].map((kpi) => {
           const Icon = kpi.icon;
           return (
-            <Card key={kpi.label} className="p-5">
+            <div
+              key={kpi.label}
+              style={{
+                padding: 20,
+                borderRadius: 14,
+                border: "1px solid var(--border)",
+                background: "var(--card)",
+              }}
+            >
               <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center mb-3"
-                style={{ background: "var(--background)", border: "1px solid var(--border)" }}
+                className="w-9 h-9 rounded-lg flex items-center justify-center mb-3"
+                style={{ background: "var(--sidebar-accent)" }}
               >
-                <Icon className="w-[18px] h-[18px]" style={{ color: "var(--primary)" }} />
+                <Icon className="w-4 h-4" style={{ color: "var(--primary)" }} />
               </div>
-              <p className="text-[10px] font-semibold uppercase mb-0.5" style={{ color: "var(--muted-foreground)", letterSpacing: "0.08em" }}>
+              <p
+                className="text-[11px] font-medium uppercase"
+                style={{ color: "var(--muted-foreground)", letterSpacing: "0.05em" }}
+              >
                 {kpi.label}
               </p>
-              <p className="text-xl font-bold" style={{ color: "var(--foreground)" }}>{kpi.value}</p>
-              {kpi.sub && <p className="text-xs mt-0.5" style={{ color: "var(--muted-foreground)" }}>{kpi.sub}</p>}
-            </Card>
+              <p className="text-[20px] font-bold mt-0.5" style={{ color: "var(--foreground)" }}>
+                {kpi.value}
+              </p>
+              {kpi.sub && (
+                <p className="text-[12px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>
+                  {kpi.sub}
+                </p>
+              )}
+            </div>
           );
         })}
       </div>
 
       {/* Lease */}
-      <Card className="p-6">
-        <h3 className="text-[15px] font-semibold mb-4" style={{ color: "var(--foreground)" }}>{t("leaseInfo")}</h3>
+      <div
+        style={{
+          borderRadius: 14,
+          border: "1px solid var(--border)",
+          background: "var(--card)",
+          padding: 24,
+          marginBottom: 24,
+        }}
+      >
+        <h3
+          className="text-[15px] font-semibold mb-4"
+          style={{ color: "var(--foreground)" }}
+        >
+          {t("leaseInfo")}
+        </h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
             { label: t("unit"), value: myTenant?.unit ?? "—" },
@@ -714,41 +640,93 @@ function TenantDashboard({
           ].map((item) => (
             <div
               key={item.label}
-              className="rounded-xl p-3.5"
-              style={{ background: "var(--background)", border: "1px solid var(--border)" }}
+              className="rounded-xl"
+              style={{ padding: "12px 14px", background: "var(--background)", border: "1px solid var(--border)" }}
             >
-              <p className="text-[10px] font-semibold uppercase mb-1" style={{ color: "var(--muted-foreground)", letterSpacing: "0.06em" }}>
+              <p
+                className="text-[10px] font-medium uppercase mb-1"
+                style={{ color: "var(--muted-foreground)", letterSpacing: "0.06em" }}
+              >
                 {item.label}
               </p>
-              <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{item.value}</p>
+              <p className="text-[13px] font-medium" style={{ color: "var(--foreground)" }}>
+                {item.value}
+              </p>
             </div>
           ))}
         </div>
-      </Card>
+      </div>
 
-      {/* Requests */}
+      {/* Recent requests */}
       {myRequests.length > 0 && (
-        <Card className="p-6">
-          <h3 className="text-[15px] font-semibold mb-4" style={{ color: "var(--foreground)" }}>{t("recentRequests")}</h3>
+        <div
+          style={{
+            borderRadius: 14,
+            border: "1px solid var(--border)",
+            background: "var(--card)",
+            padding: 24,
+          }}
+        >
+          <h3
+            className="text-[15px] font-semibold mb-4"
+            style={{ color: "var(--foreground)" }}
+          >
+            {t("recentRequests")}
+          </h3>
           <div className="space-y-2">
-            {myRequests.slice(0, 4).map((req) => (
-              <div
-                key={req.id}
-                className="flex items-center gap-4 rounded-xl p-3.5"
-                style={{ background: "var(--background)", border: "1px solid var(--border)" }}
-              >
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: "rgba(69,85,58,0.07)" }}>
-                  <Wrench className="w-3.5 h-3.5" style={{ color: "var(--primary)" }} />
+            {myRequests.slice(0, 4).map((req) => {
+              const priority = PRIORITY_STYLES[req.priority] || PRIORITY_STYLES.medium;
+              return (
+                <div
+                  key={req.id}
+                  className="flex items-center gap-4 rounded-xl transition-colors"
+                  style={{
+                    padding: "12px 14px",
+                    background: "var(--background)",
+                    border: "1px solid var(--border)",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = "var(--primary)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = "var(--border)";
+                  }}
+                >
+                  <div
+                    className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                    style={{ background: "rgba(69,85,58,0.07)" }}
+                  >
+                    <Wrench className="w-3.5 h-3.5" style={{ color: "var(--primary)" }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p
+                      className="text-[13px] font-medium truncate"
+                      style={{ color: "var(--foreground)" }}
+                    >
+                      {req.title}
+                    </p>
+                    <p
+                      className="text-[11px] mt-0.5 truncate"
+                      style={{ color: "var(--muted-foreground)" }}
+                    >
+                      {req.buildingName} · Apt {req.unit}
+                    </p>
+                  </div>
+                  <span
+                    className="flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full shrink-0"
+                    style={{ background: priority.bg, color: priority.fg }}
+                  >
+                    <span
+                      className="w-1.5 h-1.5 rounded-full"
+                      style={{ background: priority.dot }}
+                    />
+                    {priority.label}
+                  </span>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate" style={{ color: "var(--foreground)" }}>{req.title}</p>
-                  <p className="text-[11px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>{req.buildingName} · Apt {req.unit}</p>
-                </div>
-                <Badge status={req.status} t={t} />
-              </div>
-            ))}
+              );
+            })}
           </div>
-        </Card>
+        </div>
       )}
     </div>
   );
