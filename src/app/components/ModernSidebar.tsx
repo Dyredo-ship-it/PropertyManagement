@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from "react";
 import {
-  Building2,
   LayoutDashboard,
   Building,
   Users,
@@ -16,10 +15,10 @@ import {
   ClipboardList,
   Settings,
   HelpCircle,
-  ArrowLeftRight,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../i18n/LanguageContext";
+import { ImmoStoreLogo } from "./ImmoStoreLogo";
 
 /* ─── Types ───────────────────────────────────────────────────── */
 
@@ -33,7 +32,6 @@ type MenuItem = {
   labelKey: string;
   icon: React.ComponentType<{ className?: string }>;
   badge?: number;
-  dot?: string; // color string for a dot indicator
 };
 
 /* ─── Component ───────────────────────────────────────────────── */
@@ -47,9 +45,8 @@ export function ModernSidebar({ activeView, onViewChange }: ModernSidebarProps) 
     support: true,
   });
 
-  const toggleSection = (key: string) => {
+  const toggleSection = (key: string) =>
     setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
 
   const adminSections = useMemo(
     () => [
@@ -58,7 +55,7 @@ export function ModernSidebar({ activeView, onViewChange }: ModernSidebarProps) 
         label: "GESTION",
         items: [
           { id: "dashboard", labelKey: "navDashboard", icon: LayoutDashboard },
-          { id: "buildings", labelKey: "navBuildings", icon: Building, badge: undefined },
+          { id: "buildings", labelKey: "navBuildings", icon: Building },
           { id: "tenants", labelKey: "navTenants", icon: Users },
           { id: "requests", labelKey: "requestsHub", icon: ClipboardList },
           { id: "interventions", labelKey: "navInterventions", icon: CalendarDays },
@@ -105,12 +102,7 @@ export function ModernSidebar({ activeView, onViewChange }: ModernSidebarProps) 
   const sections = isAdmin ? adminSections : tenantSections;
 
   const initials = user?.name
-    ? user.name
-        .split(" ")
-        .map((n) => n[0])
-        .join("")
-        .toUpperCase()
-        .slice(0, 2)
+    ? user.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
     : "AD";
 
   const w = isCollapsed ? "w-[72px]" : "w-[260px]";
@@ -124,134 +116,98 @@ export function ModernSidebar({ activeView, onViewChange }: ModernSidebarProps) 
         transition: "width 200ms ease-out",
       }}
     >
-      {/* ── User Profile (top) ──────────────────────────────── */}
-      <div style={{ padding: isCollapsed ? "20px 12px 16px" : "20px 16px 16px" }}>
-        {!isCollapsed ? (
-          <div className="flex items-center gap-3">
-            <div
-              className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-[12px] font-semibold"
-              style={{
-                background: "var(--primary)",
-                color: "var(--primary-foreground)",
-              }}
-            >
-              {initials}
-            </div>
+      {/* ── Brand + Logo ──────────────────────────────────────── */}
+      <div style={{ padding: isCollapsed ? "20px 12px 12px" : "20px 18px 12px" }}>
+        <div
+          className="flex items-center"
+          style={{
+            gap: isCollapsed ? 0 : 12,
+            justifyContent: isCollapsed ? "center" : "flex-start",
+          }}
+        >
+          <ImmoStoreLogo size={isCollapsed ? 34 : 36} />
+          {!isCollapsed && (
             <div className="min-w-0 flex-1">
               <p
-                className="text-[14px] font-semibold leading-tight truncate"
+                className="text-[15px] font-bold leading-tight truncate"
+                style={{ color: "var(--foreground)" }}
+              >
+                ImmoStore
+              </p>
+              <p
+                className="text-[10px] mt-0.5 truncate"
+                style={{ color: "var(--muted-foreground)" }}
+              >
+                Gestion immobilière
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── User bubble ───────────────────────────────────────── */}
+      <div style={{ padding: isCollapsed ? "8px 10px 12px" : "8px 14px 12px" }}>
+        <div
+          className="flex items-center transition-colors cursor-pointer"
+          style={{
+            gap: isCollapsed ? 0 : 10,
+            justifyContent: isCollapsed ? "center" : "flex-start",
+            padding: isCollapsed ? "8px 0" : "10px 12px",
+            borderRadius: 14,
+            background: "rgba(255,255,255,0.65)",
+            border: "1px solid rgba(255,255,255,0.8)",
+          }}
+        >
+          <div
+            className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 text-[11px] font-bold"
+            style={{
+              background: "var(--primary)",
+              color: "var(--primary-foreground)",
+            }}
+          >
+            {initials}
+          </div>
+          {!isCollapsed && (
+            <div className="min-w-0 flex-1">
+              <p
+                className="text-[13px] font-semibold leading-tight truncate"
                 style={{ color: "var(--foreground)" }}
               >
                 {user?.name ?? "—"}
               </p>
               <p
-                className="text-[11px] truncate mt-0.5"
+                className="text-[10px] truncate mt-0.5"
                 style={{ color: "var(--muted-foreground)" }}
               >
                 {user?.role === "admin" ? "Administrateur" : "Locataire"}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => setIsCollapsed(true)}
-              className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-colors"
-              style={{ color: "var(--muted-foreground)" }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = "var(--sidebar-accent)";
-                e.currentTarget.style.color = "var(--foreground)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "transparent";
-                e.currentTarget.style.color = "var(--muted-foreground)";
-              }}
-            >
-              <ChevronLeft className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center gap-2">
-            <div
-              className="w-10 h-10 rounded-full flex items-center justify-center text-[12px] font-semibold"
-              style={{
-                background: "var(--primary)",
-                color: "var(--primary-foreground)",
-              }}
-            >
-              {initials}
-            </div>
-            <button
-              type="button"
-              onClick={() => setIsCollapsed(false)}
-              className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors"
-              style={{ color: "var(--muted-foreground)" }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = "var(--sidebar-accent)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "transparent";
-              }}
-            >
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        )}
-      </div>
-
-      <div style={{ margin: "0 16px", height: 1, background: "var(--sidebar-border)" }} />
-
-      {/* ── Brand ─────────────────────────────────────────────── */}
-      <div
-        style={{
-          padding: isCollapsed ? "16px 12px" : "16px 16px",
-        }}
-      >
-        <div
-          className="flex items-center"
-          style={{
-            gap: isCollapsed ? 0 : 10,
-            justifyContent: isCollapsed ? "center" : "flex-start",
-          }}
-        >
-          <div
-            className="shrink-0 rounded-lg flex items-center justify-center"
-            style={{ width: 32, height: 32, background: "var(--primary)" }}
-          >
-            <Building2
-              className="w-4 h-4"
-              style={{ color: "var(--primary-foreground)" }}
-            />
-          </div>
-          {!isCollapsed && (
-            <p
-              className="text-[14px] font-semibold leading-tight truncate"
-              style={{ color: "var(--foreground)" }}
-            >
-              ImmoStore
-            </p>
           )}
         </div>
       </div>
 
+      <div style={{ margin: "0 16px 4px", height: 1, background: "var(--sidebar-border)" }} />
+
       {/* ── Navigation Sections ───────────────────────────────── */}
-      <div className="flex-1 overflow-y-auto" style={{ padding: "4px 10px 16px" }}>
+      <div className="flex-1 overflow-y-auto" style={{ padding: "8px 10px 16px" }}>
         {sections.map((section, idx) => (
           <div key={section.key}>
             {idx > 0 && (
               <div
                 style={{
-                  margin: "12px 6px",
+                  margin: "10px 8px",
                   height: 1,
                   background: "var(--sidebar-border)",
                 }}
               />
             )}
 
-            {/* Section header */}
+            {/* Section header with chevron */}
             {!isCollapsed && (
               <button
                 type="button"
                 onClick={() => toggleSection(section.key)}
-                className="w-full flex items-center justify-between mb-1"
+                className="w-full flex items-center justify-between mb-1.5"
                 style={{ padding: "4px 10px" }}
               >
                 <p
@@ -267,19 +223,17 @@ export function ModernSidebar({ activeView, onViewChange }: ModernSidebarProps) 
                   className="w-3 h-3 transition-transform"
                   style={{
                     color: "var(--muted-foreground)",
-                    transform: openSections[section.key]
-                      ? "rotate(0deg)"
-                      : "rotate(180deg)",
+                    transform: openSections[section.key] ? "rotate(0deg)" : "rotate(180deg)",
                   }}
                 />
               </button>
             )}
 
-            {/* Items */}
+            {/* Nav items as bubbles */}
             {(isCollapsed || openSections[section.key]) && (
-              <div className="space-y-0.5">
+              <div className="space-y-1">
                 {section.items.map((item) => (
-                  <NavItem
+                  <NavBubble
                     key={item.id}
                     item={item}
                     isActive={activeView === item.id}
@@ -294,68 +248,76 @@ export function ModernSidebar({ activeView, onViewChange }: ModernSidebarProps) 
         ))}
       </div>
 
-      {/* ── Bottom actions ────────────────────────────────────── */}
-      <div style={{ borderTop: "1px solid var(--sidebar-border)", padding: "10px" }}>
-        {!isCollapsed ? (
-          <div className="space-y-1">
-            <button
-              type="button"
-              onClick={logout}
-              className="w-full flex items-center gap-3 rounded-lg text-[13px] transition-colors"
-              style={{
-                padding: "8px 10px",
-                color: "var(--muted-foreground)",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = "var(--sidebar-accent)";
-                e.currentTarget.style.color = "var(--foreground)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "transparent";
-                e.currentTarget.style.color = "var(--muted-foreground)";
-              }}
-            >
-              <LogOut className="w-4 h-4" />
-              <span>{t("logout")}</span>
-            </button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={logout}
-            title={t("logout")}
-            className="w-full flex items-center justify-center py-2 rounded-lg transition-colors"
-            style={{ color: "var(--muted-foreground)" }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = "var(--foreground)";
-              e.currentTarget.style.background = "var(--sidebar-accent)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.color = "var(--muted-foreground)";
-              e.currentTarget.style.background = "transparent";
-            }}
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
-        )}
+      {/* ── Bottom: Logout ────────────────────────────────────── */}
+      <div style={{ borderTop: "1px solid var(--sidebar-border)", padding: 10 }}>
+        <button
+          type="button"
+          onClick={logout}
+          title={isCollapsed ? t("logout") : undefined}
+          className="w-full flex items-center gap-3 transition-colors"
+          style={{
+            padding: isCollapsed ? "8px 0" : "8px 12px",
+            justifyContent: isCollapsed ? "center" : "flex-start",
+            borderRadius: 12,
+            color: "var(--muted-foreground)",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "rgba(255,255,255,0.5)";
+            e.currentTarget.style.color = "var(--foreground)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "transparent";
+            e.currentTarget.style.color = "var(--muted-foreground)";
+          }}
+        >
+          <LogOut className="w-4 h-4" />
+          {!isCollapsed && <span className="text-[13px]">{t("logout")}</span>}
+        </button>
 
-        {/* Version */}
         {!isCollapsed && (
           <p
             className="text-[10px] text-center mt-2"
-            style={{ color: "var(--muted-foreground)", opacity: 0.5 }}
+            style={{ color: "var(--muted-foreground)", opacity: 0.4 }}
           >
             ImmoStore v1.0
           </p>
         )}
       </div>
+
+      {/* ── Collapse toggle ───────────────────────────────────── */}
+      <button
+        type="button"
+        onClick={() => setIsCollapsed((v) => !v)}
+        className="absolute -right-3 top-20 w-6 h-6 rounded-full flex items-center justify-center z-10 transition-all"
+        style={{
+          background: "var(--card)",
+          border: "1px solid var(--border)",
+          color: "var(--muted-foreground)",
+          boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.color = "var(--foreground)";
+          e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.12)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.color = "var(--muted-foreground)";
+          e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,0.08)";
+        }}
+        aria-label={isCollapsed ? "Expand" : "Collapse"}
+      >
+        {isCollapsed ? (
+          <ChevronRight className="w-3 h-3" />
+        ) : (
+          <ChevronLeft className="w-3 h-3" />
+        )}
+      </button>
     </aside>
   );
 }
 
-/* ─── NavItem ─────────────────────────────────────────────────── */
+/* ─── NavBubble — pill-shaped navigation item ─────────────────── */
 
-function NavItem({
+function NavBubble({
   item,
   isActive,
   isCollapsed,
@@ -378,19 +340,20 @@ function NavItem({
       className="w-full"
     >
       <div
-        className="flex items-center gap-3 rounded-lg transition-all duration-150"
+        className="flex items-center gap-3 transition-all duration-150"
         style={{
-          padding: isCollapsed ? "8px 0" : "7px 10px",
+          padding: isCollapsed ? "8px 0" : "8px 12px",
           justifyContent: isCollapsed ? "center" : "flex-start",
-          background: isActive ? "var(--sidebar-accent)" : "transparent",
-          color: isActive
-            ? "var(--sidebar-accent-foreground)"
-            : "var(--sidebar-foreground)",
-          fontWeight: isActive ? 500 : 400,
+          borderRadius: 12,
+          background: isActive ? "rgba(255,255,255,0.7)" : "transparent",
+          color: isActive ? "var(--sidebar-accent-foreground)" : "var(--sidebar-foreground)",
+          fontWeight: isActive ? 600 : 400,
+          boxShadow: isActive ? "0 1px 3px rgba(0,0,0,0.04)" : "none",
+          border: isActive ? "1px solid rgba(255,255,255,0.6)" : "1px solid transparent",
         }}
         onMouseEnter={(e) => {
           if (!isActive) {
-            e.currentTarget.style.background = "var(--sidebar-accent)";
+            e.currentTarget.style.background = "rgba(255,255,255,0.4)";
             e.currentTarget.style.color = "var(--foreground)";
           }
         }}
@@ -401,7 +364,7 @@ function NavItem({
           }
         }}
       >
-        <div className="w-7 h-7 rounded-md flex items-center justify-center shrink-0">
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0">
           <Icon className="w-[17px] h-[17px]" />
         </div>
 
@@ -411,33 +374,16 @@ function NavItem({
           </span>
         )}
 
-        {/* Badge (count) */}
         {!isCollapsed && item.badge != null && item.badge > 0 && (
           <span
-            className="ml-auto shrink-0 w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold leading-none"
+            className="ml-auto shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold leading-none"
             style={{
-              background: "var(--primary)",
-              color: "var(--primary-foreground)",
+              background: "#EF4444",
+              color: "#FFFFFF",
             }}
           >
             {item.badge}
           </span>
-        )}
-
-        {/* Dot indicator */}
-        {!isCollapsed && item.dot && (
-          <span
-            className="ml-auto shrink-0 w-2 h-2 rounded-full"
-            style={{ background: item.dot }}
-          />
-        )}
-
-        {/* Collapsed badge dot */}
-        {isCollapsed && item.badge != null && item.badge > 0 && (
-          <span
-            className="absolute top-1 right-1 w-2 h-2 rounded-full"
-            style={{ background: "#EF4444" }}
-          />
         )}
       </div>
     </button>

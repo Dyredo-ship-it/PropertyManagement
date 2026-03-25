@@ -6,9 +6,12 @@ import {
   Users,
   Edit,
   Trash2,
-  ArrowUpRight,
   Home,
   TrendingUp,
+  X,
+  ArrowLeft,
+  DollarSign,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -40,174 +43,319 @@ type BuildingsViewProps = {
   onSelectBuilding?: (buildingId: string) => void;
 };
 
-/* ─── Building Card ──────────────────────────────────────────── */
+/* ─── Building Bubble ────────────────────────────────────────── */
 
-function BuildingCard({
+function BuildingBubble({
   building,
   index,
-  onSelect,
+  onClick,
   onEdit,
   onDelete,
   t,
 }: {
   building: Building;
   index: number;
-  onSelect?: (id: string) => void;
+  onClick: () => void;
   onEdit: (b: Building) => void;
   onDelete: (id: string) => void;
   t: (k: string) => string;
 }) {
+  const photo = building.imageUrl || BUILDING_PHOTOS[index % BUILDING_PHOTOS.length];
   const occPct =
     building.units > 0
       ? Math.round((building.occupiedUnits / building.units) * 100)
       : 0;
 
-  const photo = building.imageUrl || BUILDING_PHOTOS[index % BUILDING_PHOTOS.length];
-
-  const occColor =
-    occPct >= 90
-      ? { bg: "rgba(34,197,94,0.12)", fg: "#15803D" }
-      : occPct >= 70
-      ? { bg: "rgba(69,85,58,0.10)", fg: "#45553A" }
-      : { bg: "rgba(245,158,11,0.12)", fg: "#B45309" };
-
   return (
-    <div
-      className="group rounded-2xl overflow-hidden flex flex-col"
-      style={{
-        background: "var(--card)",
-        border: "1px solid var(--border)",
-        boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
-        transition: "box-shadow 0.2s, border-color 0.2s",
-      }}
-      onMouseEnter={(e) => {
-        (e.currentTarget as HTMLDivElement).style.boxShadow = "0 4px 16px rgba(0,0,0,0.08)";
-        (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(69,85,58,0.30)";
-      }}
-      onMouseLeave={(e) => {
-        (e.currentTarget as HTMLDivElement).style.boxShadow = "0 1px 3px rgba(0,0,0,0.04)";
-        (e.currentTarget as HTMLDivElement).style.borderColor = "var(--border)";
-      }}
-    >
-      {/* ── Image ── */}
-      <div className="relative overflow-hidden" style={{ height: 200 }}>
-        <img
-          src={photo}
-          alt={building.name}
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-          loading="lazy"
-        />
+    <div className="flex flex-col items-center group">
+      {/* Circular photo bubble */}
+      <div className="relative mb-4">
+        <button
+          type="button"
+          onClick={onClick}
+          className="block rounded-full overflow-hidden transition-all duration-300"
+          style={{
+            width: 140,
+            height: 140,
+            border: "4px solid var(--card)",
+            boxShadow: "0 4px 20px rgba(0,0,0,0.10)",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.boxShadow = "0 8px 32px rgba(0,0,0,0.16)";
+            e.currentTarget.style.transform = "scale(1.04)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.boxShadow = "0 4px 20px rgba(0,0,0,0.10)";
+            e.currentTarget.style.transform = "scale(1)";
+          }}
+        >
+          <img
+            src={photo}
+            alt={building.name}
+            className="w-full h-full object-cover"
+            loading="lazy"
+          />
+        </button>
 
-        {/* Occupancy pill — top left */}
-        <div className="absolute top-3 left-3">
-          <span
-            className="text-[11px] font-semibold px-2.5 py-1 rounded-full"
-            style={{
-              background: "rgba(255,255,255,0.92)",
-              backdropFilter: "blur(8px)",
-              color: occColor.fg,
-            }}
-          >
-            {occPct}% occupé
-          </span>
-        </div>
+        {/* Occupancy badge — bottom right of bubble */}
+        <span
+          className="absolute -bottom-1 right-0 text-[11px] font-bold px-2.5 py-1 rounded-full"
+          style={{
+            background: occPct >= 90 ? "#15803D" : occPct >= 70 ? "var(--primary)" : "#B45309",
+            color: "#FFFFFF",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+          }}
+        >
+          {occPct}%
+        </span>
 
-        {/* Edit / Delete — top right, visible on hover */}
-        <div className="absolute top-3 right-3 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+        {/* Edit / Delete on hover */}
+        <div className="absolute -top-1 -right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onEdit(building); }}
-            className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
-            style={{ background: "rgba(255,255,255,0.92)", backdropFilter: "blur(8px)" }}
-            title={t("editBuilding")}
+            className="w-7 h-7 rounded-full flex items-center justify-center"
+            style={{
+              background: "var(--card)",
+              border: "1px solid var(--border)",
+              boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
+            }}
           >
-            <Edit className="w-3.5 h-3.5" style={{ color: "#374151" }} />
+            <Edit className="w-3 h-3" style={{ color: "var(--foreground)" }} />
           </button>
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onDelete(building.id); }}
-            className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
-            style={{ background: "rgba(255,255,255,0.92)", backdropFilter: "blur(8px)" }}
-            title={t("confirmDeleteBuilding")}
+            className="w-7 h-7 rounded-full flex items-center justify-center"
+            style={{
+              background: "var(--card)",
+              border: "1px solid var(--border)",
+              boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
+            }}
           >
-            <Trash2 className="w-3.5 h-3.5" style={{ color: "#EF4444" }} />
+            <Trash2 className="w-3 h-3" style={{ color: "#EF4444" }} />
           </button>
         </div>
       </div>
 
-      {/* ── Body ── */}
-      <div className="flex flex-col flex-1 p-5">
-        {/* Name + address */}
-        <div className="mb-4">
-          <h3 className="text-[15px] font-semibold leading-tight mb-1" style={{ color: "var(--foreground)" }}>
-            {building.name}
-          </h3>
-          <div className="flex items-start gap-1.5">
-            <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0" style={{ color: "var(--muted-foreground)" }} />
-            <p className="text-[12px] leading-snug" style={{ color: "var(--muted-foreground)" }}>
+      {/* Name + Address */}
+      <button
+        type="button"
+        onClick={onClick}
+        className="text-center group/label"
+      >
+        <h3
+          className="text-[14px] font-semibold leading-tight"
+          style={{ color: "var(--foreground)" }}
+        >
+          {building.name}
+        </h3>
+        <p
+          className="text-[11px] mt-1 flex items-center justify-center gap-1"
+          style={{ color: "var(--muted-foreground)" }}
+        >
+          <MapPin className="w-3 h-3 shrink-0" />
+          {building.address}
+        </p>
+      </button>
+
+      {/* Mini stats */}
+      <div
+        className="flex items-center gap-3 mt-3"
+      >
+        <MiniStat icon={Home} value={`${building.occupiedUnits}/${building.units}`} />
+        <div className="w-px h-4" style={{ background: "var(--border)" }} />
+        <MiniStat icon={DollarSign} value={formatCHF(building.monthlyRevenue)} />
+      </div>
+    </div>
+  );
+}
+
+function MiniStat({ icon: Icon, value }: { icon: React.ElementType; value: string }) {
+  return (
+    <span
+      className="flex items-center gap-1 text-[11px] font-medium"
+      style={{ color: "var(--muted-foreground)" }}
+    >
+      <Icon className="w-3 h-3" />
+      {value}
+    </span>
+  );
+}
+
+/* ─── Building Detail Panel ──────────────────────────────────── */
+
+function BuildingDetail({
+  building,
+  index,
+  onBack,
+  onEdit,
+  onDelete,
+  t,
+}: {
+  building: Building;
+  index: number;
+  onBack: () => void;
+  onEdit: (b: Building) => void;
+  onDelete: (id: string) => void;
+  t: (k: string) => string;
+}) {
+  const photo = building.imageUrl || BUILDING_PHOTOS[index % BUILDING_PHOTOS.length];
+  const occPct =
+    building.units > 0
+      ? Math.round((building.occupiedUnits / building.units) * 100)
+      : 0;
+
+  return (
+    <div>
+      {/* Back button */}
+      <button
+        type="button"
+        onClick={onBack}
+        className="flex items-center gap-2 text-[13px] font-medium mb-6 transition-colors"
+        style={{ color: "var(--muted-foreground)" }}
+        onMouseEnter={(e) => { e.currentTarget.style.color = "var(--foreground)"; }}
+        onMouseLeave={(e) => { e.currentTarget.style.color = "var(--muted-foreground)"; }}
+      >
+        <ArrowLeft className="w-4 h-4" />
+        {t("buildingsTitle")}
+      </button>
+
+      {/* Hero card */}
+      <div
+        className="overflow-hidden flex flex-col lg:flex-row"
+        style={{
+          borderRadius: 20,
+          border: "1px solid var(--border)",
+          background: "var(--card)",
+          marginBottom: 24,
+        }}
+      >
+        {/* Image */}
+        <div className="relative lg:w-[45%] min-h-[260px]">
+          <img
+            src={photo}
+            alt={building.name}
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+        </div>
+
+        {/* Info */}
+        <div className="lg:w-[55%] p-8 flex flex-col justify-between">
+          <div>
+            <h2
+              className="text-[24px] font-bold leading-tight mb-2"
+              style={{ color: "var(--foreground)" }}
+            >
+              {building.name}
+            </h2>
+            <p
+              className="flex items-center gap-1.5 text-[13px] mb-6"
+              style={{ color: "var(--muted-foreground)" }}
+            >
+              <MapPin className="w-3.5 h-3.5" />
               {building.address}
             </p>
+
+            {/* Stats grid */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {[
+                { label: t("totalUnits"), value: building.units.toString(), icon: Home },
+                { label: t("occupiedUnits"), value: building.occupiedUnits.toString(), icon: Users },
+                { label: t("occupancyRate"), value: `${occPct}%`, icon: TrendingUp },
+                { label: t("monthlyRevenue"), value: formatCHF(building.monthlyRevenue), icon: DollarSign },
+              ].map((s) => {
+                const Icon = s.icon;
+                return (
+                  <div
+                    key={s.label}
+                    style={{
+                      padding: "14px 16px",
+                      borderRadius: 14,
+                      background: "var(--background)",
+                      border: "1px solid var(--border)",
+                    }}
+                  >
+                    <Icon className="w-4 h-4 mb-2" style={{ color: "var(--primary)" }} />
+                    <p
+                      className="text-[18px] font-bold leading-tight"
+                      style={{ color: "var(--foreground)" }}
+                    >
+                      {s.value}
+                    </p>
+                    <p
+                      className="text-[10px] uppercase mt-0.5"
+                      style={{ color: "var(--muted-foreground)", letterSpacing: "0.06em" }}
+                    >
+                      {s.label}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
 
-        {/* Stats row */}
-        <div className="grid grid-cols-3 gap-2 mb-4">
-          {[
-            { label: t("units"), value: `${building.occupiedUnits}/${building.units}`, icon: Home },
-            { label: t("occupancyRate"), value: `${occPct}%`, icon: Users, accent: true },
-            { label: t("revenue"), value: formatCHF(building.monthlyRevenue), icon: TrendingUp },
-          ].map((s) => {
-            const Icon = s.icon;
-            return (
-              <div
-                key={s.label}
-                className="rounded-xl p-2.5 flex flex-col items-center text-center"
-                style={{ background: "var(--background)", border: "1px solid var(--border)" }}
-              >
-                <Icon className="w-3.5 h-3.5 mb-1" style={{ color: s.accent ? "var(--primary)" : "var(--muted-foreground)" }} />
-                <p
-                  className="text-[13px] font-bold leading-tight"
-                  style={{ color: s.accent ? "var(--primary)" : "var(--foreground)" }}
-                >
-                  {s.value}
-                </p>
-                <p className="text-[9px] uppercase mt-0.5" style={{ color: "var(--muted-foreground)", letterSpacing: "0.06em" }}>
-                  {s.label}
-                </p>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Occupancy progress bar */}
-        <div className="mb-4">
-          <div
-            className="w-full h-1.5 rounded-full overflow-hidden"
-            style={{ background: "var(--muted)" }}
-          >
+          {/* Occupancy bar */}
+          <div className="mt-6">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-medium" style={{ color: "var(--muted-foreground)" }}>
+                {t("occupancyRate")}
+              </span>
+              <span className="text-[13px] font-bold" style={{ color: "var(--foreground)" }}>
+                {occPct}%
+              </span>
+            </div>
             <div
-              className="h-full rounded-full transition-all"
-              style={{ width: `${occPct}%`, background: occColor.fg }}
-            />
+              className="w-full h-2 rounded-full overflow-hidden"
+              style={{ background: "var(--muted)" }}
+            >
+              <div
+                className="h-full rounded-full transition-all"
+                style={{
+                  width: `${occPct}%`,
+                  background: occPct >= 90 ? "#15803D" : occPct >= 70 ? "var(--primary)" : "#B45309",
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center gap-3 mt-6">
+            <button
+              type="button"
+              onClick={() => onEdit(building)}
+              className="flex items-center gap-2 text-[13px] font-medium transition-colors"
+              style={{
+                padding: "9px 18px",
+                borderRadius: 12,
+                border: "1px solid var(--border)",
+                background: "var(--card)",
+                color: "var(--foreground)",
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "var(--background)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "var(--card)"; }}
+            >
+              <Edit className="w-3.5 h-3.5" />
+              {t("editBuilding")}
+            </button>
+            <button
+              type="button"
+              onClick={() => onDelete(building.id)}
+              className="flex items-center gap-2 text-[13px] font-medium transition-colors"
+              style={{
+                padding: "9px 18px",
+                borderRadius: 12,
+                border: "1px solid rgba(239,68,68,0.2)",
+                color: "#DC2626",
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(239,68,68,0.05)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              {t("confirmDeleteBuilding")}
+            </button>
           </div>
         </div>
-
-        {/* Action */}
-        <button
-          type="button"
-          onClick={() => onSelect?.(building.id)}
-          className="mt-auto w-full flex items-center justify-center gap-2 rounded-xl text-[13px] font-semibold transition-all"
-          style={{
-            padding: "9px 16px",
-            background: "var(--primary)",
-            color: "var(--primary-foreground)",
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.88"; }}
-          onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
-        >
-          <ArrowUpRight className="w-4 h-4" />
-          {t("details")}
-        </button>
       </div>
     </div>
   );
@@ -220,6 +368,7 @@ export function BuildingsView({ onSelectBuilding }: BuildingsViewProps) {
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingBuilding, setEditingBuilding] = useState<Building | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     address: "",
@@ -266,6 +415,7 @@ export function BuildingsView({ onSelectBuilding }: BuildingsViewProps) {
   const handleDelete = (id: string) => {
     if (confirm(t("confirmDeleteBuilding"))) {
       saveBuildings(buildings.filter((b) => b.id !== id));
+      setSelectedId(null);
       loadBuildings();
     }
   };
@@ -275,138 +425,93 @@ export function BuildingsView({ onSelectBuilding }: BuildingsViewProps) {
     if (!open) { setEditingBuilding(null); resetForm(); }
   };
 
-  /* Summary stats */
   const totalUnits = buildings.reduce((s, b) => s + b.units, 0);
   const totalOccupied = buildings.reduce((s, b) => s + b.occupiedUnits, 0);
   const totalRevenue = buildings.reduce((s, b) => s + b.monthlyRevenue, 0);
   const globalOcc = totalUnits > 0 ? Math.round((totalOccupied / totalUnits) * 100) : 0;
 
-  return (
-    <div className="max-w-[1200px] mx-auto px-8 py-8">
+  const selectedBuilding = selectedId
+    ? buildings.find((b) => b.id === selectedId) ?? null
+    : null;
+  const selectedIndex = selectedBuilding
+    ? buildings.indexOf(selectedBuilding)
+    : 0;
 
+  /* ── Detail mode ── */
+  if (selectedBuilding) {
+    return (
+      <div style={{ padding: "32px 32px 48px" }}>
+        <BuildingDetail
+          building={selectedBuilding}
+          index={selectedIndex}
+          onBack={() => setSelectedId(null)}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          t={t}
+        />
+
+        {/* Form dialog (shared) */}
+        <FormDialog
+          open={isDialogOpen}
+          onOpenChange={handleDialogChange}
+          onSubmit={handleSubmit}
+          formData={formData}
+          setFormData={setFormData}
+          editing={!!editingBuilding}
+          t={t}
+        />
+      </div>
+    );
+  }
+
+  /* ── Bubble grid mode ── */
+  return (
+    <div style={{ padding: "32px 32px 48px" }}>
       {/* Page header */}
-      <div className="flex items-start justify-between mb-8">
+      <div className="flex items-start justify-between" style={{ marginBottom: 28 }}>
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: "var(--foreground)" }}>
+          <h1
+            className="text-[22px] font-semibold leading-tight"
+            style={{ color: "var(--foreground)" }}
+          >
             {t("buildingsTitle")}
           </h1>
-          <p className="text-sm mt-1" style={{ color: "var(--muted-foreground)" }}>
+          <p
+            className="text-[13px] mt-1"
+            style={{ color: "var(--muted-foreground)" }}
+          >
             {t("buildingsSub")}
           </p>
         </div>
 
-        <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
-          <DialogTrigger asChild>
-            <button
-              type="button"
-              className="flex items-center gap-2 rounded-xl text-sm font-semibold transition-opacity"
-              style={{
-                padding: "9px 18px",
-                background: "var(--primary)",
-                color: "var(--primary-foreground)",
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.88"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
-            >
-              <Plus className="w-4 h-4" />
-              {t("addBuilding")}
-            </button>
-          </DialogTrigger>
-
-          <DialogContent
-            className="rounded-2xl max-w-md"
-            style={{ background: "var(--card)", border: "1px solid var(--border)" }}
-          >
-            <DialogHeader>
-              <DialogTitle style={{ color: "var(--foreground)" }}>
-                {editingBuilding ? t("editBuilding") : t("newBuilding")}
-              </DialogTitle>
-            </DialogHeader>
-
-            <form onSubmit={handleSubmit} className="space-y-4 mt-4">
-              {[
-                { id: "name", label: t("buildingName"), type: "text", key: "name" as const },
-                { id: "address", label: t("buildingAddress"), type: "text", key: "address" as const },
-              ].map((field) => (
-                <div key={field.id}>
-                  <Label htmlFor={field.id} style={{ color: "var(--foreground)" }}>{field.label}</Label>
-                  <Input
-                    id={field.id}
-                    type={field.type}
-                    value={formData[field.key] as string}
-                    onChange={(e) => setFormData({ ...formData, [field.key]: e.target.value })}
-                    required
-                    className="mt-2"
-                    style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }}
-                  />
-                </div>
-              ))}
-
-              <div className="grid grid-cols-2 gap-4">
-                {[
-                  { id: "units", label: t("numberOfUnits"), key: "units" as const },
-                  { id: "occupied", label: t("occupiedUnits"), key: "occupiedUnits" as const },
-                ].map((field) => (
-                  <div key={field.id}>
-                    <Label htmlFor={field.id} style={{ color: "var(--foreground)" }}>{field.label}</Label>
-                    <Input
-                      id={field.id}
-                      type="number"
-                      value={formData[field.key]}
-                      onChange={(e) => setFormData({ ...formData, [field.key]: parseInt(e.target.value) || 0 })}
-                      required
-                      className="mt-2"
-                      style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }}
-                    />
-                  </div>
-                ))}
-              </div>
-
-              <div>
-                <Label htmlFor="revenue" style={{ color: "var(--foreground)" }}>{t("monthlyRevenueLabel")}</Label>
-                <Input
-                  id="revenue"
-                  type="number"
-                  value={formData.monthlyRevenue}
-                  onChange={(e) => setFormData({ ...formData, monthlyRevenue: parseInt(e.target.value) || 0 })}
-                  required
-                  className="mt-2"
-                  style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }}
-                />
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="submit"
-                  className="flex-1 rounded-xl text-sm font-semibold py-2.5 transition-opacity"
-                  style={{ background: "var(--primary)", color: "var(--primary-foreground)" }}
-                  onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.88"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
-                >
-                  {editingBuilding ? t("update") : t("create")}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDialogChange(false)}
-                  className="flex-1 rounded-xl text-sm font-medium py-2.5 transition-colors"
-                  style={{ border: "1px solid var(--border)", color: "var(--foreground)", background: "var(--background)" }}
-                >
-                  {t("cancel")}
-                </button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <button
+          type="button"
+          onClick={() => { resetForm(); setEditingBuilding(null); setIsDialogOpen(true); }}
+          className="flex items-center gap-2 text-[13px] font-medium transition-colors shrink-0"
+          style={{
+            padding: "10px 20px",
+            borderRadius: 14,
+            background: "var(--primary)",
+            color: "var(--primary-foreground)",
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.9"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
+        >
+          <Plus className="w-4 h-4" />
+          {t("addBuilding")}
+        </button>
       </div>
 
       {/* Summary strip */}
       {buildings.length > 0 && (
         <div
-          className="rounded-2xl px-6 py-4 mb-8 flex items-center justify-between gap-4 flex-wrap"
+          className="flex items-center justify-between gap-4 flex-wrap"
           style={{
-            background: "var(--card)",
+            padding: "16px 24px",
+            borderRadius: 16,
             border: "1px solid var(--border)",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+            background: "var(--card)",
+            marginBottom: 32,
           }}
         >
           {[
@@ -417,8 +522,13 @@ export function BuildingsView({ onSelectBuilding }: BuildingsViewProps) {
           ].map((m, i, arr) => (
             <React.Fragment key={m.label}>
               <div className="text-center">
-                <p className="text-xl font-bold" style={{ color: "var(--foreground)" }}>{m.value}</p>
-                <p className="text-[10px] uppercase mt-0.5" style={{ color: "var(--muted-foreground)", letterSpacing: "0.06em" }}>
+                <p className="text-[18px] font-bold" style={{ color: "var(--foreground)" }}>
+                  {m.value}
+                </p>
+                <p
+                  className="text-[10px] uppercase mt-0.5"
+                  style={{ color: "var(--muted-foreground)", letterSpacing: "0.06em" }}
+                >
                   {m.label}
                 </p>
               </div>
@@ -430,15 +540,21 @@ export function BuildingsView({ onSelectBuilding }: BuildingsViewProps) {
         </div>
       )}
 
-      {/* Building grid */}
+      {/* Building bubbles grid */}
       {buildings.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-          {buildings.map((building, i) => (
-            <BuildingCard
-              key={building.id}
-              building={building}
+        <div
+          className="grid gap-10"
+          style={{
+            gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
+            justifyItems: "center",
+          }}
+        >
+          {buildings.map((b, i) => (
+            <BuildingBubble
+              key={b.id}
+              building={b}
               index={i}
-              onSelect={onSelectBuilding}
+              onClick={() => setSelectedId(b.id)}
               onEdit={handleEdit}
               onDelete={handleDelete}
               t={t}
@@ -446,37 +562,166 @@ export function BuildingsView({ onSelectBuilding }: BuildingsViewProps) {
           ))}
         </div>
       ) : (
-        /* Empty state */
         <div
-          className="rounded-2xl p-16 text-center"
+          className="flex flex-col items-center justify-center text-center"
           style={{
-            background: "var(--card)",
+            padding: "64px 24px",
+            borderRadius: 16,
             border: "1px solid var(--border)",
+            background: "var(--card)",
           }}
         >
           <div
-            className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
-            style={{ background: "var(--background)", border: "1px solid var(--border)" }}
+            className="w-14 h-14 rounded-2xl flex items-center justify-center"
+            style={{ background: "var(--sidebar-accent)" }}
           >
-            <Building2 className="w-8 h-8" style={{ color: "var(--muted-foreground)" }} />
+            <Building2 className="w-6 h-6" style={{ color: "var(--muted-foreground)" }} />
           </div>
-          <h3 className="text-lg font-semibold mb-2" style={{ color: "var(--foreground)" }}>
+          <p
+            className="text-[14px] font-medium mt-4"
+            style={{ color: "var(--foreground)" }}
+          >
             {t("noBuildings")}
-          </h3>
-          <p className="text-sm mb-6" style={{ color: "var(--muted-foreground)" }}>
+          </p>
+          <p
+            className="text-[12px] mt-1 mb-5"
+            style={{ color: "var(--muted-foreground)" }}
+          >
             {t("startAddBuilding")}
           </p>
           <button
             type="button"
             onClick={() => setIsDialogOpen(true)}
-            className="inline-flex items-center gap-2 rounded-xl text-sm font-semibold py-2.5 px-5 transition-opacity"
-            style={{ background: "var(--primary)", color: "var(--primary-foreground)" }}
+            className="flex items-center gap-2 text-[13px] font-medium transition-colors"
+            style={{
+              padding: "10px 20px",
+              borderRadius: 14,
+              background: "var(--primary)",
+              color: "var(--primary-foreground)",
+            }}
           >
             <Plus className="w-4 h-4" />
             {t("addABuilding")}
           </button>
         </div>
       )}
+
+      {/* Form dialog */}
+      <FormDialog
+        open={isDialogOpen}
+        onOpenChange={handleDialogChange}
+        onSubmit={handleSubmit}
+        formData={formData}
+        setFormData={setFormData}
+        editing={!!editingBuilding}
+        t={t}
+      />
     </div>
+  );
+}
+
+/* ─── Form Dialog ────────────────────────────────────────────── */
+
+function FormDialog({
+  open,
+  onOpenChange,
+  onSubmit,
+  formData,
+  setFormData,
+  editing,
+  t,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSubmit: (e: React.FormEvent) => void;
+  formData: any;
+  setFormData: (d: any) => void;
+  editing: boolean;
+  t: (k: string) => string;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        className="rounded-2xl max-w-md"
+        style={{ background: "var(--card)", border: "1px solid var(--border)" }}
+      >
+        <DialogHeader>
+          <DialogTitle style={{ color: "var(--foreground)" }}>
+            {editing ? t("editBuilding") : t("newBuilding")}
+          </DialogTitle>
+        </DialogHeader>
+
+        <form onSubmit={onSubmit} className="space-y-4 mt-4">
+          {[
+            { id: "name", label: t("buildingName"), type: "text", key: "name" as const },
+            { id: "address", label: t("buildingAddress"), type: "text", key: "address" as const },
+          ].map((field) => (
+            <div key={field.id}>
+              <Label htmlFor={field.id} style={{ color: "var(--foreground)" }}>{field.label}</Label>
+              <Input
+                id={field.id}
+                type={field.type}
+                value={formData[field.key] as string}
+                onChange={(e) => setFormData({ ...formData, [field.key]: e.target.value })}
+                required
+                className="mt-2"
+                style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }}
+              />
+            </div>
+          ))}
+
+          <div className="grid grid-cols-2 gap-4">
+            {[
+              { id: "units", label: t("numberOfUnits"), key: "units" as const },
+              { id: "occupied", label: t("occupiedUnits"), key: "occupiedUnits" as const },
+            ].map((field) => (
+              <div key={field.id}>
+                <Label htmlFor={field.id} style={{ color: "var(--foreground)" }}>{field.label}</Label>
+                <Input
+                  id={field.id}
+                  type="number"
+                  value={formData[field.key]}
+                  onChange={(e) => setFormData({ ...formData, [field.key]: parseInt(e.target.value) || 0 })}
+                  required
+                  className="mt-2"
+                  style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }}
+                />
+              </div>
+            ))}
+          </div>
+
+          <div>
+            <Label htmlFor="revenue" style={{ color: "var(--foreground)" }}>{t("monthlyRevenueLabel")}</Label>
+            <Input
+              id="revenue"
+              type="number"
+              value={formData.monthlyRevenue}
+              onChange={(e) => setFormData({ ...formData, monthlyRevenue: parseInt(e.target.value) || 0 })}
+              required
+              className="mt-2"
+              style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }}
+            />
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <button
+              type="submit"
+              className="flex-1 rounded-xl text-[13px] font-medium py-2.5 transition-opacity"
+              style={{ background: "var(--primary)", color: "var(--primary-foreground)" }}
+            >
+              {editing ? t("update") : t("create")}
+            </button>
+            <button
+              type="button"
+              onClick={() => onOpenChange(false)}
+              className="flex-1 rounded-xl text-[13px] font-medium py-2.5 transition-colors"
+              style={{ border: "1px solid var(--border)", color: "var(--foreground)" }}
+            >
+              {t("cancel")}
+            </button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

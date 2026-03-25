@@ -931,8 +931,20 @@ export function TenantsView() {
     updateTenantById(drawerTenantId, { documents: current.filter((d) => d.id !== docId) });
   };
 
+  const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(null);
+
   const totalTenants = tenants.length;
   const activeTenants = tenants.filter((tn) => tn.status === "active").length;
+
+  const selectedBuilding = useMemo(() => {
+    if (!selectedBuildingId) return null;
+    return buildings.find((b) => b.id === selectedBuildingId) ?? null;
+  }, [buildings, selectedBuildingId]);
+
+  const selectedBuildingTenants = useMemo(() => {
+    if (!selectedBuildingId) return [];
+    return filteredTenants.filter((tn: any) => tn.buildingId === selectedBuildingId);
+  }, [filteredTenants, selectedBuildingId]);
 
   return (
     <div className="min-h-screen" style={{ background: "var(--background)" }}>
@@ -1052,20 +1064,151 @@ export function TenantsView() {
         </div>
       </div>
 
-      {/* ═══ BUILDING CARDS ═══ */}
-      <div className="px-6 lg:px-8 py-8 space-y-8">
-        {buildingsWithTenants.length > 0 ? (
-          buildingsWithTenants.map((group, i) => (
-            <BuildingCard
-              key={group.building.id}
-              building={group.building}
-              tenants={group.tenants}
-              index={i}
-              onTenantClick={openDrawer}
-              t={t}
-              requests={requests}
-            />
-          ))
+      {/* ═══ BUILDING SELECTION BUBBLES ═══ */}
+      <div className="px-6 lg:px-8 py-8">
+        {buildings.length > 0 ? (
+          <>
+            <p className="text-xs uppercase tracking-widest font-semibold mb-6" style={{ color: "var(--muted-foreground)" }}>
+              {t("selectBuilding")}
+            </p>
+            <div className="flex flex-wrap gap-10 justify-start">
+              {buildings.map((b, i) => {
+                const image = BUILDING_IMAGES[i % BUILDING_IMAGES.length];
+                const tenantCount = tenants.filter((tn: any) => tn.buildingId === b.id).length;
+                const isSelected = selectedBuildingId === b.id;
+                return (
+                  <button
+                    key={b.id}
+                    type="button"
+                    onClick={() => setSelectedBuildingId(isSelected ? null : b.id)}
+                    className="flex flex-col items-center gap-3 group transition-all"
+                  >
+                    <div
+                      className="w-[130px] h-[130px] rounded-full overflow-hidden transition-all duration-200 shrink-0"
+                      style={{
+                        border: isSelected ? "4px solid var(--primary)" : "3px solid var(--border)",
+                        boxShadow: isSelected
+                          ? "0 0 0 4px color-mix(in srgb, var(--primary) 20%, transparent), 0 8px 24px rgba(0,0,0,0.12)"
+                          : "0 4px 12px rgba(0,0,0,0.06)",
+                        transform: isSelected ? "scale(1.05)" : "scale(1)",
+                      }}
+                    >
+                      <img src={image} alt={b.name} className="w-full h-full object-cover" loading="lazy" />
+                    </div>
+                    <div className="text-center">
+                      <p
+                        className="text-sm font-semibold leading-tight transition-colors"
+                        style={{ color: isSelected ? "var(--primary)" : "var(--foreground)" }}
+                      >
+                        {b.name}
+                      </p>
+                      <p className="text-[11px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>
+                        {b.units} {t("units")} &middot; {tenantCount} {t("tenantCount").toLowerCase()}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* ═══ SELECTED BUILDING → TENANT LIST ═══ */}
+            {selectedBuilding && (
+              <div className="mt-10">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedBuildingId(null)}
+                      className="p-2 rounded-xl transition-colors"
+                      style={{ color: "var(--muted-foreground)" }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = "var(--muted)"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                    >
+                      <ChevronRight className="w-4 h-4 rotate-180" />
+                    </button>
+                    <div>
+                      <h2 className="text-lg font-bold" style={{ color: "var(--foreground)" }}>
+                        {selectedBuilding.name}
+                      </h2>
+                      <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>
+                        {selectedBuilding.address} &middot; {selectedBuildingTenants.length} {t("tenantCount").toLowerCase()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {selectedBuildingTenants.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                    {selectedBuildingTenants.map((tenant: any) => {
+                      const rentNet = Number(tenant.rentNet ?? tenant.rent ?? 0) || 0;
+                      const charges = Number(tenant.charges ?? 0) || 0;
+                      const total = rentNet + charges;
+                      return (
+                        <button
+                          key={tenant.id}
+                          type="button"
+                          onClick={() => openDrawer(tenant)}
+                          className="text-left rounded-2xl p-5 transition-all duration-200 group/tenant"
+                          style={{
+                            background: "var(--card)",
+                            border: "1px solid var(--border)",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.boxShadow = "0 8px 24px rgba(0,0,0,0.08)";
+                            e.currentTarget.style.transform = "translateY(-2px)";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.boxShadow = "none";
+                            e.currentTarget.style.transform = "translateY(0)";
+                          }}
+                        >
+                          <div className="flex items-center gap-3 mb-4">
+                            <div
+                              className="w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
+                              style={{
+                                background: "color-mix(in srgb, var(--primary) 12%, transparent)",
+                                color: "var(--primary)",
+                              }}
+                            >
+                              {getInitials(tenant.name)}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[13px] font-semibold truncate" style={{ color: "var(--foreground)" }}>
+                                {tenant.name}
+                              </p>
+                              <p className="text-[11px]" style={{ color: "var(--muted-foreground)" }}>
+                                {t("unit")} {tenant.unit}
+                              </p>
+                            </div>
+                            <StatusDotLight status={tenant.status} t={t} />
+                          </div>
+
+                          <div className="flex items-center justify-between pt-3" style={{ borderTop: "1px solid var(--border)" }}>
+                            <span className="text-[10px] uppercase tracking-wider font-medium" style={{ color: "var(--muted-foreground)" }}>
+                              {t("totalMonthly")}
+                            </span>
+                            <span className="text-sm font-bold" style={{ color: "var(--primary)" }}>
+                              {formatCHF(total)}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-1 mt-3 opacity-0 group-hover/tenant:opacity-100 transition-opacity">
+                            <span className="text-[10px] font-medium" style={{ color: "var(--muted-foreground)" }}>{t("viewProfile")}</span>
+                            <ChevronRight className="w-3 h-3" style={{ color: "var(--muted-foreground)" }} />
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-16 rounded-2xl border" style={{ background: "var(--card)", borderColor: "var(--border)" }}>
+                    <Users className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--muted)" }} />
+                    <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>{t("noTenants")}</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
         ) : (
           <div className="text-center py-24 rounded-[28px] border" style={{ background: "var(--card)", borderColor: "var(--border)" }}>
             <Building2 className="w-16 h-16 mx-auto mb-4" style={{ color: "var(--muted)" }} />

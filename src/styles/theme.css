@@ -37,14 +37,14 @@
 
   --radius: 0.75rem;
 
-  /* Sidebar — Light premium */
-  --sidebar: #FFFFFF;
+  /* Sidebar — Warm sand (inverted: beige sidebar, white content) */
+  --sidebar: #F5F0EB;
   --sidebar-foreground: #4B5563;
   --sidebar-primary: #45553A;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: rgba(69, 85, 58, 0.07);
+  --sidebar-accent: rgba(69, 85, 58, 0.08);
   --sidebar-accent-foreground: #45553A;
-  --sidebar-border: #EEECEA;
+  --sidebar-border: #E8E3DD;
   --sidebar-ring: #45553A;
 }
 

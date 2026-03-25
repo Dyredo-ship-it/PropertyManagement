@@ -38,7 +38,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         id: '1',
         email: 'admin@immostore.com',
         password: 'admin123',
-        name: 'Administrateur',
+        name: 'Dylan Tremblay',
         role: 'admin' as const,
       },
       {

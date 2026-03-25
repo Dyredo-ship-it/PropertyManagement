@@ -210,8 +210,8 @@ export function TopHeader() {
               <span
                 className="absolute rounded-full text-[9px] font-bold text-white flex items-center justify-center"
                 style={{
-                  top: 6,
-                  right: 6,
+                  top: 2,
+                  right: 0,
                   width: 16,
                   height: 16,
                   background: "#EF4444",
@@ -226,10 +226,12 @@ export function TopHeader() {
 
           {isNotifOpen && (
             <div
-              className="absolute right-0 top-full mt-2 rounded-2xl overflow-hidden z-50 flex flex-col"
+              className="fixed rounded-2xl overflow-hidden z-50 flex flex-col"
               style={{
+                top: 64,
+                right: 16,
                 width: 340,
-                maxHeight: 420,
+                maxHeight: "calc(100vh - 80px)",
                 background: "var(--card)",
                 border: "1px solid var(--border)",
                 boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
@@ -344,25 +346,15 @@ export function TopHeader() {
         {/* Divider */}
         <div style={{ width: 1, height: 28, background: "var(--border)", margin: "0 8px" }} />
 
-        {/* User avatar */}
+        {/* User name */}
         <div className="flex items-center gap-2.5">
-          <div className="hidden sm:block text-right">
-            <p className="text-[13px] font-medium leading-tight" style={{ color: "var(--foreground)" }}>
+          <div className="text-right">
+            <p className="text-[13px] font-semibold leading-tight" style={{ color: "var(--foreground)" }}>
               {user?.name}
             </p>
             <p className="text-[11px]" style={{ color: "var(--muted-foreground)" }}>
               {user?.role === "admin" ? t("admin") : t("tenant")}
             </p>
-          </div>
-          <div
-            className="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-semibold"
-            style={{
-              background: "var(--primary)",
-              color: "var(--primary-foreground)",
-              boxShadow: "0 1px 4px rgba(69,85,58,0.25)",
-            }}
-          >
-            {initials}
           </div>
         </div>
       </div>

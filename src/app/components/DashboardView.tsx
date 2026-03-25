@@ -84,34 +84,6 @@ function AdminDashboard({
     return { pending, inProgress, completed };
   }, [filteredRequests]);
 
-  /* Unique tenants with request count for the avatar row */
-  const activePeople = useMemo(() => {
-    const map = new Map<string, { name: string; count: number }>();
-    requests.forEach((r) => {
-      const existing = map.get(r.tenantId);
-      if (existing) existing.count++;
-      else map.set(r.tenantId, { name: r.tenantName, count: 1 });
-    });
-    // Also add building managers (buildings)
-    buildings.forEach((b) => {
-      if (!map.has(b.id)) {
-        map.set(b.id, { name: b.name, count: b.units ?? 0 });
-      }
-    });
-    return Array.from(map.entries())
-      .slice(0, 6)
-      .map(([id, data]) => ({
-        id,
-        name: data.name,
-        count: data.count,
-        initials: data.name
-          .split(" ")
-          .map((n) => n[0])
-          .join("")
-          .toUpperCase()
-          .slice(0, 2),
-      }));
-  }, [requests, buildings]);
 
   const filters = [
     { key: "all" as const, label: t("all") || "All" },
@@ -174,51 +146,6 @@ function AdminDashboard({
         })}
       </div>
 
-      {/* ── Team / Buildings Row ───────────────────────────────── */}
-      <div
-        className="flex items-center gap-4 overflow-x-auto pb-1"
-        style={{ marginBottom: 28 }}
-      >
-        {activePeople.map((person) => (
-          <div
-            key={person.id}
-            className="flex items-center gap-3 shrink-0"
-            style={{
-              padding: "10px 16px 10px 10px",
-              borderRadius: 14,
-              border: "1px solid var(--border)",
-              background: "var(--card)",
-            }}
-          >
-            <div
-              className="w-10 h-10 rounded-full flex items-center justify-center text-[12px] font-semibold shrink-0"
-              style={{
-                background: "var(--primary)",
-                color: "var(--primary-foreground)",
-              }}
-            >
-              {person.initials}
-            </div>
-            <div className="min-w-0">
-              <p
-                className="text-[13px] font-medium leading-tight truncate"
-                style={{ color: "var(--foreground)", maxWidth: 120 }}
-              >
-                {person.name}
-              </p>
-            </div>
-            <span
-              className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0"
-              style={{
-                background: "var(--sidebar-accent)",
-                color: "var(--primary)",
-              }}
-            >
-              {person.count}
-            </span>
-          </div>
-        ))}
-      </div>
 
       {/* ── KPI Strip ─────────────────────────────────────────── */}
       <div
@@ -435,25 +362,9 @@ function TaskCard({ request }: { request: MaintenanceRequest }) {
         {request.description || `${request.buildingName} · Apt ${request.unit}`}
       </p>
 
-      {/* Meta row: avatar + date + priority */}
+      {/* Meta row: date + priority */}
       <div className="flex items-center justify-between mt-3.5">
         <div className="flex items-center gap-2.5">
-          {/* Avatar */}
-          <div
-            className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-semibold"
-            style={{
-              background: "var(--primary)",
-              color: "var(--primary-foreground)",
-            }}
-          >
-            {request.tenantName
-              ?.split(" ")
-              .map((n) => n[0])
-              .join("")
-              .toUpperCase()
-              .slice(0, 2) || "?"}
-          </div>
-
           {/* Date */}
           <span
             className="flex items-center gap-1 text-[11px]"
