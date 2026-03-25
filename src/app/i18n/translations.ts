@@ -449,6 +449,19 @@ type TranslationSet = {
   markUnderReview: string;
   numberOfPersons: string;
 
+  // Send document to tenant
+  sendDocument: string;
+  sendDocumentTitle: string;
+  sendDocumentSub: string;
+  docType: string;
+  selectFile: string;
+  clickToSelectFile: string;
+  optionalMessage: string;
+  sendDocMessagePlaceholder: string;
+  sendToTenant: string;
+  docSentNotifTitle: string;
+  docSentNotifMessage: string;
+
   // Dark mode
   lightMode: string;
   darkMode: string;
@@ -878,6 +891,18 @@ export const translations: Record<Language, TranslationSet> = {
     markUnderReview: "Mettre en examen",
     numberOfPersons: "personnes",
 
+    sendDocument: "Envoyer un document",
+    sendDocumentTitle: "Envoyer un document",
+    sendDocumentSub: "Envoyer un document directement à",
+    docType: "Type de document",
+    selectFile: "Fichier",
+    clickToSelectFile: "Cliquez pour sélectionner un fichier",
+    optionalMessage: "Message (optionnel)",
+    sendDocMessagePlaceholder: "Ex: Veuillez trouver ci-joint le checklist d'état des lieux...",
+    sendToTenant: "Envoyer au locataire",
+    docSentNotifTitle: "Document reçu",
+    docSentNotifMessage: "Un document vous a été envoyé :",
+
     lightMode: "Jour",
     darkMode: "Nuit",
     theme: "Thème",
@@ -1304,6 +1329,18 @@ export const translations: Record<Language, TranslationSet> = {
     reject: "Reject",
     markUnderReview: "Mark under review",
     numberOfPersons: "persons",
+
+    sendDocument: "Send document",
+    sendDocumentTitle: "Send document",
+    sendDocumentSub: "Send a document directly to",
+    docType: "Document type",
+    selectFile: "File",
+    clickToSelectFile: "Click to select a file",
+    optionalMessage: "Message (optional)",
+    sendDocMessagePlaceholder: "E.g.: Please find attached the move-in/move-out inspection checklist...",
+    sendToTenant: "Send to tenant",
+    docSentNotifTitle: "Document received",
+    docSentNotifMessage: "A document has been sent to you:",
 
     lightMode: "Day",
     darkMode: "Night",
@@ -1732,6 +1769,18 @@ export const translations: Record<Language, TranslationSet> = {
     markUnderReview: "In Prüfung setzen",
     numberOfPersons: "Personen",
 
+    sendDocument: "Dokument senden",
+    sendDocumentTitle: "Dokument senden",
+    sendDocumentSub: "Ein Dokument direkt senden an",
+    docType: "Dokumenttyp",
+    selectFile: "Datei",
+    clickToSelectFile: "Klicken Sie, um eine Datei auszuwählen",
+    optionalMessage: "Nachricht (optional)",
+    sendDocMessagePlaceholder: "Z.B.: Bitte finden Sie anbei die Ein-/Auszugscheckliste...",
+    sendToTenant: "An Mieter senden",
+    docSentNotifTitle: "Dokument erhalten",
+    docSentNotifMessage: "Ein Dokument wurde Ihnen zugesandt:",
+
     lightMode: "Tag",
     darkMode: "Nacht",
     theme: "Thema",
@@ -2158,6 +2207,18 @@ export const translations: Record<Language, TranslationSet> = {
     reject: "Rifiutare",
     markUnderReview: "Mettere in esame",
     numberOfPersons: "persone",
+
+    sendDocument: "Invia documento",
+    sendDocumentTitle: "Invia documento",
+    sendDocumentSub: "Invia un documento direttamente a",
+    docType: "Tipo di documento",
+    selectFile: "File",
+    clickToSelectFile: "Clicca per selezionare un file",
+    optionalMessage: "Messaggio (opzionale)",
+    sendDocMessagePlaceholder: "Es: In allegato la checklist di consegna/riconsegna...",
+    sendToTenant: "Invia all'inquilino",
+    docSentNotifTitle: "Documento ricevuto",
+    docSentNotifMessage: "Un documento ti è stato inviato:",
 
     lightMode: "Giorno",
     darkMode: "Notte",

@@ -1,5 +1,6 @@
 import { cn } from "./ui/utils";
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Users,
   Plus,
@@ -25,6 +26,7 @@ import {
   MoreHorizontal,
   ExternalLink,
   Home,
+  Upload,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -48,9 +50,12 @@ import {
   saveTenants,
   getBuildings,
   getMaintenanceRequests,
+  getNotifications,
+  saveNotifications,
   type Tenant,
   type Building,
   type MaintenanceRequest,
+  type Notification,
 } from "../utils/storage";
 import { useLanguage } from "../i18n/LanguageContext";
 
@@ -387,6 +392,57 @@ function TenantDetailDrawer({
   requests: MaintenanceRequest[];
 }) {
   const [activeTab, setActiveTab] = useState<"overview" | "notes" | "documents">("overview");
+  const [showSendDoc, setShowSendDoc] = useState(false);
+  const [sendDocFile, setSendDocFile] = useState<File | null>(null);
+  const [sendDocCategory, setSendDocCategory] = useState<TenantDocument["category"]>("Communication");
+  const [sendDocMessage, setSendDocMessage] = useState("");
+  const sendDocFileRef = useRef<HTMLInputElement | null>(null);
+
+  const handleSendDocument = async () => {
+    if (!tenant || !sendDocFile) return;
+    const dataUrl = await fileToDataUrl(sendDocFile);
+
+    // Store the document in the tenant's documents
+    const docEntry: TenantDocument = {
+      id: `${Date.now()}`,
+      category: sendDocCategory,
+      filename: sendDocFile.name,
+      mimeType: sendDocFile.type || "application/octet-stream",
+      uploadedAt: new Date().toISOString(),
+      dataUrl,
+    };
+    const currentDocs = (tenant.documents ?? []) as TenantDocument[];
+
+    // Also create a notification for the tenant
+    const allNotifications = getNotifications();
+    const newNotification: Notification = {
+      id: `doc-${Date.now()}`,
+      title: t("docSentNotifTitle"),
+      message: sendDocMessage.trim()
+        ? `${sendDocMessage.trim()}\n\n📎 ${sendDocFile.name} (${sendDocCategory})`
+        : `${t("docSentNotifMessage")} ${sendDocFile.name} (${sendDocCategory})`,
+      date: new Date().toISOString(),
+      read: false,
+      buildingId: tenant.buildingId,
+      recipientId: tenant.id,
+    };
+    saveNotifications([...allNotifications, newNotification]);
+
+    // Update tenant documents via the parent's update mechanism
+    // We use uploadDoc indirectly by dispatching through the existing pattern
+    const updatedTenants = getTenants() as any[];
+    const updated = updatedTenants.map((tn: any) =>
+      tn.id === tenant.id ? { ...tn, documents: [docEntry, ...currentDocs] } : tn
+    );
+    saveTenants(updated as any);
+
+    // Reset and close
+    setSendDocFile(null);
+    setSendDocMessage("");
+    setSendDocCategory("Communication");
+    if (sendDocFileRef.current) sendDocFileRef.current.value = "";
+    setShowSendDoc(false);
+  };
 
   if (!tenant) return null;
 
@@ -470,6 +526,13 @@ function TenantDetailDrawer({
             >
               <Mail className="w-3.5 h-3.5" />
               {t("contactTenant")}
+            </button>
+            <button onClick={() => setShowSendDoc(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors"
+              style={{ borderColor: "var(--border)", color: "var(--foreground)" }}
+            >
+              <Send className="w-3.5 h-3.5" />
+              {t("sendDocument")}
             </button>
             <button onClick={onDelete}
               className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
@@ -717,6 +780,179 @@ function TenantDetailDrawer({
           )}
         </div>
       </div>
+
+      {/* ─── Send Document Modal ─── */}
+      {showSendDoc && createPortal(
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center"
+          style={{ background: "rgba(0,0,0,0.35)", padding: 16 }}
+          onClick={() => setShowSendDoc(false)}
+        >
+          <div
+            className="w-full max-w-lg relative"
+            style={{
+              borderRadius: 20,
+              border: "1px solid var(--border)",
+              background: "var(--card)",
+              padding: 28,
+              boxShadow: "0 16px 48px rgba(0,0,0,0.14)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowSendDoc(false)}
+              className="absolute top-4 right-4 w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
+              style={{ color: "var(--muted-foreground)" }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "var(--background)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <h2
+              className="text-[17px] font-semibold mb-1"
+              style={{ color: "var(--foreground)" }}
+            >
+              {t("sendDocumentTitle")}
+            </h2>
+            <p className="text-[13px] mb-6" style={{ color: "var(--muted-foreground)" }}>
+              {t("sendDocumentSub")} <span className="font-medium" style={{ color: "var(--foreground)" }}>{tenant.name}</span>
+            </p>
+
+            <div className="space-y-5">
+              {/* Document category */}
+              <div>
+                <label className="block text-[12px] font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
+                  {t("docType")}
+                </label>
+                <select
+                  value={sendDocCategory}
+                  onChange={(e) => setSendDocCategory(e.target.value as TenantDocument["category"])}
+                  className="w-full text-[13px] outline-none"
+                  style={{
+                    padding: "10px 14px",
+                    borderRadius: 12,
+                    border: "1px solid var(--border)",
+                    background: "var(--background)",
+                    color: "var(--foreground)",
+                  }}
+                >
+                  {DOC_CATEGORIES.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* File picker */}
+              <div>
+                <label className="block text-[12px] font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
+                  {t("selectFile")}
+                </label>
+                <div
+                  className="relative rounded-xl border-2 border-dashed p-6 text-center transition-colors cursor-pointer hover:border-[var(--primary)]"
+                  style={{ borderColor: "var(--border)", background: "var(--background)" }}
+                  onClick={() => sendDocFileRef.current?.click()}
+                >
+                  <input
+                    ref={sendDocFileRef}
+                    type="file"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) setSendDocFile(file);
+                    }}
+                  />
+                  {sendDocFile ? (
+                    <div className="flex items-center justify-center gap-3">
+                      <Paperclip className="w-5 h-5" style={{ color: "var(--primary)" }} />
+                      <div className="text-left">
+                        <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{sendDocFile.name}</p>
+                        <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>
+                          {(sendDocFile.size / 1024).toFixed(1)} KB
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setSendDocFile(null); if (sendDocFileRef.current) sendDocFileRef.current.value = ""; }}
+                        className="ml-2 p-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10"
+                      >
+                        <X className="w-4 h-4 text-red-400" />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <Upload className="w-8 h-8 mx-auto mb-2" style={{ color: "var(--muted-foreground)" }} />
+                      <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>{t("clickToSelectFile")}</p>
+                      <p className="text-xs mt-1" style={{ color: "var(--muted-foreground)", opacity: 0.6 }}>
+                        PDF, DOCX, JPG, PNG...
+                      </p>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Optional message */}
+              <div>
+                <label className="block text-[12px] font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
+                  {t("optionalMessage")}
+                </label>
+                <textarea
+                  value={sendDocMessage}
+                  onChange={(e) => setSendDocMessage(e.target.value)}
+                  placeholder={t("sendDocMessagePlaceholder")}
+                  rows={3}
+                  className="w-full text-[13px] outline-none resize-none"
+                  style={{
+                    padding: "10px 14px",
+                    borderRadius: 12,
+                    border: "1px solid var(--border)",
+                    background: "var(--background)",
+                    color: "var(--foreground)",
+                  }}
+                />
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={handleSendDocument}
+                  disabled={!sendDocFile}
+                  className="flex-1 flex items-center justify-center gap-2 text-[13px] font-medium transition-colors disabled:opacity-40"
+                  style={{
+                    padding: "10px 0",
+                    borderRadius: 12,
+                    background: "var(--primary)",
+                    color: "var(--primary-foreground)",
+                  }}
+                  onMouseEnter={(e) => { if (sendDocFile) e.currentTarget.style.opacity = "0.9"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  {t("sendToTenant")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowSendDoc(false)}
+                  className="flex-1 flex items-center justify-center gap-2 text-[13px] font-medium transition-colors"
+                  style={{
+                    padding: "10px 0",
+                    borderRadius: 12,
+                    background: "var(--card)",
+                    color: "var(--foreground)",
+                    border: "1px solid var(--border)",
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = "var(--background)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = "var(--card)"; }}
+                >
+                  {t("cancel")}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </>
   );
 }
