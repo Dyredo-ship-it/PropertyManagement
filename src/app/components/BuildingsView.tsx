@@ -66,48 +66,70 @@ function BuildingBubble({
       ? Math.round((building.occupiedUnits / building.units) * 100)
       : 0;
 
+  const [hovered, setHovered] = React.useState(false);
+
   return (
-    <div className="group relative w-full" style={{ minHeight: 320 }}>
+    <div
+      style={{ position: "relative", minHeight: 320 }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
       <button
         type="button"
         onClick={onClick}
-        className="relative w-full h-full overflow-hidden transition-all duration-300 block"
         style={{
-          borderRadius: 20,
+          position: "relative",
+          display: "block",
+          width: "100%",
           minHeight: 320,
-          boxShadow: "0 4px 24px rgba(0,0,0,0.12)",
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.transform = "scale(1.02)";
-          e.currentTarget.style.boxShadow = "0 12px 40px rgba(0,0,0,0.22)";
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.transform = "scale(1)";
-          e.currentTarget.style.boxShadow = "0 4px 24px rgba(0,0,0,0.12)";
+          borderRadius: 20,
+          overflow: "hidden",
+          border: "none",
+          padding: 0,
+          cursor: "pointer",
+          transition: "transform 0.3s, box-shadow 0.3s",
+          boxShadow: hovered ? "0 12px 40px rgba(0,0,0,0.22)" : "0 4px 24px rgba(0,0,0,0.12)",
+          transform: hovered ? "scale(1.02)" : "scale(1)",
         }}
       >
-        {/* Background image */}
+        {/* Background image — full cover */}
         <img
           src={photo}
           alt={building.name}
-          className="absolute inset-0 w-full h-full object-cover"
           loading="lazy"
-          style={{ borderRadius: 20 }}
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            display: "block",
+          }}
         />
 
         {/* Dark gradient overlay */}
         <div
-          className="absolute inset-0"
           style={{
-            borderRadius: 20,
-            background: "linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.45) 50%, rgba(0,0,0,0.15) 100%)",
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.40) 50%, rgba(0,0,0,0.12) 100%)",
           }}
         />
 
         {/* Occupancy badge — top left */}
         <span
-          className="absolute top-4 left-4 text-[11px] font-bold px-3 py-1 rounded-full"
           style={{
+            position: "absolute",
+            top: 16,
+            left: 16,
+            fontSize: 11,
+            fontWeight: 700,
+            padding: "4px 12px",
+            borderRadius: 20,
             background: occPct >= 90 ? "#15803D" : occPct >= 70 ? "var(--primary)" : "#B45309",
             color: "#FFFFFF",
             boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
@@ -117,30 +139,41 @@ function BuildingBubble({
         </span>
 
         {/* Content overlaid on image */}
-        <div className="absolute inset-0 flex flex-col justify-end p-5" style={{ borderRadius: 20 }}>
+        <div
+          style={{
+            position: "absolute",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            padding: 22,
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "flex-end",
+          }}
+        >
           {/* Building name */}
-          <h3 className="text-[18px] font-bold leading-tight text-white mb-1">
+          <h3 style={{ fontSize: 18, fontWeight: 700, lineHeight: 1.2, color: "#FFFFFF", margin: 0, marginBottom: 4 }}>
             {building.name}
           </h3>
 
           {/* Address */}
-          <p className="text-[12px] flex items-center gap-1.5 mb-4" style={{ color: "rgba(255,255,255,0.75)" }}>
-            <MapPin className="w-3.5 h-3.5 shrink-0" />
+          <p style={{ fontSize: 12, color: "rgba(255,255,255,0.75)", margin: 0, marginBottom: 16, display: "flex", alignItems: "center", gap: 6 }}>
+            <MapPin style={{ width: 14, height: 14, flexShrink: 0 }} />
             {building.address}
           </p>
 
           {/* Stats row */}
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-1.5">
-              <Home className="w-3.5 h-3.5" style={{ color: "rgba(255,255,255,0.6)" }} />
-              <span className="text-[13px] font-semibold text-white">
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <Home style={{ width: 14, height: 14, color: "rgba(255,255,255,0.6)" }} />
+              <span style={{ fontSize: 13, fontWeight: 600, color: "#FFFFFF" }}>
                 {building.occupiedUnits}/{building.units}
               </span>
             </div>
-            <div className="w-px h-4" style={{ background: "rgba(255,255,255,0.25)" }} />
-            <div className="flex items-center gap-1.5">
-              <DollarSign className="w-3.5 h-3.5" style={{ color: "rgba(255,255,255,0.6)" }} />
-              <span className="text-[13px] font-semibold text-white">
+            <div style={{ width: 1, height: 16, background: "rgba(255,255,255,0.25)" }} />
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <DollarSign style={{ width: 14, height: 14, color: "rgba(255,255,255,0.6)" }} />
+              <span style={{ fontSize: 13, fontWeight: 600, color: "#FFFFFF" }}>
                 {formatCHF(building.monthlyRevenue)}
               </span>
             </div>
@@ -149,32 +182,53 @@ function BuildingBubble({
       </button>
 
       {/* Edit / Delete on hover — top right */}
-      <div className="absolute top-4 right-4 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+      <div
+        style={{
+          position: "absolute",
+          top: 16,
+          right: 16,
+          display: "flex",
+          gap: 6,
+          zIndex: 10,
+          opacity: hovered ? 1 : 0,
+          transition: "opacity 0.2s",
+        }}
+      >
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onEdit(building); }}
-          className="w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-sm transition-colors"
           style={{
+            width: 32, height: 32, borderRadius: 16,
+            display: "flex", alignItems: "center", justifyContent: "center",
             background: "rgba(255,255,255,0.2)",
             border: "1px solid rgba(255,255,255,0.25)",
+            backdropFilter: "blur(8px)",
+            cursor: "pointer",
+            color: "#FFFFFF",
+            transition: "background 0.15s",
           }}
           onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.35)"; }}
           onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.2)"; }}
         >
-          <Edit className="w-3.5 h-3.5 text-white" />
+          <Edit style={{ width: 14, height: 14 }} />
         </button>
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onDelete(building.id); }}
-          className="w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-sm transition-colors"
           style={{
+            width: 32, height: 32, borderRadius: 16,
+            display: "flex", alignItems: "center", justifyContent: "center",
             background: "rgba(255,255,255,0.2)",
             border: "1px solid rgba(255,255,255,0.25)",
+            backdropFilter: "blur(8px)",
+            cursor: "pointer",
+            color: "#FFFFFF",
+            transition: "background 0.15s",
           }}
           onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(239,68,68,0.4)"; }}
           onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.2)"; }}
         >
-          <Trash2 className="w-3.5 h-3.5 text-white" />
+          <Trash2 style={{ width: 14, height: 14 }} />
         </button>
       </div>
     </div>
