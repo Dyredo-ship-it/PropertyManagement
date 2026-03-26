@@ -164,54 +164,57 @@ function TenantBubble({
   return (
     <button
       onClick={onClick}
-      className="group w-full text-left rounded-2xl overflow-hidden transition-all duration-300 cursor-pointer hover:scale-[1.02] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-white/30"
+      className="group w-full text-left overflow-hidden transition-all duration-300 cursor-pointer focus:outline-none"
       style={{
-        background: "rgba(255,255,255,0.12)",
+        borderRadius: 16,
+        background: "rgba(255,255,255,0.10)",
         backdropFilter: "blur(20px)",
         WebkitBackdropFilter: "blur(20px)",
-        border: "1px solid rgba(255,255,255,0.18)",
+        border: "1px solid rgba(255,255,255,0.15)",
+        padding: "14px 16px",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = "rgba(255,255,255,0.18)";
+        e.currentTarget.style.transform = "translateY(-1px)";
+        e.currentTarget.style.boxShadow = "0 8px 24px rgba(0,0,0,0.15)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = "rgba(255,255,255,0.10)";
+        e.currentTarget.style.transform = "translateY(0)";
+        e.currentTarget.style.boxShadow = "none";
       }}
     >
-      <div className="p-4">
-        {/* Avatar + Name + Status */}
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-11 h-11 rounded-xl flex items-center justify-center text-sm font-bold shrink-0"
-            style={{
-              background: "rgba(255,255,255,0.15)",
-              color: "rgba(255,255,255,0.95)",
-              border: "1px solid rgba(255,255,255,0.12)",
-            }}
-          >
-            {getInitials(tenant.name)}
-          </div>
-          <div className="min-w-0 flex-1">
-            <h4 className="font-semibold text-white text-[13px] leading-tight truncate drop-shadow-sm">
-              {tenant.name}
-            </h4>
-            <p className="text-[11px] text-white/60 mt-0.5">
-              {t("unit")} {tenant.unit}
-            </p>
-          </div>
-          <StatusDot status={tenant.status} t={t} showLabel={false} />
-        </div>
-
-        {/* Rent line */}
-        <div className="flex items-center justify-between pt-2.5"
-          style={{ borderTop: "1px solid rgba(255,255,255,0.10)" }}
+      {/* Avatar + Name + Status */}
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-full flex items-center justify-center text-[12px] font-bold shrink-0"
+          style={{
+            background: "rgba(255,255,255,0.15)",
+            color: "rgba(255,255,255,0.95)",
+          }}
         >
-          <span className="text-[10px] uppercase tracking-wider text-white/45 font-medium">
-            {t("totalMonthly")}
-          </span>
-          <span className="text-[13px] font-bold text-white/95 tabular-nums">
-            {formatCHF(total)}
-          </span>
+          {getInitials(tenant.name)}
         </div>
+        <div className="min-w-0 flex-1">
+          <h4 className="font-semibold text-white text-[13px] leading-tight truncate">
+            {tenant.name}
+          </h4>
+          <p className="text-[11px] text-white/55 mt-0.5">
+            {t("unit")} {tenant.unit}
+          </p>
+        </div>
+        <StatusDot status={tenant.status} t={t} showLabel={false} />
+      </div>
 
-        {/* Hover cue */}
-        <div className="flex items-center gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-          <span className="text-[10px] text-white/60 font-medium">{t("viewProfile")}</span>
-          <ChevronRight className="w-3 h-3 text-white/50" />
-        </div>
+      {/* Rent line */}
+      <div className="flex items-center justify-between mt-3 pt-3"
+        style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}
+      >
+        <span className="text-[10px] uppercase tracking-wider text-white/40 font-medium">
+          {t("totalMonthly")}
+        </span>
+        <span className="text-[13px] font-bold text-white/95 tabular-nums">
+          {formatCHF(total)}
+        </span>
       </div>
     </button>
   );
@@ -1122,65 +1125,179 @@ export function TenantsView() {
                 </div>
 
                 {selectedBuildingTenants.length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                  <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                     {selectedBuildingTenants.map((tenant: any) => {
                       const rentNet = Number(tenant.rentNet ?? tenant.rent ?? 0) || 0;
                       const charges = Number(tenant.charges ?? 0) || 0;
                       const total = rentNet + charges;
                       return (
-                        <button
+                        <div
                           key={tenant.id}
-                          type="button"
-                          onClick={() => openDrawer(tenant)}
-                          className="text-left rounded-2xl p-5 transition-all duration-200 group/tenant"
+                          className="group/tenant"
                           style={{
+                            position: "relative",
+                            borderRadius: 20,
                             background: "var(--card)",
                             border: "1px solid var(--border)",
+                            padding: "24px 28px",
+                            transition: "box-shadow 0.2s, transform 0.2s",
+                            cursor: "pointer",
                           }}
+                          onClick={() => openDrawer(tenant)}
                           onMouseEnter={(e) => {
-                            e.currentTarget.style.boxShadow = "0 8px 24px rgba(0,0,0,0.08)";
-                            e.currentTarget.style.transform = "translateY(-2px)";
+                            e.currentTarget.style.boxShadow = "0 8px 32px rgba(0,0,0,0.07)";
+                            e.currentTarget.style.transform = "translateY(-1px)";
                           }}
                           onMouseLeave={(e) => {
                             e.currentTarget.style.boxShadow = "none";
                             e.currentTarget.style.transform = "translateY(0)";
                           }}
                         >
-                          <div className="flex items-center gap-3 mb-4">
-                            <div
-                              className="w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
+                          {/* ── Action buttons — top right ── */}
+                          <div
+                            className="opacity-0 group-hover/tenant:opacity-100"
+                            style={{
+                              position: "absolute",
+                              top: 16,
+                              right: 16,
+                              display: "flex",
+                              gap: 4,
+                              transition: "opacity 0.15s",
+                            }}
+                          >
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); handleEdit(tenant); }}
                               style={{
-                                background: "color-mix(in srgb, var(--primary) 12%, transparent)",
+                                width: 32, height: 32, borderRadius: 8,
+                                border: "none", background: "transparent",
+                                color: "var(--muted-foreground)", cursor: "pointer",
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                                transition: "background 0.15s, color 0.15s",
+                              }}
+                              onMouseEnter={(e) => { e.currentTarget.style.background = "var(--background)"; e.currentTarget.style.color = "var(--foreground)"; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--muted-foreground)"; }}
+                            >
+                              <Edit style={{ width: 15, height: 15 }} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); handleDelete(tenant.id); }}
+                              style={{
+                                width: 32, height: 32, borderRadius: 8,
+                                border: "none", background: "transparent",
+                                color: "var(--muted-foreground)", cursor: "pointer",
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                                transition: "background 0.15s, color 0.15s",
+                              }}
+                              onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(239,68,68,0.06)"; e.currentTarget.style.color = "#DC2626"; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--muted-foreground)"; }}
+                            >
+                              <Trash2 style={{ width: 15, height: 15 }} />
+                            </button>
+                          </div>
+
+                          {/* ── Top section: Avatar + Name + Unit + Status ── */}
+                          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 20 }}>
+                            <div
+                              style={{
+                                width: 48, height: 48, borderRadius: 14,
+                                background: "color-mix(in srgb, var(--primary) 10%, transparent)",
                                 color: "var(--primary)",
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                                fontSize: 15, fontWeight: 700, flexShrink: 0,
                               }}
                             >
                               {getInitials(tenant.name)}
                             </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-[13px] font-semibold truncate" style={{ color: "var(--foreground)" }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <p style={{
+                                fontSize: 16, fontWeight: 700, color: "var(--foreground)",
+                                lineHeight: 1.3, margin: 0,
+                                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                              }}>
                                 {tenant.name}
                               </p>
-                              <p className="text-[11px]" style={{ color: "var(--muted-foreground)" }}>
-                                {t("unit")} {tenant.unit}
+                              <p style={{
+                                fontSize: 13, color: "var(--muted-foreground)", margin: 0, marginTop: 2,
+                              }}>
+                                {tenant.buildingName} &middot; {t("unit")} {tenant.unit}
                               </p>
                             </div>
                             <StatusDotLight status={tenant.status} t={t} />
                           </div>
 
-                          <div className="flex items-center justify-between pt-3" style={{ borderTop: "1px solid var(--border)" }}>
-                            <span className="text-[10px] uppercase tracking-wider font-medium" style={{ color: "var(--muted-foreground)" }}>
-                              {t("totalMonthly")}
-                            </span>
-                            <span className="text-sm font-bold" style={{ color: "var(--primary)" }}>
-                              {formatCHF(total)}
-                            </span>
+                          {/* ── Middle section: Contact info ── */}
+                          <div style={{
+                            display: "flex", gap: 24, marginBottom: 20,
+                            paddingBottom: 20,
+                            borderBottom: "1px solid color-mix(in srgb, var(--border) 60%, transparent)",
+                          }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <Mail style={{ width: 14, height: 14, color: "var(--muted-foreground)", flexShrink: 0 }} />
+                              <span style={{ fontSize: 13, color: "var(--foreground)" }}>
+                                {tenant.email || "—"}
+                              </span>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <Phone style={{ width: 14, height: 14, color: "var(--muted-foreground)", flexShrink: 0 }} />
+                              <span style={{ fontSize: 13, color: "var(--foreground)" }}>
+                                {tenant.phone || "—"}
+                              </span>
+                            </div>
                           </div>
 
-                          <div className="flex items-center gap-1 mt-3 opacity-0 group-hover/tenant:opacity-100 transition-opacity">
-                            <span className="text-[10px] font-medium" style={{ color: "var(--muted-foreground)" }}>{t("viewProfile")}</span>
-                            <ChevronRight className="w-3 h-3" style={{ color: "var(--muted-foreground)" }} />
+                          {/* ── Bottom section: Financials + Lease dates ── */}
+                          <div style={{ display: "flex", alignItems: "center", gap: 0, flexWrap: "wrap" }}>
+                            {/* Rent */}
+                            <div style={{ flex: 1, minWidth: 100 }}>
+                              <p style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted-foreground)", margin: 0 }}>
+                                {t("netRentLabel")}
+                              </p>
+                              <p style={{ fontSize: 14, fontWeight: 600, color: "var(--foreground)", margin: 0, marginTop: 4 }}>
+                                {formatCHF(rentNet)}
+                              </p>
+                            </div>
+                            {/* Charges */}
+                            <div style={{ flex: 1, minWidth: 100 }}>
+                              <p style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted-foreground)", margin: 0 }}>
+                                {t("monthlyCharges")}
+                              </p>
+                              <p style={{ fontSize: 14, fontWeight: 600, color: "var(--foreground)", margin: 0, marginTop: 4 }}>
+                                {formatCHF(charges)}
+                              </p>
+                            </div>
+                            {/* Total */}
+                            <div style={{ flex: 1, minWidth: 100 }}>
+                              <p style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--primary)", margin: 0 }}>
+                                {t("totalMonthly")}
+                              </p>
+                              <p style={{ fontSize: 15, fontWeight: 700, color: "var(--primary)", margin: 0, marginTop: 4 }}>
+                                {formatCHF(total)}
+                              </p>
+                            </div>
+                            {/* Divider */}
+                            <div style={{ width: 1, height: 36, background: "var(--border)", margin: "0 16px", flexShrink: 0 }} />
+                            {/* Lease start */}
+                            <div style={{ flex: 1, minWidth: 100 }}>
+                              <p style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted-foreground)", margin: 0 }}>
+                                {t("leaseStart")}
+                              </p>
+                              <p style={{ fontSize: 13, fontWeight: 500, color: "var(--foreground)", margin: 0, marginTop: 4 }}>
+                                {tenant.leaseStart ? new Date(tenant.leaseStart).toLocaleDateString("fr-CH") : "—"}
+                              </p>
+                            </div>
+                            {/* Lease end */}
+                            <div style={{ flex: 1, minWidth: 100 }}>
+                              <p style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted-foreground)", margin: 0 }}>
+                                {t("leaseEnd")}
+                              </p>
+                              <p style={{ fontSize: 13, fontWeight: 500, color: "var(--foreground)", margin: 0, marginTop: 4 }}>
+                                {tenant.leaseEnd ? new Date(tenant.leaseEnd).toLocaleDateString("fr-CH") : "—"}
+                              </p>
+                            </div>
                           </div>
-                        </button>
+                        </div>
                       );
                     })}
                   </div>
