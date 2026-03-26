@@ -15,6 +15,7 @@ import {
   ClipboardList,
   Settings,
   HelpCircle,
+  BarChart3,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../i18n/LanguageContext";
@@ -60,6 +61,7 @@ export function ModernSidebar({ activeView, onViewChange }: ModernSidebarProps) 
           { id: "requests", labelKey: "requestsHub", icon: ClipboardList },
           { id: "interventions", labelKey: "navInterventions", icon: CalendarDays },
           { id: "services", labelKey: "navServices", icon: Briefcase },
+          { id: "analytics", labelKey: "navAnalytics", icon: BarChart3 },
         ] as MenuItem[],
       },
       {

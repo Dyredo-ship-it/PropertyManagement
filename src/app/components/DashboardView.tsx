@@ -1,7 +1,7 @@
 // app/components/DashboardView.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  Building2,
+  Building,
   Users,
   DollarSign,
   Wrench,
@@ -19,6 +19,7 @@ import {
   CheckCircle2,
   Calendar,
 } from "lucide-react";
+import { ImmoStoreLogo } from "./ImmoStoreLogo";
 import {
   getBuildings,
   getTenants,
@@ -97,12 +98,7 @@ function AdminDashboard({
       {/* ── Page Header ───────────────────────────────────────── */}
       <div style={{ marginBottom: 28 }}>
         <div className="flex items-center gap-3 mb-1">
-          <div
-            className="w-9 h-9 rounded-lg flex items-center justify-center"
-            style={{ background: "var(--sidebar-accent)" }}
-          >
-            <Building2 className="w-[18px] h-[18px]" style={{ color: "var(--primary)" }} />
-          </div>
+          <ImmoStoreLogo size={36} />
           <div>
             <h1
               className="text-[22px] font-semibold leading-tight"
@@ -154,7 +150,7 @@ function AdminDashboard({
       >
         {[
           {
-            icon: Building2,
+            icon: Building,
             label: t("totalBuildings"),
             value: buildings.length,
             sub: `${totalUnits} ${t("totalUnits")}`,

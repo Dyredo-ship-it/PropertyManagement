@@ -1,8 +1,9 @@
 import React, { useState } from "react";
-import { Building2, Globe } from "lucide-react";
+import { Globe } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../i18n/LanguageContext";
 import { LANGUAGES } from "../i18n/translations";
+import { ImmoStoreLogo } from "./ImmoStoreLogo";
 
 export function LoginPage() {
   const [email, setEmail] = useState("");
@@ -90,20 +91,7 @@ export function LoginPage() {
             gap: 12,
           }}
         >
-          <div
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 10,
-              background: "rgba(255,255,255,0.15)",
-              backdropFilter: "blur(10px)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Building2 style={{ width: 20, height: 20, color: "#FFFFFF" }} />
-          </div>
+          <ImmoStoreLogo size={40} />
           <div>
             <div style={{ color: "#FFFFFF", fontSize: 15, fontWeight: 600, lineHeight: 1.2 }}>
               {t("appName")}
@@ -205,19 +193,7 @@ export function LoginPage() {
           {/* App name + subtitle */}
           <div style={{ marginBottom: 12 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-              <div
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 9,
-                  background: "#1C201E",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Building2 style={{ width: 18, height: 18, color: "#FFFFFF" }} />
-              </div>
+              <ImmoStoreLogo size={36} />
               <div>
                 <span style={{ fontSize: 15, fontWeight: 700, color: "#1A1A1A" }}>
                   {t("appName")}

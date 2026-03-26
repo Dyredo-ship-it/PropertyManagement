@@ -54,6 +54,7 @@ type TranslationSet = {
   navRequests: string;
   navInterventions: string;
   navServices: string;
+  navAnalytics: string;
   navNotifications: string;
   navInformations: string;
   navSettings: string;
@@ -513,6 +514,7 @@ export const translations: Record<Language, TranslationSet> = {
     navRequests: "Demandes",
     navInterventions: "Interventions",
     navServices: "Services",
+    navAnalytics: "Analytiques",
     navNotifications: "Notifications",
     navInformations: "Informations",
     navSettings: "Paramètres",
@@ -952,6 +954,7 @@ export const translations: Record<Language, TranslationSet> = {
     navRequests: "Requests",
     navInterventions: "Interventions",
     navServices: "Services",
+    navAnalytics: "Analytics",
     navNotifications: "Notifications",
     navInformations: "Information",
     navSettings: "Settings",
@@ -1391,6 +1394,7 @@ export const translations: Record<Language, TranslationSet> = {
     navRequests: "Anfragen",
     navInterventions: "Interventionen",
     navServices: "Dienstleistungen",
+    navAnalytics: "Analytik",
     navNotifications: "Benachrichtigungen",
     navInformations: "Informationen",
     navSettings: "Einstellungen",
@@ -1830,6 +1834,7 @@ export const translations: Record<Language, TranslationSet> = {
     navRequests: "Richieste",
     navInterventions: "Interventi",
     navServices: "Servizi",
+    navAnalytics: "Analisi",
     navNotifications: "Notifiche",
     navInformations: "Informazioni",
     navSettings: "Impostazioni",

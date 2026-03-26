@@ -1,0 +1,529 @@
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from "recharts";
+import {
+  TrendingUp,
+  TrendingDown,
+  Building,
+  DollarSign,
+  Users,
+  Wrench,
+  ChevronDown,
+} from "lucide-react";
+import { getBuildings, type Building as BuildingType } from "../utils/storage";
+import { useLanguage } from "../i18n/LanguageContext";
+
+/* ─── Fake data generator (seeded by building) ────────────────── */
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function generateMonthlyData(buildingId: string | null, buildings: BuildingType[]) {
+  const seed = buildingId ? hashStr(buildingId) : 42;
+  const rng = seededRandom(seed);
+
+  const baseRevenue = buildingId
+    ? (buildings.find((b) => b.id === buildingId)?.monthlyRevenue ?? 20000)
+    : buildings.reduce((s, b) => s + (b.monthlyRevenue ?? 0), 0);
+
+  const baseOccupancy = buildingId
+    ? (() => {
+        const b = buildings.find((x) => x.id === buildingId);
+        return b && b.units > 0 ? (b.occupiedUnits / b.units) * 100 : 85;
+      })()
+    : (() => {
+        const totalU = buildings.reduce((s, b) => s + (b.units ?? 0), 0);
+        const occU = buildings.reduce((s, b) => s + (b.occupiedUnits ?? 0), 0);
+        return totalU > 0 ? (occU / totalU) * 100 : 85;
+      })();
+
+  const baseCost = baseRevenue * 0.35;
+
+  return MONTHS.map((month, i) => {
+    const drift = 1 + (i - 6) * 0.015;
+    const noise = () => 0.92 + rng() * 0.16;
+    return {
+      month,
+      revenue: Math.round(baseRevenue * drift * noise()),
+      costs: Math.round(baseCost * drift * noise()),
+      occupancy: Math.min(100, Math.round(baseOccupancy * (0.94 + rng() * 0.12))),
+      netIncome: 0,
+    };
+  }).map((d) => ({ ...d, netIncome: d.revenue - d.costs }));
+}
+
+function generateRevenueByBuilding(buildings: BuildingType[]) {
+  return buildings.map((b) => ({
+    name: b.name.length > 14 ? b.name.slice(0, 14) + "…" : b.name,
+    fullName: b.name,
+    revenue: b.monthlyRevenue ?? 0,
+    units: b.units ?? 0,
+  }));
+}
+
+function hashStr(s: string) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
+function seededRandom(seed: number) {
+  let s = seed;
+  return () => {
+    s = (s * 16807) % 2147483647;
+    return (s - 1) / 2147483646;
+  };
+}
+
+const formatCHF = (v: number) =>
+  `CHF ${new Intl.NumberFormat("de-CH", { maximumFractionDigits: 0 }).format(v)}`;
+
+/* ─── Building Selector ───────────────────────────────────────── */
+
+function BuildingSelector({
+  buildings,
+  selected,
+  onChange,
+}: {
+  buildings: BuildingType[];
+  selected: string | null;
+  onChange: (id: string | null) => void;
+}) {
+  const { t } = useLanguage();
+  return (
+    <div style={{ position: "relative", display: "inline-block" }}>
+      <select
+        value={selected ?? "__all__"}
+        onChange={(e) => onChange(e.target.value === "__all__" ? null : e.target.value)}
+        style={{
+          appearance: "none",
+          padding: "8px 36px 8px 14px",
+          borderRadius: 10,
+          border: "1px solid var(--border)",
+          background: "var(--card)",
+          color: "var(--foreground)",
+          fontSize: 13,
+          fontWeight: 500,
+          cursor: "pointer",
+          outline: "none",
+        }}
+      >
+        <option value="__all__">{t("allBuildings") || "All buildings"}</option>
+        {buildings.map((b) => (
+          <option key={b.id} value={b.id}>
+            {b.name}
+          </option>
+        ))}
+      </select>
+      <ChevronDown
+        style={{
+          position: "absolute",
+          right: 12,
+          top: "50%",
+          transform: "translateY(-50%)",
+          width: 14,
+          height: 14,
+          color: "var(--muted-foreground)",
+          pointerEvents: "none",
+        }}
+      />
+    </div>
+  );
+}
+
+/* ─── KPI Card ────────────────────────────────────────────────── */
+
+function KpiCard({
+  icon: Icon,
+  label,
+  value,
+  sub,
+  trend,
+  trendUp,
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: string;
+  sub?: string;
+  trend?: string;
+  trendUp?: boolean;
+}) {
+  return (
+    <div
+      style={{
+        padding: 20,
+        borderRadius: 14,
+        border: "1px solid var(--border)",
+        background: "var(--card)",
+      }}
+    >
+      <div className="flex items-center justify-between mb-3">
+        <div
+          className="w-9 h-9 rounded-lg flex items-center justify-center"
+          style={{ background: "var(--sidebar-accent)" }}
+        >
+          <Icon className="w-4 h-4" style={{ color: "var(--primary)" }} />
+        </div>
+        {trend && (
+          <span
+            className="flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full"
+            style={{
+              background: trendUp ? "rgba(34,197,94,0.1)" : "rgba(239,68,68,0.1)",
+              color: trendUp ? "#16A34A" : "#DC2626",
+            }}
+          >
+            {trendUp ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+            {trend}
+          </span>
+        )}
+      </div>
+      <p
+        className="text-[11px] font-medium uppercase"
+        style={{ color: "var(--muted-foreground)", letterSpacing: "0.05em" }}
+      >
+        {label}
+      </p>
+      <p className="text-[22px] font-bold leading-tight mt-0.5" style={{ color: "var(--foreground)" }}>
+        {value}
+      </p>
+      {sub && (
+        <p className="text-[12px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>
+          {sub}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/* ─── Chart Card wrapper ──────────────────────────────────────── */
+
+function ChartCard({
+  title,
+  subtitle,
+  children,
+  action,
+}: {
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div
+      style={{
+        borderRadius: 16,
+        border: "1px solid var(--border)",
+        background: "var(--card)",
+        padding: "24px 24px 16px",
+      }}
+    >
+      <div className="flex items-start justify-between mb-5">
+        <div>
+          <h3
+            className="text-[15px] font-semibold"
+            style={{ color: "var(--foreground)" }}
+          >
+            {title}
+          </h3>
+          {subtitle && (
+            <p className="text-[12px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>
+              {subtitle}
+            </p>
+          )}
+        </div>
+        {action}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/* ─── Tooltip styling ─────────────────────────────────────────── */
+
+function CustomTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div
+      style={{
+        background: "var(--card)",
+        border: "1px solid var(--border)",
+        borderRadius: 10,
+        padding: "10px 14px",
+        boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+      }}
+    >
+      <p className="text-[11px] font-semibold mb-1" style={{ color: "var(--foreground)" }}>
+        {label}
+      </p>
+      {payload.map((entry: any) => (
+        <p
+          key={entry.name}
+          className="text-[11px]"
+          style={{ color: entry.color }}
+        >
+          {entry.name}: {typeof entry.value === "number" && entry.name !== "Occupancy"
+            ? formatCHF(entry.value)
+            : `${entry.value}%`}
+        </p>
+      ))}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MAIN ANALYTICS DASHBOARD
+═══════════════════════════════════════════════════════════════ */
+
+export function AnalyticsDashboard() {
+  const { t } = useLanguage();
+  const [buildings, setBuildings] = useState<BuildingType[]>([]);
+  const [selectedBuilding, setSelectedBuilding] = useState<string | null>(null);
+
+  useEffect(() => {
+    setBuildings(getBuildings());
+  }, []);
+
+  const monthlyData = useMemo(
+    () => generateMonthlyData(selectedBuilding, buildings),
+    [selectedBuilding, buildings]
+  );
+
+  const revenueByBuilding = useMemo(
+    () => generateRevenueByBuilding(buildings),
+    [buildings]
+  );
+
+  const totalRevenue = monthlyData.reduce((s, d) => s + d.revenue, 0);
+  const totalCosts = monthlyData.reduce((s, d) => s + d.costs, 0);
+  const avgOccupancy = Math.round(
+    monthlyData.reduce((s, d) => s + d.occupancy, 0) / monthlyData.length
+  );
+  const totalUnits = selectedBuilding
+    ? (buildings.find((b) => b.id === selectedBuilding)?.units ?? 0)
+    : buildings.reduce((s, b) => s + (b.units ?? 0), 0);
+
+  return (
+    <div style={{ padding: "32px 32px 48px" }}>
+      {/* ── Header ───────────────────────────────────────────── */}
+      <div className="flex items-start justify-between flex-wrap gap-4" style={{ marginBottom: 28 }}>
+        <div>
+          <h1
+            className="text-[22px] font-semibold leading-tight"
+            style={{ color: "var(--foreground)" }}
+          >
+            {t("analyticsTitle") || "Analytics"}
+          </h1>
+          <p className="text-[13px] mt-1" style={{ color: "var(--muted-foreground)" }}>
+            {t("analyticsSub") || "Real estate performance overview"}
+          </p>
+        </div>
+        <BuildingSelector
+          buildings={buildings}
+          selected={selectedBuilding}
+          onChange={setSelectedBuilding}
+        />
+      </div>
+
+      {/* ── KPI Strip ────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4" style={{ marginBottom: 28 }}>
+        <KpiCard
+          icon={DollarSign}
+          label={t("totalRevenue") || "Total Revenue"}
+          value={formatCHF(totalRevenue)}
+          sub={t("yearToDate") || "Year to date"}
+          trend="+8.2%"
+          trendUp
+        />
+        <KpiCard
+          icon={Users}
+          label={t("occupancyRate") || "Occupancy Rate"}
+          value={`${avgOccupancy}%`}
+          sub={`${totalUnits} ${t("totalUnits") || "units"}`}
+          trend="+2.1%"
+          trendUp
+        />
+        <KpiCard
+          icon={Wrench}
+          label={t("totalCosts") || "Total Costs"}
+          value={formatCHF(totalCosts)}
+          sub={t("maintenanceAndOps") || "Maintenance & operations"}
+          trend="-3.4%"
+          trendUp
+        />
+        <KpiCard
+          icon={Building}
+          label={t("netIncome") || "Net Income"}
+          value={formatCHF(totalRevenue - totalCosts)}
+          sub={`${((1 - totalCosts / totalRevenue) * 100).toFixed(1)}% ${t("margin") || "margin"}`}
+          trend="+12.5%"
+          trendUp
+        />
+      </div>
+
+      {/* ── Charts Row 1 ─────────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5" style={{ marginBottom: 24 }}>
+        {/* Revenue Evolution */}
+        <ChartCard
+          title={t("revenueEvolution") || "Revenue Evolution"}
+          subtitle={t("monthlyRevenueTrend") || "Monthly revenue trend"}
+        >
+          <ResponsiveContainer width="100%" height={260}>
+            <AreaChart data={monthlyData}>
+              <defs>
+                <linearGradient id="gradRevenue" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#45553A" stopOpacity={0.2} />
+                  <stop offset="100%" stopColor="#45553A" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <XAxis dataKey="month" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+              <Tooltip content={<CustomTooltip />} />
+              <Area
+                type="monotone"
+                dataKey="revenue"
+                name="Revenue"
+                stroke="#45553A"
+                strokeWidth={2.5}
+                fill="url(#gradRevenue)"
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </ChartCard>
+
+        {/* Occupancy Rate Evolution */}
+        <ChartCard
+          title={t("occupancyEvolution") || "Occupancy Rate Evolution"}
+          subtitle={t("monthlyOccupancyTrend") || "Monthly occupancy trend"}
+        >
+          <ResponsiveContainer width="100%" height={260}>
+            <LineChart data={monthlyData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <XAxis dataKey="month" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
+              <YAxis domain={[60, 100]} tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}%`} />
+              <Tooltip content={<CustomTooltip />} />
+              <Line
+                type="monotone"
+                dataKey="occupancy"
+                name="Occupancy"
+                stroke="#3B82F6"
+                strokeWidth={2.5}
+                dot={{ fill: "#3B82F6", r: 3 }}
+                activeDot={{ r: 5 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </ChartCard>
+      </div>
+
+      {/* ── Charts Row 2 ─────────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5" style={{ marginBottom: 24 }}>
+        {/* Cost Evolution */}
+        <ChartCard
+          title={t("costEvolution") || "Cost Evolution"}
+          subtitle={t("revenueVsCosts") || "Revenue vs costs"}
+        >
+          <ResponsiveContainer width="100%" height={260}>
+            <AreaChart data={monthlyData}>
+              <defs>
+                <linearGradient id="gradCosts" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#EF4444" stopOpacity={0.15} />
+                  <stop offset="100%" stopColor="#EF4444" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="gradNet" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#22C55E" stopOpacity={0.15} />
+                  <stop offset="100%" stopColor="#22C55E" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <XAxis dataKey="month" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+              <Tooltip content={<CustomTooltip />} />
+              <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+              <Area type="monotone" dataKey="costs" name="Costs" stroke="#EF4444" strokeWidth={2} fill="url(#gradCosts)" />
+              <Area type="monotone" dataKey="netIncome" name="Net Income" stroke="#22C55E" strokeWidth={2} fill="url(#gradNet)" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </ChartCard>
+
+        {/* Revenue per Building */}
+        {!selectedBuilding && buildings.length > 0 && (
+          <ChartCard
+            title={t("revenuePerBuilding") || "Revenue per Building"}
+            subtitle={t("monthlyRevenueComparison") || "Monthly revenue comparison"}
+          >
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={revenueByBuilding} barSize={36}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis dataKey="name" tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                <Tooltip
+                  content={({ active, payload }) => {
+                    if (!active || !payload?.length) return null;
+                    const d = payload[0].payload;
+                    return (
+                      <div
+                        style={{
+                          background: "var(--card)",
+                          border: "1px solid var(--border)",
+                          borderRadius: 10,
+                          padding: "10px 14px",
+                          boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+                        }}
+                      >
+                        <p className="text-[11px] font-semibold mb-1" style={{ color: "var(--foreground)" }}>
+                          {d.fullName}
+                        </p>
+                        <p className="text-[11px]" style={{ color: "#45553A" }}>
+                          Revenue: {formatCHF(d.revenue)}
+                        </p>
+                        <p className="text-[11px]" style={{ color: "var(--muted-foreground)" }}>
+                          {d.units} units
+                        </p>
+                      </div>
+                    );
+                  }}
+                />
+                <Bar dataKey="revenue" name="Revenue" fill="#45553A" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartCard>
+        )}
+
+        {/* When a specific building is selected, show net income trend instead */}
+        {selectedBuilding && (
+          <ChartCard
+            title={t("netIncomeEvolution") || "Net Income Evolution"}
+            subtitle={t("profitabilityTrend") || "Profitability trend"}
+          >
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={monthlyData} barSize={28}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis dataKey="month" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                <Tooltip content={<CustomTooltip />} />
+                <Bar
+                  dataKey="netIncome"
+                  name="Net Income"
+                  fill="#45553A"
+                  radius={[6, 6, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartCard>
+        )}
+      </div>
+    </div>
+  );
+}

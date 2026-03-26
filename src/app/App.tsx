@@ -16,6 +16,7 @@ import { NotificationsView } from "./components/NotificationsView";
 import { InformationsView } from "./components/InformationsView";
 import { BuildingDetailsView } from "./components/BuildingDetailsView";
 import { InterventionsView } from "./components/InterventionsView";
+import { AnalyticsDashboard } from "./components/AnalyticsDashboard";
 
 function AppContent() {
   const { isAuthenticated, user } = useAuth();
@@ -61,6 +62,7 @@ function AppContent() {
           {activeView === "requests" && user?.role === "admin" && <RequestsView />}
           {activeView === "requests" && user?.role === "tenant" && <TenantRequestsView />}
           {activeView === "services" && user?.role === "admin" && <ServicesView />}
+          {activeView === "analytics" && user?.role === "admin" && <AnalyticsDashboard />}
           {activeView === "notifications" && <NotificationsView />}
           {(activeView === "info" || activeView === "informations") && <InformationsView />}
           {activeView === "profile" && user?.role === "tenant" && (

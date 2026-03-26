@@ -1,8 +1,8 @@
 import React from "react";
 
 /**
- * ImmoStore brand logo — a stylized building silhouette inside a rounded shape.
- * Renders as an SVG so it scales perfectly at any size.
+ * ImmoStore brand logo — geometric house silhouette on dark background
+ * with an accent circle, inspired by modern real-estate branding.
  */
 export function ImmoStoreLogo({
   size = 36,
@@ -20,36 +20,20 @@ export function ImmoStoreLogo({
       xmlns="http://www.w3.org/2000/svg"
       className={className}
     >
-      {/* Background rounded square */}
-      <rect width="48" height="48" rx="14" fill="var(--primary)" />
+      {/* Dark rounded background */}
+      <rect width="48" height="48" rx="12" fill="#1C201E" />
 
-      {/* Main building (center tall) */}
-      <rect x="18" y="10" width="12" height="28" rx="2" fill="white" opacity="0.95" />
-      {/* Windows on main building */}
-      <rect x="21" y="14" width="2.5" height="2.5" rx="0.5" fill="var(--primary)" opacity="0.4" />
-      <rect x="24.5" y="14" width="2.5" height="2.5" rx="0.5" fill="var(--primary)" opacity="0.4" />
-      <rect x="21" y="19" width="2.5" height="2.5" rx="0.5" fill="var(--primary)" opacity="0.4" />
-      <rect x="24.5" y="19" width="2.5" height="2.5" rx="0.5" fill="var(--primary)" opacity="0.4" />
-      <rect x="21" y="24" width="2.5" height="2.5" rx="0.5" fill="var(--primary)" opacity="0.4" />
-      <rect x="24.5" y="24" width="2.5" height="2.5" rx="0.5" fill="var(--primary)" opacity="0.4" />
-      {/* Door */}
-      <rect x="22" y="32" width="4" height="6" rx="1" fill="var(--primary)" opacity="0.3" />
+      {/* Orange accent circle — top right */}
+      <circle cx="40" cy="8" r="5" fill="#E85D2A" />
 
-      {/* Left building (shorter) */}
-      <rect x="8" y="20" width="9" height="18" rx="2" fill="white" opacity="0.75" />
-      <rect x="10.5" y="23" width="2" height="2" rx="0.5" fill="var(--primary)" opacity="0.3" />
-      <rect x="13.5" y="23" width="2" height="2" rx="0.5" fill="var(--primary)" opacity="0.3" />
-      <rect x="10.5" y="27" width="2" height="2" rx="0.5" fill="var(--primary)" opacity="0.3" />
-      <rect x="13.5" y="27" width="2" height="2" rx="0.5" fill="var(--primary)" opacity="0.3" />
-
-      {/* Right building (medium) */}
-      <rect x="31" y="16" width="9" height="22" rx="2" fill="white" opacity="0.85" />
-      <rect x="33.5" y="19" width="2" height="2" rx="0.5" fill="var(--primary)" opacity="0.3" />
-      <rect x="36.5" y="19" width="2" height="2" rx="0.5" fill="var(--primary)" opacity="0.3" />
-      <rect x="33.5" y="23" width="2" height="2" rx="0.5" fill="var(--primary)" opacity="0.3" />
-      <rect x="36.5" y="23" width="2" height="2" rx="0.5" fill="var(--primary)" opacity="0.3" />
-      <rect x="33.5" y="27" width="2" height="2" rx="0.5" fill="var(--primary)" opacity="0.3" />
-      <rect x="36.5" y="27" width="2" height="2" rx="0.5" fill="var(--primary)" opacity="0.3" />
+      {/* House / building silhouette — white geometric shape */}
+      {/* Roof / triangle peak */}
+      <path
+        d="M24 8L36 20V40H28V28H20V40H12V20L24 8Z"
+        fill="white"
+      />
+      {/* Inner cutout to form the chimney / roof detail */}
+      <rect x="22" y="28" width="4" height="12" fill="#1C201E" />
     </svg>
   );
 }
