@@ -63,9 +63,16 @@ function generateMonthlyData(buildingId: string | null, buildings: BuildingType[
   }).map((d) => ({ ...d, netIncome: d.revenue - d.costs }));
 }
 
-function generateRevenueByBuilding(buildings: BuildingType[]) {
+function generateRevenueByBuilding(buildings: BuildingType[], monthIndex: number) {
   return buildings.map((b) => {
-    const revenue = b.monthlyRevenue ?? 0;
+    const baseRevenue = b.monthlyRevenue ?? 0;
+    const seed = hashStr(b.id);
+    const rng = seededRandom(seed);
+    // Advance rng to the right month
+    for (let i = 0; i < monthIndex * 2; i++) rng();
+    const drift = 1 + (monthIndex - 6) * 0.015;
+    const noise = 0.92 + rng() * 0.16;
+    const revenue = Math.round(baseRevenue * drift * noise);
     const costs = Math.round(revenue * 0.35);
     return {
       name: b.name.length > 16 ? b.name.slice(0, 16) + "…" : b.name,
@@ -300,6 +307,7 @@ export function AnalyticsDashboard() {
   const [occupancyBuilding, setOccupancyBuilding] = useState<string | null>(null);
   const [costBuilding, setCostBuilding] = useState<string | null>(null);
   const [netIncomeBuilding, setNetIncomeBuilding] = useState<string | null>(null);
+  const [comparisonMonth, setComparisonMonth] = useState<number>(new Date().getMonth());
 
   useEffect(() => {
     setBuildings(getBuildings());
@@ -310,7 +318,7 @@ export function AnalyticsDashboard() {
   const occupancyData = useMemo(() => generateMonthlyData(occupancyBuilding, buildings), [occupancyBuilding, buildings]);
   const costData = useMemo(() => generateMonthlyData(costBuilding, buildings), [costBuilding, buildings]);
   const netIncomeData = useMemo(() => generateMonthlyData(netIncomeBuilding, buildings), [netIncomeBuilding, buildings]);
-  const revenueByBuilding = useMemo(() => generateRevenueByBuilding(buildings), [buildings]);
+  const revenueByBuilding = useMemo(() => generateRevenueByBuilding(buildings, comparisonMonth), [buildings, comparisonMonth]);
 
   // KPI data (aggregate)
   const aggregateData = useMemo(() => generateMonthlyData(null, buildings), [buildings]);
@@ -512,7 +520,43 @@ export function AnalyticsDashboard() {
         <div>
           <ChartCard
             title="Building Comparison"
-            subtitle="Revenue, costs, and net income for each building in your portfolio"
+            subtitle={`Revenue, costs, and net income for ${MONTHS[comparisonMonth]}`}
+            action={
+              <div style={{ position: "relative", display: "inline-block" }}>
+                <select
+                  value={comparisonMonth}
+                  onChange={(e) => setComparisonMonth(Number(e.target.value))}
+                  style={{
+                    appearance: "none",
+                    padding: "6px 30px 6px 12px",
+                    borderRadius: 8,
+                    border: "1px solid var(--border)",
+                    background: "var(--background)",
+                    color: "var(--foreground)",
+                    fontSize: 12,
+                    fontWeight: 500,
+                    cursor: "pointer",
+                    outline: "none",
+                  }}
+                >
+                  {MONTHS.map((m, i) => (
+                    <option key={m} value={i}>{m}</option>
+                  ))}
+                </select>
+                <ChevronDown
+                  style={{
+                    position: "absolute",
+                    right: 10,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    width: 12,
+                    height: 12,
+                    color: "var(--muted-foreground)",
+                    pointerEvents: "none",
+                  }}
+                />
+              </div>
+            }
           >
             <ResponsiveContainer width="100%" height={320}>
               <BarChart data={revenueByBuilding} barGap={3} barCategoryGap="20%">
