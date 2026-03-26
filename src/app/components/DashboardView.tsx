@@ -1,7 +1,7 @@
 // app/components/DashboardView.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  Building,
+  Building as BuildingIcon,
   Users,
   DollarSign,
   Wrench,
@@ -150,7 +150,7 @@ function AdminDashboard({
       >
         {[
           {
-            icon: Building,
+            icon: BuildingIcon,
             label: t("totalBuildings"),
             value: buildings.length,
             sub: `${totalUnits} ${t("totalUnits")}`,
