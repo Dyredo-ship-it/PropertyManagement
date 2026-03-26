@@ -65,10 +65,11 @@ function generateMonthlyData(buildingId: string | null, buildings: BuildingType[
 
 function generateRevenueByBuilding(buildings: BuildingType[]) {
   return buildings.map((b) => ({
-    name: b.name.length > 14 ? b.name.slice(0, 14) + "…" : b.name,
+    name: b.name.length > 16 ? b.name.slice(0, 16) + "…" : b.name,
     fullName: b.name,
     revenue: b.monthlyRevenue ?? 0,
     units: b.units ?? 0,
+    occupiedUnits: b.occupiedUnits ?? 0,
   }));
 }
 
@@ -89,9 +90,9 @@ function seededRandom(seed: number) {
 const formatCHF = (v: number) =>
   `CHF ${new Intl.NumberFormat("de-CH", { maximumFractionDigits: 0 }).format(v)}`;
 
-/* ─── Building Selector ───────────────────────────────────────── */
+/* ─── Inline Building Selector (per chart) ────────────────────── */
 
-function BuildingSelector({
+function InlineSelector({
   buildings,
   selected,
   onChange,
@@ -100,7 +101,6 @@ function BuildingSelector({
   selected: string | null;
   onChange: (id: string | null) => void;
 }) {
-  const { t } = useLanguage();
   return (
     <div style={{ position: "relative", display: "inline-block" }}>
       <select
@@ -108,18 +108,18 @@ function BuildingSelector({
         onChange={(e) => onChange(e.target.value === "__all__" ? null : e.target.value)}
         style={{
           appearance: "none",
-          padding: "8px 36px 8px 14px",
-          borderRadius: 10,
+          padding: "6px 30px 6px 12px",
+          borderRadius: 8,
           border: "1px solid var(--border)",
-          background: "var(--card)",
+          background: "var(--background)",
           color: "var(--foreground)",
-          fontSize: 13,
+          fontSize: 12,
           fontWeight: 500,
           cursor: "pointer",
           outline: "none",
         }}
       >
-        <option value="__all__">{t("allBuildings") || "All buildings"}</option>
+        <option value="__all__">All Buildings</option>
         {buildings.map((b) => (
           <option key={b.id} value={b.id}>
             {b.name}
@@ -129,11 +129,11 @@ function BuildingSelector({
       <ChevronDown
         style={{
           position: "absolute",
-          right: 12,
+          right: 10,
           top: "50%",
           transform: "translateY(-50%)",
-          width: 14,
-          height: 14,
+          width: 12,
+          height: 12,
           color: "var(--muted-foreground)",
           pointerEvents: "none",
         }}
@@ -228,7 +228,7 @@ function ChartCard({
         padding: "24px 24px 16px",
       }}
     >
-      <div className="flex items-start justify-between mb-5">
+      <div className="flex items-start justify-between mb-5 gap-3">
         <div>
           <h3
             className="text-[15px] font-semibold"
@@ -272,7 +272,7 @@ function CustomTooltip({ active, payload, label }: any) {
           className="text-[11px]"
           style={{ color: entry.color }}
         >
-          {entry.name}: {typeof entry.value === "number" && entry.name !== "Occupancy"
+          {entry.name}: {typeof entry.value === "number" && entry.name !== "Occupancy Rate"
             ? formatCHF(entry.value)
             : `${entry.value}%`}
         </p>
@@ -288,98 +288,97 @@ function CustomTooltip({ active, payload, label }: any) {
 export function AnalyticsDashboard() {
   const { t } = useLanguage();
   const [buildings, setBuildings] = useState<BuildingType[]>([]);
-  const [selectedBuilding, setSelectedBuilding] = useState<string | null>(null);
+
+  // Each chart has its own building selector state
+  const [revenueBuilding, setRevenueBuilding] = useState<string | null>(null);
+  const [occupancyBuilding, setOccupancyBuilding] = useState<string | null>(null);
+  const [costBuilding, setCostBuilding] = useState<string | null>(null);
+  const [netIncomeBuilding, setNetIncomeBuilding] = useState<string | null>(null);
 
   useEffect(() => {
     setBuildings(getBuildings());
   }, []);
 
-  const monthlyData = useMemo(
-    () => generateMonthlyData(selectedBuilding, buildings),
-    [selectedBuilding, buildings]
-  );
+  // Generate data per chart selector
+  const revenueData = useMemo(() => generateMonthlyData(revenueBuilding, buildings), [revenueBuilding, buildings]);
+  const occupancyData = useMemo(() => generateMonthlyData(occupancyBuilding, buildings), [occupancyBuilding, buildings]);
+  const costData = useMemo(() => generateMonthlyData(costBuilding, buildings), [costBuilding, buildings]);
+  const netIncomeData = useMemo(() => generateMonthlyData(netIncomeBuilding, buildings), [netIncomeBuilding, buildings]);
+  const revenueByBuilding = useMemo(() => generateRevenueByBuilding(buildings), [buildings]);
 
-  const revenueByBuilding = useMemo(
-    () => generateRevenueByBuilding(buildings),
-    [buildings]
-  );
-
-  const totalRevenue = monthlyData.reduce((s, d) => s + d.revenue, 0);
-  const totalCosts = monthlyData.reduce((s, d) => s + d.costs, 0);
-  const avgOccupancy = Math.round(
-    monthlyData.reduce((s, d) => s + d.occupancy, 0) / monthlyData.length
-  );
-  const totalUnits = selectedBuilding
-    ? (buildings.find((b) => b.id === selectedBuilding)?.units ?? 0)
-    : buildings.reduce((s, b) => s + (b.units ?? 0), 0);
+  // KPI data (aggregate)
+  const aggregateData = useMemo(() => generateMonthlyData(null, buildings), [buildings]);
+  const totalRevenue = aggregateData.reduce((s, d) => s + d.revenue, 0);
+  const totalCosts = aggregateData.reduce((s, d) => s + d.costs, 0);
+  const avgOccupancy = Math.round(aggregateData.reduce((s, d) => s + d.occupancy, 0) / aggregateData.length);
+  const totalUnits = buildings.reduce((s, b) => s + (b.units ?? 0), 0);
 
   return (
     <div style={{ padding: "32px 32px 48px" }}>
       {/* ── Header ───────────────────────────────────────────── */}
-      <div className="flex items-start justify-between flex-wrap gap-4" style={{ marginBottom: 28 }}>
-        <div>
-          <h1
-            className="text-[22px] font-semibold leading-tight"
-            style={{ color: "var(--foreground)" }}
-          >
-            {t("analyticsTitle") || "Analytics"}
-          </h1>
-          <p className="text-[13px] mt-1" style={{ color: "var(--muted-foreground)" }}>
-            {t("analyticsSub") || "Real estate performance overview"}
-          </p>
-        </div>
-        <BuildingSelector
-          buildings={buildings}
-          selected={selectedBuilding}
-          onChange={setSelectedBuilding}
-        />
+      <div style={{ marginBottom: 32 }}>
+        <h1
+          className="text-[22px] font-semibold leading-tight"
+          style={{ color: "var(--foreground)" }}
+        >
+          Analytics
+        </h1>
+        <p className="text-[13px] mt-1" style={{ color: "var(--muted-foreground)" }}>
+          Real estate performance overview
+        </p>
       </div>
 
       {/* ── KPI Strip ────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4" style={{ marginBottom: 28 }}>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4" style={{ marginBottom: 36 }}>
         <KpiCard
           icon={DollarSign}
-          label={t("totalRevenue") || "Total Revenue"}
+          label="Total Revenue"
           value={formatCHF(totalRevenue)}
-          sub={t("yearToDate") || "Year to date"}
+          sub="Year to date"
           trend="+8.2%"
           trendUp
         />
         <KpiCard
           icon={Users}
-          label={t("occupancyRate") || "Occupancy Rate"}
+          label="Occupancy Rate"
           value={`${avgOccupancy}%`}
-          sub={`${totalUnits} ${t("totalUnits") || "units"}`}
+          sub={`${totalUnits} total units`}
           trend="+2.1%"
           trendUp
         />
         <KpiCard
           icon={Wrench}
-          label={t("totalCosts") || "Total Costs"}
+          label="Total Costs"
           value={formatCHF(totalCosts)}
-          sub={t("maintenanceAndOps") || "Maintenance & operations"}
+          sub="Maintenance and operations"
           trend="-3.4%"
           trendUp
         />
         <KpiCard
           icon={Building}
-          label={t("netIncome") || "Net Income"}
+          label="Net Income"
           value={formatCHF(totalRevenue - totalCosts)}
-          sub={`${((1 - totalCosts / totalRevenue) * 100).toFixed(1)}% ${t("margin") || "margin"}`}
+          sub={`${((1 - totalCosts / totalRevenue) * 100).toFixed(1)}% profit margin`}
           trend="+12.5%"
           trendUp
         />
       </div>
 
-      {/* ── Charts Row 1 ─────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5" style={{ marginBottom: 24 }}>
-        {/* Revenue Evolution */}
+      {/* ── Revenue Evolution ────────────────────────────────── */}
+      <div style={{ marginBottom: 28 }}>
         <ChartCard
-          title={t("revenueEvolution") || "Revenue Evolution"}
-          subtitle={t("monthlyRevenueTrend") || "Monthly revenue trend"}
+          title="Revenue Evolution"
+          subtitle="Monthly revenue trend over the current year"
+          action={
+            <InlineSelector
+              buildings={buildings}
+              selected={revenueBuilding}
+              onChange={setRevenueBuilding}
+            />
+          }
         >
-          <ResponsiveContainer width="100%" height={260}>
-            <AreaChart data={monthlyData}>
+          <ResponsiveContainer width="100%" height={280}>
+            <AreaChart data={revenueData}>
               <defs>
                 <linearGradient id="gradRevenue" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#45553A" stopOpacity={0.2} />
@@ -401,14 +400,24 @@ export function AnalyticsDashboard() {
             </AreaChart>
           </ResponsiveContainer>
         </ChartCard>
+      </div>
 
+      {/* ── Occupancy Rate & Cost Evolution ───────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" style={{ marginBottom: 28 }}>
         {/* Occupancy Rate Evolution */}
         <ChartCard
-          title={t("occupancyEvolution") || "Occupancy Rate Evolution"}
-          subtitle={t("monthlyOccupancyTrend") || "Monthly occupancy trend"}
+          title="Occupancy Rate Evolution"
+          subtitle="Monthly occupancy percentage trend"
+          action={
+            <InlineSelector
+              buildings={buildings}
+              selected={occupancyBuilding}
+              onChange={setOccupancyBuilding}
+            />
+          }
         >
-          <ResponsiveContainer width="100%" height={260}>
-            <LineChart data={monthlyData}>
+          <ResponsiveContainer width="100%" height={280}>
+            <LineChart data={occupancyData}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis dataKey="month" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
               <YAxis domain={[60, 100]} tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}%`} />
@@ -416,7 +425,7 @@ export function AnalyticsDashboard() {
               <Line
                 type="monotone"
                 dataKey="occupancy"
-                name="Occupancy"
+                name="Occupancy Rate"
                 stroke="#3B82F6"
                 strokeWidth={2.5}
                 dot={{ fill: "#3B82F6", r: 3 }}
@@ -425,17 +434,21 @@ export function AnalyticsDashboard() {
             </LineChart>
           </ResponsiveContainer>
         </ChartCard>
-      </div>
 
-      {/* ── Charts Row 2 ─────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5" style={{ marginBottom: 24 }}>
         {/* Cost Evolution */}
         <ChartCard
-          title={t("costEvolution") || "Cost Evolution"}
-          subtitle={t("revenueVsCosts") || "Revenue vs costs"}
+          title="Cost Evolution"
+          subtitle="Costs versus net income comparison"
+          action={
+            <InlineSelector
+              buildings={buildings}
+              selected={costBuilding}
+              onChange={setCostBuilding}
+            />
+          }
         >
-          <ResponsiveContainer width="100%" height={260}>
-            <AreaChart data={monthlyData}>
+          <ResponsiveContainer width="100%" height={280}>
+            <AreaChart data={costData}>
               <defs>
                 <linearGradient id="gradCosts" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#EF4444" stopOpacity={0.15} />
@@ -456,15 +469,47 @@ export function AnalyticsDashboard() {
             </AreaChart>
           </ResponsiveContainer>
         </ChartCard>
+      </div>
 
-        {/* Revenue per Building */}
-        {!selectedBuilding && buildings.length > 0 && (
+      {/* ── Net Income Evolution ──────────────────────────────── */}
+      <div style={{ marginBottom: 28 }}>
+        <ChartCard
+          title="Net Income Evolution"
+          subtitle="Monthly profitability trend after all expenses"
+          action={
+            <InlineSelector
+              buildings={buildings}
+              selected={netIncomeBuilding}
+              onChange={setNetIncomeBuilding}
+            />
+          }
+        >
+          <ResponsiveContainer width="100%" height={280}>
+            <BarChart data={netIncomeData} barSize={28}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <XAxis dataKey="month" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+              <Tooltip content={<CustomTooltip />} />
+              <Bar
+                dataKey="netIncome"
+                name="Net Income"
+                fill="#45553A"
+                radius={[6, 6, 0, 0]}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+      </div>
+
+      {/* ── Revenue Comparison by Building (always visible) ──── */}
+      {buildings.length > 0 && (
+        <div>
           <ChartCard
-            title={t("revenuePerBuilding") || "Revenue per Building"}
-            subtitle={t("monthlyRevenueComparison") || "Monthly revenue comparison"}
+            title="Revenue Comparison by Building"
+            subtitle="Side-by-side monthly revenue for each building in your portfolio"
           >
-            <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={revenueByBuilding} barSize={36}>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={revenueByBuilding} barSize={40}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                 <XAxis dataKey="name" tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
@@ -472,6 +517,7 @@ export function AnalyticsDashboard() {
                   content={({ active, payload }) => {
                     if (!active || !payload?.length) return null;
                     const d = payload[0].payload;
+                    const occ = d.units > 0 ? Math.round((d.occupiedUnits / d.units) * 100) : 0;
                     return (
                       <div
                         style={{
@@ -489,41 +535,18 @@ export function AnalyticsDashboard() {
                           Revenue: {formatCHF(d.revenue)}
                         </p>
                         <p className="text-[11px]" style={{ color: "var(--muted-foreground)" }}>
-                          {d.units} units
+                          {d.occupiedUnits}/{d.units} units occupied ({occ}%)
                         </p>
                       </div>
                     );
                   }}
                 />
-                <Bar dataKey="revenue" name="Revenue" fill="#45553A" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="revenue" name="Monthly Revenue" fill="#45553A" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </ChartCard>
-        )}
-
-        {/* When a specific building is selected, show net income trend instead */}
-        {selectedBuilding && (
-          <ChartCard
-            title={t("netIncomeEvolution") || "Net Income Evolution"}
-            subtitle={t("profitabilityTrend") || "Profitability trend"}
-          >
-            <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={monthlyData} barSize={28}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                <XAxis dataKey="month" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                <Tooltip content={<CustomTooltip />} />
-                <Bar
-                  dataKey="netIncome"
-                  name="Net Income"
-                  fill="#45553A"
-                  radius={[6, 6, 0, 0]}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartCard>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
