@@ -93,145 +93,243 @@ function AdminDashboard({
     { key: "completed" as const, label: t("completed") },
   ];
 
+  /* Recent requests (last 5) */
+  const recentRequests = useMemo(() => {
+    return [...requests]
+      .sort((a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime())
+      .slice(0, 5);
+  }, [requests]);
+
+  /* Building summaries */
+  const buildingSummaries = useMemo(() => {
+    return buildings.map((b) => {
+      const bRequests = requests.filter((r) => r.buildingId === b.id);
+      const pendingReqs = bRequests.filter((r) => r.status === "pending" || r.status === "in-progress").length;
+      const occRate = b.units > 0 ? Math.round((b.occupiedUnits / b.units) * 100) : 0;
+      return { ...b, pendingReqs, occRate };
+    });
+  }, [buildings, requests]);
+
   return (
     <div style={{ padding: "32px 32px 48px" }}>
       {/* ── Page Header ───────────────────────────────────────── */}
-      <div style={{ marginBottom: 28 }}>
-        <h1
-          className="text-[22px] font-semibold leading-tight"
-          style={{ color: "var(--foreground)" }}
-        >
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 600, lineHeight: 1.2, color: "var(--foreground)", margin: 0 }}>
           {t("dashboardTitle")}
         </h1>
-        <p className="text-[13px] mt-1" style={{ color: "var(--muted-foreground)" }}>
+        <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: 0, marginTop: 4 }}>
           {t("dashboardSubtitle")}
         </p>
       </div>
 
-      {/* ── Filter Pills ──────────────────────────────────────── */}
-      <div className="flex items-center gap-2" style={{ marginBottom: 24 }}>
-        {filters.map((f) => {
-          const active = filter === f.key;
-          return (
-            <button
-              key={f.key}
-              onClick={() => setFilter(f.key)}
-              className="text-[13px] font-medium transition-all"
-              style={{
-                padding: "7px 16px",
-                borderRadius: 10,
-                border: active ? "1px solid var(--foreground)" : "1px solid var(--border)",
-                background: active ? "var(--foreground)" : "var(--card)",
-                color: active ? "var(--card)" : "var(--foreground)",
-              }}
-              onMouseEnter={(e) => {
-                if (!active) e.currentTarget.style.borderColor = "var(--foreground)";
-              }}
-              onMouseLeave={(e) => {
-                if (!active) e.currentTarget.style.borderColor = "var(--border)";
-              }}
-            >
-              {f.label}
-            </button>
-          );
-        })}
-      </div>
-
-
-      {/* ── KPI Strip ─────────────────────────────────────────── */}
+      {/* ── Compact KPI Strip ─────────────────────────────────── */}
       <div
-        className="grid grid-cols-2 lg:grid-cols-4 gap-4"
-        style={{ marginBottom: 28 }}
+        style={{
+          display: "flex",
+          alignItems: "stretch",
+          gap: 0,
+          marginBottom: 28,
+          borderRadius: 14,
+          border: "1px solid var(--border)",
+          background: "var(--card)",
+          overflow: "hidden",
+        }}
       >
         {[
-          {
-            icon: BuildingIcon,
-            label: t("totalBuildings"),
-            value: buildings.length,
-            sub: `${totalUnits} ${t("totalUnits")}`,
-          },
-          {
-            icon: Users,
-            label: t("occupancyRate"),
-            value: `${occPct.toFixed(1)}%`,
-            sub: `${occupied} / ${totalUnits}`,
-          },
-          {
-            icon: DollarSign,
-            label: t("monthlyRevenue"),
-            value: formatCHF(revenue),
-            sub: t("combinedTotal"),
-          },
-          {
-            icon: Wrench,
-            label: t("pendingRequests"),
-            value: cols.pending.length,
-            sub: `${requests.length} total`,
-          },
-        ].map((kpi) => {
+          { icon: BuildingIcon, label: t("totalBuildings"), value: String(buildings.length), sub: `${totalUnits} ${t("totalUnits")}` },
+          { icon: Users, label: t("occupancyRate"), value: `${occPct.toFixed(1)}%`, sub: `${occupied} / ${totalUnits}` },
+          { icon: DollarSign, label: t("monthlyRevenue"), value: formatCHF(revenue), sub: t("combinedTotal") },
+          { icon: Wrench, label: t("pendingRequests"), value: String(cols.pending.length), sub: `${requests.length} total` },
+        ].map((kpi, i, arr) => {
           const Icon = kpi.icon;
           return (
-            <div
-              key={kpi.label}
-              style={{
-                padding: "20px",
-                borderRadius: 14,
-                border: "1px solid var(--border)",
-                background: "var(--card)",
-              }}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <div
-                  className="w-9 h-9 rounded-lg flex items-center justify-center"
-                  style={{ background: "var(--sidebar-accent)" }}
-                >
-                  <Icon className="w-[16px] h-[16px]" style={{ color: "var(--primary)" }} />
+            <React.Fragment key={kpi.label}>
+              <div style={{ flex: 1, padding: "16px 20px", display: "flex", alignItems: "center", gap: 14 }}>
+                <div style={{
+                  width: 36, height: 36, borderRadius: 10,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  background: "color-mix(in srgb, var(--primary) 8%, transparent)",
+                  flexShrink: 0,
+                }}>
+                  <Icon style={{ width: 16, height: 16, color: "var(--primary)" }} />
                 </div>
-                <TrendingUp className="w-4 h-4" style={{ color: "var(--primary)", opacity: 0.5 }} />
+                <div style={{ minWidth: 0 }}>
+                  <p style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted-foreground)", margin: 0 }}>
+                    {kpi.label}
+                  </p>
+                  <p style={{ fontSize: 18, fontWeight: 700, color: "var(--foreground)", margin: 0, marginTop: 1, lineHeight: 1.2 }}>
+                    {kpi.value}
+                  </p>
+                  <p style={{ fontSize: 11, color: "var(--muted-foreground)", margin: 0, marginTop: 1 }}>
+                    {kpi.sub}
+                  </p>
+                </div>
               </div>
-              <p
-                className="text-[11px] font-medium uppercase"
-                style={{ color: "var(--muted-foreground)", letterSpacing: "0.05em" }}
-              >
-                {kpi.label}
-              </p>
-              <p
-                className="text-[22px] font-bold leading-tight mt-0.5"
-                style={{ color: "var(--foreground)" }}
-              >
-                {kpi.value}
-              </p>
-              <p className="text-[12px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>
-                {kpi.sub}
-              </p>
-            </div>
+              {i < arr.length - 1 && (
+                <div style={{ width: 1, background: "var(--border)", flexShrink: 0 }} />
+              )}
+            </React.Fragment>
           );
         })}
       </div>
 
-      {/* ── Kanban Board ──────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <KanbanColumn
-          icon={Circle}
-          title={t("pending")}
-          count={cols.pending.length}
-          color="#F59E0B"
-          requests={cols.pending}
-        />
-        <KanbanColumn
-          icon={Clock}
-          title={t("inProgress")}
-          count={cols.inProgress.length}
-          color="var(--primary)"
-          requests={cols.inProgress}
-        />
-        <KanbanColumn
-          icon={CheckCircle2}
-          title={t("completed")}
-          count={cols.completed.length}
-          color="#22C55E"
-          requests={cols.completed}
-        />
+      {/* ── Main content: two-column layout ───────────────────── */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 24 }}>
+
+        {/* ── Left: Kanban Board ── */}
+        <div>
+          {/* Filter pills + section title */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+            <h2 style={{ fontSize: 15, fontWeight: 600, color: "var(--foreground)", margin: 0 }}>
+              {t("pendingRequests")}
+            </h2>
+            <div style={{ display: "flex", gap: 6 }}>
+              {filters.map((f) => {
+                const active = filter === f.key;
+                return (
+                  <button
+                    key={f.key}
+                    onClick={() => setFilter(f.key)}
+                    style={{
+                      padding: "5px 14px",
+                      borderRadius: 8,
+                      border: active ? "1px solid var(--foreground)" : "1px solid var(--border)",
+                      background: active ? "var(--foreground)" : "transparent",
+                      color: active ? "var(--card)" : "var(--muted-foreground)",
+                      fontSize: 12,
+                      fontWeight: 500,
+                      cursor: "pointer",
+                      transition: "all 0.15s",
+                    }}
+                    onMouseEnter={(e) => { if (!active) e.currentTarget.style.borderColor = "var(--foreground)"; }}
+                    onMouseLeave={(e) => { if (!active) e.currentTarget.style.borderColor = "var(--border)"; }}
+                  >
+                    {f.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Kanban columns */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+            <KanbanColumn icon={Circle} title={t("pending")} count={cols.pending.length} color="#F59E0B" requests={cols.pending} />
+            <KanbanColumn icon={Clock} title={t("inProgress")} count={cols.inProgress.length} color="var(--primary)" requests={cols.inProgress} />
+            <KanbanColumn icon={CheckCircle2} title={t("completed")} count={cols.completed.length} color="#22C55E" requests={cols.completed} />
+          </div>
+        </div>
+
+        {/* ── Right sidebar: Buildings + Activity ── */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+
+          {/* Buildings overview */}
+          <div style={{
+            borderRadius: 14, border: "1px solid var(--border)",
+            background: "var(--card)", padding: "18px 20px",
+          }}>
+            <h3 style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)", margin: 0, marginBottom: 14 }}>
+              {t("navBuildings")}
+            </h3>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {buildingSummaries.map((b) => (
+                <div
+                  key={b.id}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 12,
+                    padding: "10px 12px", borderRadius: 10,
+                    background: "var(--background)",
+                    transition: "background 0.15s",
+                    cursor: "pointer",
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = "color-mix(in srgb, var(--primary) 5%, var(--background))"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = "var(--background)"; }}
+                  onClick={() => onSelectBuilding(b.id)}
+                >
+                  <div style={{
+                    width: 34, height: 34, borderRadius: 8,
+                    background: "color-mix(in srgb, var(--primary) 10%, transparent)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    flexShrink: 0,
+                  }}>
+                    <BuildingIcon style={{ width: 15, height: 15, color: "var(--primary)" }} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {b.name}
+                    </p>
+                    <p style={{ fontSize: 11, color: "var(--muted-foreground)", margin: 0, marginTop: 1 }}>
+                      {b.occupiedUnits}/{b.units} &middot; {b.occRate}%
+                    </p>
+                  </div>
+                  {b.pendingReqs > 0 && (
+                    <span style={{
+                      minWidth: 20, height: 20, borderRadius: 10,
+                      background: "rgba(245,158,11,0.12)", color: "#B45309",
+                      fontSize: 11, fontWeight: 700,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      padding: "0 6px", flexShrink: 0,
+                    }}>
+                      {b.pendingReqs}
+                    </span>
+                  )}
+                  <ChevronRight style={{ width: 14, height: 14, color: "var(--muted-foreground)", flexShrink: 0 }} />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Recent activity */}
+          <div style={{
+            borderRadius: 14, border: "1px solid var(--border)",
+            background: "var(--card)", padding: "18px 20px",
+          }}>
+            <h3 style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)", margin: 0, marginBottom: 14 }}>
+              {t("recentRequests")}
+            </h3>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {recentRequests.length === 0 ? (
+                <p style={{ fontSize: 12, color: "var(--muted-foreground)", textAlign: "center", padding: "20px 0" }}>
+                  Aucune activité
+                </p>
+              ) : (
+                recentRequests.map((req) => {
+                  const priority = PRIORITY_STYLES[req.priority] || PRIORITY_STYLES.medium;
+                  const dateStr = req.createdAt
+                    ? new Date(req.createdAt).toLocaleDateString("fr-CH", { month: "short", day: "numeric" })
+                    : "";
+                  return (
+                    <div
+                      key={req.id}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 10,
+                        padding: "8px 10px", borderRadius: 8,
+                        transition: "background 0.15s",
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = "var(--background)"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                    >
+                      <span style={{
+                        width: 7, height: 7, borderRadius: 4,
+                        background: priority.dot, flexShrink: 0,
+                      }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: 12, fontWeight: 500, color: "var(--foreground)", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {req.title}
+                        </p>
+                        <p style={{ fontSize: 11, color: "var(--muted-foreground)", margin: 0, marginTop: 1 }}>
+                          {req.buildingName}
+                        </p>
+                      </div>
+                      <span style={{ fontSize: 10, color: "var(--muted-foreground)", flexShrink: 0 }}>
+                        {dateStr}
+                      </span>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
