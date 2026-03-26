@@ -19,7 +19,7 @@ import {
   CheckCircle2,
   Calendar,
 } from "lucide-react";
-import { ImmoStoreLogo } from "./ImmoStoreLogo";
+
 import {
   getBuildings,
   getTenants,
@@ -97,20 +97,15 @@ function AdminDashboard({
     <div style={{ padding: "32px 32px 48px" }}>
       {/* ── Page Header ───────────────────────────────────────── */}
       <div style={{ marginBottom: 28 }}>
-        <div className="flex items-center gap-3 mb-1">
-          <ImmoStoreLogo size={36} />
-          <div>
-            <h1
-              className="text-[22px] font-semibold leading-tight"
-              style={{ color: "var(--foreground)" }}
-            >
-              {t("dashboardTitle")}
-            </h1>
-            <p className="text-[13px]" style={{ color: "var(--muted-foreground)" }}>
-              {t("dashboardSub") || "Portfolio Overview & Task Management"}
-            </p>
-          </div>
-        </div>
+        <h1
+          className="text-[22px] font-semibold leading-tight"
+          style={{ color: "var(--foreground)" }}
+        >
+          {t("dashboardTitle")}
+        </h1>
+        <p className="text-[13px] mt-1" style={{ color: "var(--muted-foreground)" }}>
+          {t("dashboardSubtitle")}
+        </p>
       </div>
 
       {/* ── Filter Pills ──────────────────────────────────────── */}
