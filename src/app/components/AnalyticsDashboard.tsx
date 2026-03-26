@@ -64,13 +64,19 @@ function generateMonthlyData(buildingId: string | null, buildings: BuildingType[
 }
 
 function generateRevenueByBuilding(buildings: BuildingType[]) {
-  return buildings.map((b) => ({
-    name: b.name.length > 16 ? b.name.slice(0, 16) + "…" : b.name,
-    fullName: b.name,
-    revenue: b.monthlyRevenue ?? 0,
-    units: b.units ?? 0,
-    occupiedUnits: b.occupiedUnits ?? 0,
-  }));
+  return buildings.map((b) => {
+    const revenue = b.monthlyRevenue ?? 0;
+    const costs = Math.round(revenue * 0.35);
+    return {
+      name: b.name.length > 16 ? b.name.slice(0, 16) + "…" : b.name,
+      fullName: b.name,
+      revenue,
+      costs,
+      netIncome: revenue - costs,
+      units: b.units ?? 0,
+      occupiedUnits: b.occupiedUnits ?? 0,
+    };
+  });
 }
 
 function hashStr(s: string) {
@@ -505,11 +511,11 @@ export function AnalyticsDashboard() {
       {buildings.length > 0 && (
         <div>
           <ChartCard
-            title="Revenue Comparison by Building"
-            subtitle="Side-by-side monthly revenue for each building in your portfolio"
+            title="Building Comparison"
+            subtitle="Revenue, costs, and net income for each building in your portfolio"
           >
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={revenueByBuilding} barSize={40}>
+            <ResponsiveContainer width="100%" height={320}>
+              <BarChart data={revenueByBuilding} barGap={3} barCategoryGap="20%">
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                 <XAxis dataKey="name" tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
@@ -524,24 +530,33 @@ export function AnalyticsDashboard() {
                           background: "var(--card)",
                           border: "1px solid var(--border)",
                           borderRadius: 10,
-                          padding: "10px 14px",
+                          padding: "12px 16px",
                           boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
                         }}
                       >
-                        <p className="text-[11px] font-semibold mb-1" style={{ color: "var(--foreground)" }}>
+                        <p className="text-[12px] font-semibold mb-2" style={{ color: "var(--foreground)" }}>
                           {d.fullName}
                         </p>
                         <p className="text-[11px]" style={{ color: "#45553A" }}>
                           Revenue: {formatCHF(d.revenue)}
                         </p>
-                        <p className="text-[11px]" style={{ color: "var(--muted-foreground)" }}>
+                        <p className="text-[11px]" style={{ color: "#EF4444" }}>
+                          Costs: {formatCHF(d.costs)}
+                        </p>
+                        <p className="text-[11px]" style={{ color: "#22C55E" }}>
+                          Net Income: {formatCHF(d.netIncome)}
+                        </p>
+                        <p className="text-[11px] mt-1" style={{ color: "var(--muted-foreground)" }}>
                           {d.occupiedUnits}/{d.units} units occupied ({occ}%)
                         </p>
                       </div>
                     );
                   }}
                 />
-                <Bar dataKey="revenue" name="Monthly Revenue" fill="#45553A" radius={[6, 6, 0, 0]} />
+                <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+                <Bar dataKey="revenue" name="Revenue" fill="#45553A" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="costs" name="Costs" fill="#EF4444" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="netIncome" name="Net Income" fill="#22C55E" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </ChartCard>
