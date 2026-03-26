@@ -1,8 +1,9 @@
 import React from "react";
 
 /**
- * ImmoStore brand logo — geometric house silhouette on dark background
- * with an accent circle, inspired by modern real-estate branding.
+ * ImmoStore brand logo — white house silhouette with a vertical split
+ * on a dark rounded background, with an orange accent dot.
+ * Matches the reference: two halves of a house with a gap in the middle.
  */
 export function ImmoStoreLogo({
   size = 36,
@@ -21,19 +22,22 @@ export function ImmoStoreLogo({
       className={className}
     >
       {/* Dark rounded background */}
-      <rect width="48" height="48" rx="12" fill="#1C201E" />
+      <rect width="48" height="48" rx="11" fill="#1A1D1B" />
 
       {/* Orange accent circle — top right */}
-      <circle cx="40" cy="8" r="5" fill="#E85D2A" />
+      <circle cx="40.5" cy="7.5" r="4.5" fill="#E8572A" />
 
-      {/* House / building silhouette — white geometric shape */}
-      {/* Roof / triangle peak */}
+      {/* House silhouette — left half */}
       <path
-        d="M24 8L36 20V40H28V28H20V40H12V20L24 8Z"
+        d="M10 22L22.5 10V38H10V22Z"
         fill="white"
       />
-      {/* Inner cutout to form the chimney / roof detail */}
-      <rect x="22" y="28" width="4" height="12" fill="#1C201E" />
+
+      {/* House silhouette — right half */}
+      <path
+        d="M38 22L25.5 10V38H38V22Z"
+        fill="white"
+      />
     </svg>
   );
 }
