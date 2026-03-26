@@ -7,15 +7,15 @@ import {
   Bell,
   Info,
   LogOut,
-  ChevronLeft,
-  ChevronRight,
-  ChevronUp,
+  ChevronDown,
   Briefcase,
   CalendarDays,
   ClipboardList,
   Settings,
   HelpCircle,
   BarChart3,
+  Search,
+  MoreVertical,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../i18n/LanguageContext";
@@ -31,8 +31,14 @@ interface ModernSidebarProps {
 type MenuItem = {
   id: string;
   labelKey: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
   badge?: number;
+  children?: { id: string; labelKey: string }[];
+};
+
+type Section = {
+  key: string;
+  items: MenuItem[];
 };
 
 /* ─── Component ───────────────────────────────────────────────── */
@@ -40,61 +46,73 @@ type MenuItem = {
 export function ModernSidebar({ activeView, onViewChange }: ModernSidebarProps) {
   const { user, logout } = useAuth();
   const { t } = useLanguage();
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    management: true,
-    support: true,
-  });
+  const [searchQuery, setSearchQuery] = useState("");
+  const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({});
 
-  const toggleSection = (key: string) =>
-    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  const toggleExpand = (id: string) =>
+    setExpandedMenus((prev) => ({ ...prev, [id]: !prev[id] }));
 
-  const adminSections = useMemo(
+  const adminSections = useMemo<Section[]>(
     () => [
       {
-        key: "management",
-        label: "GESTION",
+        key: "main",
         items: [
           { id: "dashboard", labelKey: "navDashboard", icon: LayoutDashboard },
-          { id: "buildings", labelKey: "navBuildings", icon: Building },
+          {
+            id: "buildings",
+            labelKey: "navBuildings",
+            icon: Building,
+            children: [
+              { id: "buildings", labelKey: "navBuildings" },
+              { id: "analytics", labelKey: "navAnalytics" },
+            ],
+          },
           { id: "tenants", labelKey: "navTenants", icon: Users },
-          { id: "requests", labelKey: "requestsHub", icon: ClipboardList },
-          { id: "interventions", labelKey: "navInterventions", icon: CalendarDays },
+          {
+            id: "requests",
+            labelKey: "requestsHub",
+            icon: ClipboardList,
+            children: [
+              { id: "requests", labelKey: "requestsHub" },
+              { id: "interventions", labelKey: "navInterventions" },
+            ],
+          },
           { id: "services", labelKey: "navServices", icon: Briefcase },
-          { id: "analytics", labelKey: "navAnalytics", icon: BarChart3 },
-        ] as MenuItem[],
+        ],
       },
       {
-        key: "support",
-        label: "SUPPORT",
+        key: "comms",
         items: [
           { id: "notifications", labelKey: "navNotifications", icon: Bell, badge: 3 },
           { id: "informations", labelKey: "navInformations", icon: Info },
+        ],
+      },
+      {
+        key: "system",
+        items: [
           { id: "settings", labelKey: "navSettings", icon: Settings },
           { id: "support", labelKey: "navSupport", icon: HelpCircle },
-        ] as MenuItem[],
+        ],
       },
     ],
     []
   );
 
-  const tenantSections = useMemo(
+  const tenantSections = useMemo<Section[]>(
     () => [
       {
-        key: "management",
-        label: "PRINCIPAL",
+        key: "main",
         items: [
           { id: "dashboard", labelKey: "navHome", icon: LayoutDashboard },
           { id: "requests", labelKey: "navMyRequests", icon: Wrench },
-        ] as MenuItem[],
+        ],
       },
       {
-        key: "support",
-        label: "SUPPORT",
+        key: "comms",
         items: [
           { id: "notifications", labelKey: "navNotifications", icon: Bell },
           { id: "informations", labelKey: "navInformations", icon: Info },
-        ] as MenuItem[],
+        ],
       },
     ],
     []
@@ -107,287 +125,403 @@ export function ModernSidebar({ activeView, onViewChange }: ModernSidebarProps) 
     ? user.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
     : "AD";
 
-  const w = isCollapsed ? "w-[72px]" : "w-[260px]";
+  // Filter nav items by search
+  const filterItems = (items: MenuItem[]) => {
+    if (!searchQuery.trim()) return items;
+    const q = searchQuery.toLowerCase();
+    return items.filter(
+      (item) =>
+        t(item.labelKey).toLowerCase().includes(q) ||
+        item.children?.some((c) => t(c.labelKey).toLowerCase().includes(q))
+    );
+  };
 
   return (
     <aside
-      className={`${w} h-screen shrink-0 flex flex-col overflow-hidden relative`}
       style={{
-        background: "var(--sidebar)",
-        borderRight: "1px solid var(--sidebar-border)",
-        transition: "width 200ms ease-out",
+        width: 260,
+        height: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        background: "var(--card)",
+        borderRight: "1px solid var(--border)",
+        flexShrink: 0,
+        overflow: "hidden",
       }}
     >
-      {/* ── Brand + Logo ──────────────────────────────────────── */}
-      <div style={{ padding: isCollapsed ? "20px 12px 12px" : "20px 18px 12px" }}>
-        <div
-          className="flex items-center"
-          style={{
-            gap: isCollapsed ? 0 : 12,
-            justifyContent: isCollapsed ? "center" : "flex-start",
-          }}
-        >
-          <ImmoStoreLogo size={isCollapsed ? 34 : 36} />
-          {!isCollapsed && (
-            <div className="min-w-0 flex-1">
-              <p
-                className="text-[15px] font-bold leading-tight truncate"
-                style={{ color: "var(--foreground)" }}
-              >
-                ImmoStore
-              </p>
-              <p
-                className="text-[10px] mt-0.5 truncate"
-                style={{ color: "var(--muted-foreground)" }}
-              >
-                Gestion immobilière
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ── User bubble ───────────────────────────────────────── */}
-      <div style={{ padding: isCollapsed ? "8px 10px 12px" : "8px 14px 12px" }}>
-        <div
-          className="flex items-center transition-colors cursor-pointer"
-          style={{
-            gap: isCollapsed ? 0 : 10,
-            justifyContent: isCollapsed ? "center" : "flex-start",
-            padding: isCollapsed ? "8px 0" : "10px 12px",
-            borderRadius: 14,
-            background: "rgba(255,255,255,0.65)",
-            border: "1px solid rgba(255,255,255,0.8)",
-          }}
-        >
-          <div
-            className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 text-[11px] font-bold"
+      {/* ── Logo ────────────────────────────────────────────── */}
+      <div
+        style={{
+          padding: "22px 20px 16px",
+          display: "flex",
+          alignItems: "center",
+          gap: 11,
+        }}
+      >
+        <ImmoStoreLogo size={34} />
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <p
             style={{
-              background: "var(--primary)",
-              color: "var(--primary-foreground)",
+              fontSize: 15,
+              fontWeight: 700,
+              color: "var(--foreground)",
+              lineHeight: 1.2,
+              margin: 0,
             }}
           >
-            {initials}
-          </div>
-          {!isCollapsed && (
-            <div className="min-w-0 flex-1">
-              <p
-                className="text-[13px] font-semibold leading-tight truncate"
-                style={{ color: "var(--foreground)" }}
-              >
-                {user?.name ?? "—"}
-              </p>
-              <p
-                className="text-[10px] truncate mt-0.5"
-                style={{ color: "var(--muted-foreground)" }}
-              >
-                {user?.role === "admin" ? "Administrateur" : "Locataire"}
-              </p>
-            </div>
-          )}
+            ImmoStore
+          </p>
+          <p
+            style={{
+              fontSize: 10,
+              color: "var(--muted-foreground)",
+              margin: 0,
+              marginTop: 1,
+            }}
+          >
+            Gestion immobilière
+          </p>
         </div>
       </div>
 
-      <div style={{ margin: "0 16px 4px", height: 1, background: "var(--sidebar-border)" }} />
+      {/* ── Search ──────────────────────────────────────────── */}
+      <div style={{ padding: "0 14px 12px" }}>
+        <div
+          style={{
+            position: "relative",
+            display: "flex",
+            alignItems: "center",
+          }}
+        >
+          <Search
+            style={{
+              position: "absolute",
+              left: 11,
+              width: 15,
+              height: 15,
+              color: "var(--muted-foreground)",
+              pointerEvents: "none",
+            }}
+          />
+          <input
+            type="text"
+            placeholder={t("searchPlaceholder") || "Search"}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{
+              width: "100%",
+              height: 36,
+              paddingLeft: 34,
+              paddingRight: 12,
+              borderRadius: 10,
+              border: "1px solid var(--border)",
+              background: "var(--background)",
+              color: "var(--foreground)",
+              fontSize: 12,
+              outline: "none",
+              boxSizing: "border-box",
+              transition: "border-color 0.15s",
+            }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = "var(--primary)"; }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
+          />
+        </div>
+      </div>
 
-      {/* ── Navigation Sections ───────────────────────────────── */}
-      <div className="flex-1 overflow-y-auto" style={{ padding: "8px 10px 16px" }}>
-        {sections.map((section, idx) => (
-          <div key={section.key}>
-            {idx > 0 && (
-              <div
-                style={{
-                  margin: "10px 8px",
-                  height: 1,
-                  background: "var(--sidebar-border)",
-                }}
-              />
-            )}
-
-            {/* Section header with chevron */}
-            {!isCollapsed && (
-              <button
-                type="button"
-                onClick={() => toggleSection(section.key)}
-                className="w-full flex items-center justify-between mb-1.5"
-                style={{ padding: "4px 10px" }}
-              >
-                <p
-                  className="text-[10px] font-semibold uppercase"
+      {/* ── Navigation ──────────────────────────────────────── */}
+      <nav
+        style={{
+          flex: 1,
+          overflowY: "auto",
+          padding: "4px 10px",
+        }}
+      >
+        {sections.map((section, sIdx) => {
+          const filtered = filterItems(section.items);
+          if (filtered.length === 0) return null;
+          return (
+            <div key={section.key}>
+              {sIdx > 0 && (
+                <div
                   style={{
-                    color: "var(--muted-foreground)",
-                    letterSpacing: "0.1em",
-                  }}
-                >
-                  {section.label}
-                </p>
-                <ChevronUp
-                  className="w-3 h-3 transition-transform"
-                  style={{
-                    color: "var(--muted-foreground)",
-                    transform: openSections[section.key] ? "rotate(0deg)" : "rotate(180deg)",
+                    height: 1,
+                    background: "var(--border)",
+                    margin: "10px 8px",
                   }}
                 />
-              </button>
-            )}
-
-            {/* Nav items as bubbles */}
-            {(isCollapsed || openSections[section.key]) && (
-              <div className="space-y-1">
-                {section.items.map((item) => (
-                  <NavBubble
+              )}
+              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                {filtered.map((item) => (
+                  <NavItem
                     key={item.id}
                     item={item}
-                    isActive={activeView === item.id}
-                    isCollapsed={isCollapsed}
-                    onClick={() => onViewChange(item.id)}
+                    activeView={activeView}
+                    expanded={!!expandedMenus[item.id]}
+                    onToggleExpand={() => toggleExpand(item.id)}
+                    onNavigate={onViewChange}
                     t={t}
                   />
                 ))}
               </div>
-            )}
-          </div>
-        ))}
-      </div>
+            </div>
+          );
+        })}
+      </nav>
 
-      {/* ── Bottom: Logout ────────────────────────────────────── */}
-      <div style={{ borderTop: "1px solid var(--sidebar-border)", padding: 10 }}>
-        <button
-          type="button"
-          onClick={logout}
-          title={isCollapsed ? t("logout") : undefined}
-          className="w-full flex items-center gap-3 transition-colors"
+      {/* ── User profile at bottom ──────────────────────────── */}
+      <div
+        style={{
+          borderTop: "1px solid var(--border)",
+          padding: "12px 14px",
+        }}
+      >
+        <div
           style={{
-            padding: isCollapsed ? "8px 0" : "8px 12px",
-            justifyContent: isCollapsed ? "center" : "flex-start",
-            borderRadius: 12,
-            color: "var(--muted-foreground)",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = "rgba(255,255,255,0.5)";
-            e.currentTarget.style.color = "var(--foreground)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = "transparent";
-            e.currentTarget.style.color = "var(--muted-foreground)";
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
           }}
         >
-          <LogOut className="w-4 h-4" />
-          {!isCollapsed && <span className="text-[13px]">{t("logout")}</span>}
-        </button>
-
-        {!isCollapsed && (
-          <p
-            className="text-[10px] text-center mt-2"
-            style={{ color: "var(--muted-foreground)", opacity: 0.4 }}
+          {/* Avatar */}
+          <div
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: "50%",
+              background: "var(--primary)",
+              color: "var(--primary-foreground)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 12,
+              fontWeight: 700,
+              flexShrink: 0,
+            }}
           >
-            ImmoStore v1.0
-          </p>
-        )}
-      </div>
+            {initials}
+          </div>
 
-      {/* ── Collapse toggle ───────────────────────────────────── */}
-      <button
-        type="button"
-        onClick={() => setIsCollapsed((v) => !v)}
-        className="absolute -right-3 top-20 w-6 h-6 rounded-full flex items-center justify-center z-10 transition-all"
-        style={{
-          background: "var(--card)",
-          border: "1px solid var(--border)",
-          color: "var(--muted-foreground)",
-          boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.color = "var(--foreground)";
-          e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.12)";
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.color = "var(--muted-foreground)";
-          e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,0.08)";
-        }}
-        aria-label={isCollapsed ? "Expand" : "Collapse"}
-      >
-        {isCollapsed ? (
-          <ChevronRight className="w-3 h-3" />
-        ) : (
-          <ChevronLeft className="w-3 h-3" />
-        )}
-      </button>
+          {/* Name + email */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p
+              style={{
+                fontSize: 13,
+                fontWeight: 600,
+                color: "var(--foreground)",
+                margin: 0,
+                lineHeight: 1.3,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {user?.name ?? "—"}
+            </p>
+            <p
+              style={{
+                fontSize: 11,
+                color: "var(--muted-foreground)",
+                margin: 0,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {user?.email ?? "—"}
+            </p>
+          </div>
+
+          {/* Menu / logout button */}
+          <button
+            type="button"
+            onClick={logout}
+            title={t("logout")}
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: 6,
+              border: "none",
+              background: "transparent",
+              color: "var(--muted-foreground)",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+              transition: "background 0.15s, color 0.15s",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "var(--background)";
+              e.currentTarget.style.color = "var(--foreground)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "transparent";
+              e.currentTarget.style.color = "var(--muted-foreground)";
+            }}
+          >
+            <MoreVertical style={{ width: 16, height: 16 }} />
+          </button>
+        </div>
+      </div>
     </aside>
   );
 }
 
-/* ─── NavBubble — pill-shaped navigation item ─────────────────── */
+/* ─── NavItem ─────────────────────────────────────────────────── */
 
-function NavBubble({
+function NavItem({
   item,
-  isActive,
-  isCollapsed,
-  onClick,
+  activeView,
+  expanded,
+  onToggleExpand,
+  onNavigate,
   t,
 }: {
   item: MenuItem;
-  isActive: boolean;
-  isCollapsed: boolean;
-  onClick: () => void;
+  activeView: string;
+  expanded: boolean;
+  onToggleExpand: () => void;
+  onNavigate: (id: string) => void;
   t: (key: string) => string;
 }) {
   const Icon = item.icon;
+  const hasChildren = item.children && item.children.length > 0;
+  const isActive = activeView === item.id ||
+    (hasChildren && item.children!.some((c) => c.id === activeView));
+
+  const handleClick = () => {
+    if (hasChildren) {
+      onToggleExpand();
+    } else {
+      onNavigate(item.id);
+    }
+  };
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={isCollapsed ? t(item.labelKey) : undefined}
-      className="w-full"
-    >
-      <div
-        className="flex items-center gap-3 transition-all duration-150"
+    <div>
+      <button
+        type="button"
+        onClick={handleClick}
         style={{
-          padding: isCollapsed ? "8px 0" : "8px 12px",
-          justifyContent: isCollapsed ? "center" : "flex-start",
-          borderRadius: 12,
-          background: isActive ? "rgba(255,255,255,0.7)" : "transparent",
-          color: isActive ? "var(--sidebar-accent-foreground)" : "var(--sidebar-foreground)",
+          width: "100%",
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          padding: "8px 10px",
+          borderRadius: 10,
+          border: "none",
+          cursor: "pointer",
+          transition: "background 0.12s, color 0.12s",
+          background: isActive && !hasChildren ? "var(--sidebar-accent)" : "transparent",
+          color: isActive ? "var(--primary)" : "var(--muted-foreground)",
           fontWeight: isActive ? 600 : 400,
-          boxShadow: isActive ? "0 1px 3px rgba(0,0,0,0.04)" : "none",
-          border: isActive ? "1px solid rgba(255,255,255,0.6)" : "1px solid transparent",
         }}
         onMouseEnter={(e) => {
-          if (!isActive) {
-            e.currentTarget.style.background = "rgba(255,255,255,0.4)";
-            e.currentTarget.style.color = "var(--foreground)";
+          if (!(isActive && !hasChildren)) {
+            e.currentTarget.style.background = "var(--background)";
           }
         }}
         onMouseLeave={(e) => {
-          if (!isActive) {
+          if (!(isActive && !hasChildren)) {
             e.currentTarget.style.background = "transparent";
-            e.currentTarget.style.color = "var(--sidebar-foreground)";
           }
         }}
       >
-        <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0">
-          <Icon className="w-[17px] h-[17px]" />
-        </div>
+        <Icon
+          style={{ width: 18, height: 18, flexShrink: 0 }}
+        />
+        <span
+          style={{
+            flex: 1,
+            textAlign: "left",
+            fontSize: 13,
+            lineHeight: 1.3,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {t(item.labelKey)}
+        </span>
 
-        {!isCollapsed && (
-          <span className="text-[13px] truncate flex-1 text-left leading-tight">
-            {t(item.labelKey)}
-          </span>
-        )}
-
-        {!isCollapsed && item.badge != null && item.badge > 0 && (
+        {/* Badge */}
+        {item.badge != null && item.badge > 0 && (
           <span
-            className="ml-auto shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold leading-none"
             style={{
+              minWidth: 18,
+              height: 18,
+              borderRadius: 9,
               background: "#EF4444",
               color: "#FFFFFF",
+              fontSize: 10,
+              fontWeight: 700,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "0 5px",
+              flexShrink: 0,
             }}
           >
             {item.badge}
           </span>
         )}
-      </div>
-    </button>
+
+        {/* Expand chevron */}
+        {hasChildren && (
+          <ChevronDown
+            style={{
+              width: 14,
+              height: 14,
+              flexShrink: 0,
+              transition: "transform 0.15s",
+              transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
+              color: "var(--muted-foreground)",
+            }}
+          />
+        )}
+      </button>
+
+      {/* Submenu */}
+      {hasChildren && expanded && (
+        <div style={{ paddingLeft: 20, marginTop: 2 }}>
+          {item.children!.map((child) => {
+            const childActive = activeView === child.id;
+            return (
+              <button
+                key={child.id}
+                type="button"
+                onClick={() => onNavigate(child.id)}
+                style={{
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "7px 12px",
+                  borderRadius: 8,
+                  border: "none",
+                  cursor: "pointer",
+                  background: childActive ? "var(--sidebar-accent)" : "transparent",
+                  color: childActive ? "var(--primary)" : "var(--muted-foreground)",
+                  fontWeight: childActive ? 600 : 400,
+                  fontSize: 12,
+                  transition: "background 0.12s",
+                  borderLeft: childActive
+                    ? "2px solid var(--primary)"
+                    : "2px solid transparent",
+                }}
+                onMouseEnter={(e) => {
+                  if (!childActive) e.currentTarget.style.background = "var(--background)";
+                }}
+                onMouseLeave={(e) => {
+                  if (!childActive) e.currentTarget.style.background = "transparent";
+                }}
+              >
+                {t(child.labelKey)}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
