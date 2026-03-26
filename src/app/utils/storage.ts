@@ -1,3 +1,5 @@
+export type Currency = "CHF" | "EUR" | "USD" | "GBP";
+
 export interface Building {
   id: string;
   name: string;
@@ -6,6 +8,13 @@ export interface Building {
   occupiedUnits: number;
   monthlyRevenue: number;
   imageUrl?: string;
+  currency?: Currency; // defaults to base currency if undefined
+}
+
+export interface ExchangeRateCache {
+  base: string;
+  rates: Record<string, number>;
+  fetchedAt: string;
 }
 
 export type TenantStatus = "active" | "pending" | "ended";
@@ -156,6 +165,8 @@ const LS_KEYS = {
   buildingActions: "buildingActions",
   tenantAbsences: "tenantAbsences",
   rentalApplications: "rentalApplications",
+  baseCurrency: "immostore_baseCurrency",
+  exchangeRates: "immostore_exchangeRates",
 } as const;
 
 // ------------------------
@@ -694,4 +705,24 @@ export const updateRentalApplication = (updated: RentalApplication) => {
 export const deleteRentalApplication = (id: string) => {
   const apps = getRentalApplications();
   saveRentalApplications(apps.filter((a) => a.id !== id));
+};
+
+// ── Currency helpers ──
+export const getBaseCurrency = (): Currency => {
+  const stored = localStorage.getItem(LS_KEYS.baseCurrency);
+  if (stored === "CHF" || stored === "EUR" || stored === "USD" || stored === "GBP") return stored;
+  return "CHF";
+};
+
+export const saveBaseCurrency = (c: Currency): void => {
+  localStorage.setItem(LS_KEYS.baseCurrency, c);
+};
+
+export const getExchangeRateCache = (): ExchangeRateCache | null => {
+  const raw = localStorage.getItem(LS_KEYS.exchangeRates);
+  return raw ? safeParse<ExchangeRateCache | null>(raw, null) : null;
+};
+
+export const saveExchangeRateCache = (cache: ExchangeRateCache): void => {
+  localStorage.setItem(LS_KEYS.exchangeRates, JSON.stringify(cache));
 };

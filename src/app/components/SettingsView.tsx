@@ -15,6 +15,7 @@ import {
   Check,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useCurrency } from "../context/CurrencyContext";
 import { useLanguage } from "../i18n/LanguageContext";
 import { LANGUAGES } from "../i18n/translations";
 
@@ -460,7 +461,8 @@ function NotificationsTab() {
 function AppearanceTab() {
   const { language, setLanguage } = useLanguage();
   const [dateFormat, setDateFormat] = useState("dd.MM.yyyy");
-  const [currency, setCurrency] = useState("CHF");
+  const { baseCurrency, setBaseCurrency: setCurrency } = useCurrency();
+  const currency = baseCurrency;
   const [compactMode, setCompactMode] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -547,6 +549,7 @@ function AppearanceTab() {
               <option value="CHF">CHF — Swiss Franc</option>
               <option value="EUR">EUR — Euro</option>
               <option value="USD">USD — US Dollar</option>
+              <option value="GBP">GBP — British Pound</option>
             </select>
           </Field>
         </div>

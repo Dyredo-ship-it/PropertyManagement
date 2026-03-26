@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
+import { CurrencyProvider } from "./context/CurrencyContext";
 import { LanguageProvider, useLanguage } from "./i18n/LanguageContext";
 import { LoginPage } from "./components/LoginPage";
 import { ModernSidebar } from "./components/ModernSidebar";
@@ -98,9 +99,11 @@ export default function App() {
   return (
     <ThemeProvider>
       <LanguageProvider>
-        <AuthProvider>
-          <AppContent />
-        </AuthProvider>
+        <CurrencyProvider>
+          <AuthProvider>
+            <AppContent />
+          </AuthProvider>
+        </CurrencyProvider>
       </LanguageProvider>
     </ThemeProvider>
   );

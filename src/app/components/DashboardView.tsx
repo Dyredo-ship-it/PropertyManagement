@@ -29,6 +29,7 @@ import {
   type MaintenanceRequest,
 } from "../utils/storage";
 import { useAuth } from "../context/AuthContext";
+import { useCurrency } from "../context/CurrencyContext";
 import { BuildingDetailsView } from "./BuildingDetailsView";
 import { useLanguage } from "../i18n/LanguageContext";
 
@@ -40,8 +41,7 @@ const BUILDING_PHOTOS = [
   "https://images.unsplash.com/photo-1460317442991-0ec209397118?w=900&q=80",
 ];
 
-const formatCHF = (v: number) =>
-  `CHF ${new Intl.NumberFormat("de-CH", { maximumFractionDigits: 0 }).format(v)}`;
+// formatCHF removed — use formatAmount from CurrencyContext
 
 const PRIORITY_STYLES: Record<string, { bg: string; fg: string; dot: string; label: string }> = {
   urgent:  { bg: "rgba(239,68,68,0.08)",  fg: "#DC2626", dot: "#EF4444", label: "Critical" },
@@ -66,11 +66,12 @@ function AdminDashboard({
   onSelectBuilding: (id: string) => void;
 }) {
   const { t } = useLanguage();
+  const { formatAmount, convertToBase, getBuildingCurrency } = useCurrency();
   const [filter, setFilter] = useState<"all" | "pending" | "in-progress" | "completed">("all");
 
   const totalUnits = buildings.reduce((s, b) => s + (b.units ?? 0), 0);
   const occupied = buildings.reduce((s, b) => s + (b.occupiedUnits ?? 0), 0);
-  const revenue = buildings.reduce((s, b) => s + (b.monthlyRevenue ?? 0), 0);
+  const revenue = buildings.reduce((s, b) => s + convertToBase(b.monthlyRevenue ?? 0, getBuildingCurrency(b)), 0);
   const occPct = totalUnits > 0 ? (occupied / totalUnits) * 100 : 0;
 
   const filteredRequests = useMemo(() => {
@@ -138,7 +139,7 @@ function AdminDashboard({
         {[
           { icon: BuildingIcon, label: t("totalBuildings"), value: String(buildings.length), sub: `${totalUnits} ${t("totalUnits")}` },
           { icon: Users, label: t("occupancyRate"), value: `${occPct.toFixed(1)}%`, sub: `${occupied} / ${totalUnits}` },
-          { icon: DollarSign, label: t("monthlyRevenue"), value: formatCHF(revenue), sub: t("combinedTotal") },
+          { icon: DollarSign, label: t("monthlyRevenue"), value: formatAmount(revenue), sub: t("combinedTotal") },
           { icon: Wrench, label: t("pendingRequests"), value: String(cols.pending.length), sub: `${requests.length} total` },
         ].map((kpi, i, arr) => {
           const Icon = kpi.icon;
@@ -524,6 +525,7 @@ function TenantDashboard({
   userName: string;
 }) {
   const { t } = useLanguage();
+  const { formatAmount } = useCurrency();
   const myTenant = tenants.find((te) => te.email === userEmail);
   const myBuilding = buildings.find((b) => b.id === myTenant?.buildingId);
   const myRequests = requests.filter((r) => r.tenantId === userId);
@@ -575,7 +577,7 @@ function TenantDashboard({
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4" style={{ marginBottom: 24 }}>
         {[
           { icon: Home, label: t("myBuilding"), value: myBuilding?.name ?? "—", sub: myTenant?.unit ? `Apt ${myTenant.unit}` : undefined },
-          { icon: DollarSign, label: t("monthlyRent"), value: myTenant ? formatCHF(myTenant.rent) : "—", sub: t("currentAmount") },
+          { icon: DollarSign, label: t("monthlyRent"), value: myTenant ? formatAmount(myTenant.rent) : "—", sub: t("currentAmount") },
           { icon: Wrench, label: t("waiting"), value: pendingCount, sub: t("requests") },
           { icon: AlertCircle, label: t("ongoing"), value: inProgressCount, sub: t("requests") },
         ].map((kpi) => {

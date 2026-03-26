@@ -23,8 +23,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "./ui/dialog";
-import { getBuildings, saveBuildings, type Building } from "../utils/storage";
+import { getBuildings, saveBuildings, type Building, type Currency } from "../utils/storage";
 import { useLanguage } from "../i18n/LanguageContext";
+import { useCurrency } from "../context/CurrencyContext";
 
 /* ─── Helpers ────────────────────────────────────────────────── */
 
@@ -36,8 +37,7 @@ const BUILDING_PHOTOS = [
   "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=700&q=80",
 ];
 
-const formatCHF = (v: number) =>
-  `CHF ${new Intl.NumberFormat("de-CH", { maximumFractionDigits: 0 }).format(v)}`;
+// formatCHF removed — use formatAmount from CurrencyContext instead
 
 type BuildingsViewProps = {
   onSelectBuilding?: (buildingId: string) => void;
@@ -52,6 +52,7 @@ function BuildingBubble({
   onEdit,
   onDelete,
   t,
+  formattedRevenue,
 }: {
   building: Building;
   index: number;
@@ -59,6 +60,7 @@ function BuildingBubble({
   onEdit: (b: Building) => void;
   onDelete: (id: string) => void;
   t: (k: string) => string;
+  formattedRevenue: string;
 }) {
   const photo = building.imageUrl || BUILDING_PHOTOS[index % BUILDING_PHOTOS.length];
   const occPct =
@@ -174,7 +176,7 @@ function BuildingBubble({
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <DollarSign style={{ width: 14, height: 14, color: "rgba(255,255,255,0.6)" }} />
               <span style={{ fontSize: 13, fontWeight: 600, color: "#FFFFFF" }}>
-                {formatCHF(building.monthlyRevenue)}
+                {formattedRevenue}
               </span>
             </div>
           </div>
@@ -244,6 +246,7 @@ function BuildingDetail({
   onEdit,
   onDelete,
   t,
+  formattedRevenue,
 }: {
   building: Building;
   index: number;
@@ -251,6 +254,7 @@ function BuildingDetail({
   onEdit: (b: Building) => void;
   onDelete: (id: string) => void;
   t: (k: string) => string;
+  formattedRevenue: string;
 }) {
   const photo = building.imageUrl || BUILDING_PHOTOS[index % BUILDING_PHOTOS.length];
   const occPct =
@@ -315,7 +319,7 @@ function BuildingDetail({
                 { label: t("totalUnits"), value: building.units.toString(), icon: Home },
                 { label: t("occupiedUnits"), value: building.occupiedUnits.toString(), icon: Users },
                 { label: t("occupancyRate"), value: `${occPct}%`, icon: TrendingUp },
-                { label: t("monthlyRevenue"), value: formatCHF(building.monthlyRevenue), icon: DollarSign },
+                { label: t("monthlyRevenue"), value: formattedRevenue, icon: DollarSign },
               ].map((s) => {
                 const Icon = s.icon;
                 return (
@@ -421,12 +425,14 @@ export function BuildingsView({ onSelectBuilding }: BuildingsViewProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingBuilding, setEditingBuilding] = useState<Building | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const { formatAmount, getBuildingCurrency, convertToBase, baseCurrency } = useCurrency();
   const [formData, setFormData] = useState({
     name: "",
     address: "",
     units: 0,
     occupiedUnits: 0,
     monthlyRevenue: 0,
+    currency: "" as string, // "" means use base currency
   });
 
   useEffect(() => { loadBuildings(); }, []);
@@ -434,17 +440,21 @@ export function BuildingsView({ onSelectBuilding }: BuildingsViewProps) {
   const loadBuildings = () => setBuildings(getBuildings());
 
   const resetForm = () =>
-    setFormData({ name: "", address: "", units: 0, occupiedUnits: 0, monthlyRevenue: 0 });
+    setFormData({ name: "", address: "", units: 0, occupiedUnits: 0, monthlyRevenue: 0, currency: "" });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const buildingData = {
+      ...formData,
+      currency: (formData.currency || undefined) as Currency | undefined,
+    };
     if (editingBuilding) {
       const updated = buildings.map((b) =>
-        b.id === editingBuilding.id ? { ...editingBuilding, ...formData } : b
+        b.id === editingBuilding.id ? { ...editingBuilding, ...buildingData } : b
       );
       saveBuildings(updated);
     } else {
-      saveBuildings([...buildings, { id: Date.now().toString(), ...formData }]);
+      saveBuildings([...buildings, { id: Date.now().toString(), ...buildingData }]);
     }
     setIsDialogOpen(false);
     setEditingBuilding(null);
@@ -460,6 +470,7 @@ export function BuildingsView({ onSelectBuilding }: BuildingsViewProps) {
       units: b.units,
       occupiedUnits: b.occupiedUnits,
       monthlyRevenue: b.monthlyRevenue,
+      currency: b.currency ?? "",
     });
     setIsDialogOpen(true);
   };
@@ -479,7 +490,7 @@ export function BuildingsView({ onSelectBuilding }: BuildingsViewProps) {
 
   const totalUnits = buildings.reduce((s, b) => s + b.units, 0);
   const totalOccupied = buildings.reduce((s, b) => s + b.occupiedUnits, 0);
-  const totalRevenue = buildings.reduce((s, b) => s + b.monthlyRevenue, 0);
+  const totalRevenue = buildings.reduce((s, b) => s + convertToBase(b.monthlyRevenue, getBuildingCurrency(b)), 0);
   const globalOcc = totalUnits > 0 ? Math.round((totalOccupied / totalUnits) * 100) : 0;
 
   const selectedBuilding = selectedId
@@ -500,6 +511,7 @@ export function BuildingsView({ onSelectBuilding }: BuildingsViewProps) {
           onEdit={handleEdit}
           onDelete={handleDelete}
           t={t}
+          formattedRevenue={formatAmount(selectedBuilding.monthlyRevenue, getBuildingCurrency(selectedBuilding))}
         />
 
         {/* Form dialog (shared) */}
@@ -570,7 +582,7 @@ export function BuildingsView({ onSelectBuilding }: BuildingsViewProps) {
             { label: t("totalBuildings"), value: buildings.length.toString() },
             { label: t("totalUnits"), value: totalUnits.toString() },
             { label: t("occupancyRate"), value: `${globalOcc}%` },
-            { label: t("monthlyRevenue"), value: formatCHF(totalRevenue) },
+            { label: t("monthlyRevenue"), value: formatAmount(totalRevenue) },
           ].map((m, i, arr) => (
             <React.Fragment key={m.label}>
               <div className="text-center">
@@ -610,6 +622,7 @@ export function BuildingsView({ onSelectBuilding }: BuildingsViewProps) {
               onEdit={handleEdit}
               onDelete={handleDelete}
               t={t}
+              formattedRevenue={formatAmount(b.monthlyRevenue, getBuildingCurrency(b))}
             />
           ))}
         </div>
@@ -742,17 +755,46 @@ function FormDialog({
             ))}
           </div>
 
-          <div>
-            <Label htmlFor="revenue" style={{ color: "var(--foreground)" }}>{t("monthlyRevenueLabel")}</Label>
-            <Input
-              id="revenue"
-              type="number"
-              value={formData.monthlyRevenue}
-              onChange={(e) => setFormData({ ...formData, monthlyRevenue: parseInt(e.target.value) || 0 })}
-              required
-              className="mt-2"
-              style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }}
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="revenue" style={{ color: "var(--foreground)" }}>{t("monthlyRevenueLabel")}</Label>
+              <Input
+                id="revenue"
+                type="number"
+                value={formData.monthlyRevenue}
+                onChange={(e) => setFormData({ ...formData, monthlyRevenue: parseInt(e.target.value) || 0 })}
+                required
+                className="mt-2"
+                style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }}
+              />
+            </div>
+            <div>
+              <Label htmlFor="currency" style={{ color: "var(--foreground)" }}>Currency</Label>
+              <select
+                id="currency"
+                value={formData.currency ?? ""}
+                onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
+                className="mt-2"
+                style={{
+                  width: "100%",
+                  height: 40,
+                  borderRadius: 8,
+                  border: "1px solid var(--border)",
+                  background: "var(--background)",
+                  color: "var(--foreground)",
+                  fontSize: 13,
+                  padding: "0 12px",
+                  cursor: "pointer",
+                  outline: "none",
+                }}
+              >
+                <option value="">Base currency</option>
+                <option value="CHF">CHF</option>
+                <option value="EUR">EUR</option>
+                <option value="USD">USD</option>
+                <option value="GBP">GBP</option>
+              </select>
+            </div>
           </div>
 
           <div className="flex gap-3 pt-2">
