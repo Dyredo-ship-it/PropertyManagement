@@ -29,9 +29,9 @@ import { useLanguage } from "../i18n/LanguageContext";
 /* ─── Helpers ────────────────────────────────────────────────── */
 
 const BUILDING_PHOTOS = [
-  "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=700&q=80",
-  "https://images.unsplash.com/photo-1486325212027-8081e485255e?w=700&q=80",
-  "https://images.unsplash.com/photo-1460317442991-0ec209397118?w=700&q=80",
+  "/building-1.jpg",
+  "/building-2.jpg",
+  "/building-3.jpg",
   "https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=700&q=80",
   "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=700&q=80",
 ];
@@ -541,9 +541,10 @@ export function BuildingsView({ onSelectBuilding }: BuildingsViewProps) {
       {/* Building bubbles grid */}
       {buildings.length > 0 ? (
         <div
-          className="grid gap-6"
+          className="grid"
           style={{
-            gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+            gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
+            gap: 28,
           }}
         >
           {buildings.map((b, i) => (
