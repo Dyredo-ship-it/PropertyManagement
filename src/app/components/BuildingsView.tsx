@@ -43,7 +43,7 @@ type BuildingsViewProps = {
   onSelectBuilding?: (buildingId: string) => void;
 };
 
-/* ─── Building Bubble ────────────────────────────────────────── */
+/* ─── Building Card (image overlay) ─────────────────────────── */
 
 function BuildingBubble({
   building,
@@ -67,119 +67,117 @@ function BuildingBubble({
       : 0;
 
   return (
-    <div className="flex flex-col items-center group">
-      {/* Circular photo bubble */}
-      <div className="relative mb-4">
-        <button
-          type="button"
-          onClick={onClick}
-          className="block rounded-full overflow-hidden transition-all duration-300"
-          style={{
-            width: 140,
-            height: 140,
-            border: "4px solid var(--card)",
-            boxShadow: "0 4px 20px rgba(0,0,0,0.10)",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.boxShadow = "0 8px 32px rgba(0,0,0,0.16)";
-            e.currentTarget.style.transform = "scale(1.04)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.boxShadow = "0 4px 20px rgba(0,0,0,0.10)";
-            e.currentTarget.style.transform = "scale(1)";
-          }}
-        >
-          <img
-            src={photo}
-            alt={building.name}
-            className="w-full h-full object-cover"
-            loading="lazy"
-          />
-        </button>
+    <div className="group relative w-full" style={{ minHeight: 320 }}>
+      <button
+        type="button"
+        onClick={onClick}
+        className="relative w-full h-full overflow-hidden transition-all duration-300 block"
+        style={{
+          borderRadius: 20,
+          minHeight: 320,
+          boxShadow: "0 4px 24px rgba(0,0,0,0.12)",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = "scale(1.02)";
+          e.currentTarget.style.boxShadow = "0 12px 40px rgba(0,0,0,0.22)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = "scale(1)";
+          e.currentTarget.style.boxShadow = "0 4px 24px rgba(0,0,0,0.12)";
+        }}
+      >
+        {/* Background image */}
+        <img
+          src={photo}
+          alt={building.name}
+          className="absolute inset-0 w-full h-full object-cover"
+          loading="lazy"
+          style={{ borderRadius: 20 }}
+        />
 
-        {/* Occupancy badge — bottom right of bubble */}
+        {/* Dark gradient overlay */}
+        <div
+          className="absolute inset-0"
+          style={{
+            borderRadius: 20,
+            background: "linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.45) 50%, rgba(0,0,0,0.15) 100%)",
+          }}
+        />
+
+        {/* Occupancy badge — top left */}
         <span
-          className="absolute -bottom-1 right-0 text-[11px] font-bold px-2.5 py-1 rounded-full"
+          className="absolute top-4 left-4 text-[11px] font-bold px-3 py-1 rounded-full"
           style={{
             background: occPct >= 90 ? "#15803D" : occPct >= 70 ? "var(--primary)" : "#B45309",
             color: "#FFFFFF",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
           }}
         >
           {occPct}%
         </span>
 
-        {/* Edit / Delete on hover */}
-        <div className="absolute -top-1 -right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); onEdit(building); }}
-            className="w-7 h-7 rounded-full flex items-center justify-center"
-            style={{
-              background: "var(--card)",
-              border: "1px solid var(--border)",
-              boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
-            }}
-          >
-            <Edit className="w-3 h-3" style={{ color: "var(--foreground)" }} />
-          </button>
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); onDelete(building.id); }}
-            className="w-7 h-7 rounded-full flex items-center justify-center"
-            style={{
-              background: "var(--card)",
-              border: "1px solid var(--border)",
-              boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
-            }}
-          >
-            <Trash2 className="w-3 h-3" style={{ color: "#EF4444" }} />
-          </button>
-        </div>
-      </div>
+        {/* Content overlaid on image */}
+        <div className="absolute inset-0 flex flex-col justify-end p-5" style={{ borderRadius: 20 }}>
+          {/* Building name */}
+          <h3 className="text-[18px] font-bold leading-tight text-white mb-1">
+            {building.name}
+          </h3>
 
-      {/* Name + Address */}
-      <button
-        type="button"
-        onClick={onClick}
-        className="text-center group/label"
-      >
-        <h3
-          className="text-[14px] font-semibold leading-tight"
-          style={{ color: "var(--foreground)" }}
-        >
-          {building.name}
-        </h3>
-        <p
-          className="text-[11px] mt-1 flex items-center justify-center gap-1"
-          style={{ color: "var(--muted-foreground)" }}
-        >
-          <MapPin className="w-3 h-3 shrink-0" />
-          {building.address}
-        </p>
+          {/* Address */}
+          <p className="text-[12px] flex items-center gap-1.5 mb-4" style={{ color: "rgba(255,255,255,0.75)" }}>
+            <MapPin className="w-3.5 h-3.5 shrink-0" />
+            {building.address}
+          </p>
+
+          {/* Stats row */}
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-1.5">
+              <Home className="w-3.5 h-3.5" style={{ color: "rgba(255,255,255,0.6)" }} />
+              <span className="text-[13px] font-semibold text-white">
+                {building.occupiedUnits}/{building.units}
+              </span>
+            </div>
+            <div className="w-px h-4" style={{ background: "rgba(255,255,255,0.25)" }} />
+            <div className="flex items-center gap-1.5">
+              <DollarSign className="w-3.5 h-3.5" style={{ color: "rgba(255,255,255,0.6)" }} />
+              <span className="text-[13px] font-semibold text-white">
+                {formatCHF(building.monthlyRevenue)}
+              </span>
+            </div>
+          </div>
+        </div>
       </button>
 
-      {/* Mini stats */}
-      <div
-        className="flex items-center gap-3 mt-3"
-      >
-        <MiniStat icon={Home} value={`${building.occupiedUnits}/${building.units}`} />
-        <div className="w-px h-4" style={{ background: "var(--border)" }} />
-        <MiniStat icon={DollarSign} value={formatCHF(building.monthlyRevenue)} />
+      {/* Edit / Delete on hover — top right */}
+      <div className="absolute top-4 right-4 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onEdit(building); }}
+          className="w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-sm transition-colors"
+          style={{
+            background: "rgba(255,255,255,0.2)",
+            border: "1px solid rgba(255,255,255,0.25)",
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.35)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.2)"; }}
+        >
+          <Edit className="w-3.5 h-3.5 text-white" />
+        </button>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onDelete(building.id); }}
+          className="w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-sm transition-colors"
+          style={{
+            background: "rgba(255,255,255,0.2)",
+            border: "1px solid rgba(255,255,255,0.25)",
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(239,68,68,0.4)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.2)"; }}
+        >
+          <Trash2 className="w-3.5 h-3.5 text-white" />
+        </button>
       </div>
     </div>
-  );
-}
-
-function MiniStat({ icon: Icon, value }: { icon: React.ElementType; value: string }) {
-  return (
-    <span
-      className="flex items-center gap-1 text-[11px] font-medium"
-      style={{ color: "var(--muted-foreground)" }}
-    >
-      <Icon className="w-3 h-3" />
-      {value}
-    </span>
   );
 }
 
@@ -543,10 +541,9 @@ export function BuildingsView({ onSelectBuilding }: BuildingsViewProps) {
       {/* Building bubbles grid */}
       {buildings.length > 0 ? (
         <div
-          className="grid gap-10"
+          className="grid gap-6"
           style={{
-            gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
-            justifyItems: "center",
+            gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
           }}
         >
           {buildings.map((b, i) => (
