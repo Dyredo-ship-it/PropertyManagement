@@ -26,32 +26,32 @@ type RequestType = "technical" | "administrative" | "rental";
 type UrgencyLevel = "low" | "medium" | "high" | "urgent";
 
 const TECHNICAL_CATEGORIES = [
-  { id: "plumbing", label: "Plomberie (robinet, fuite, etc.)" },
-  { id: "heating", label: "Chauffage" },
-  { id: "hot-water", label: "Eau chaude" },
-  { id: "electrical", label: "\u00C9lectricit\u00E9 / Panne \u00E9lectrique" },
-  { id: "water-leak", label: "Fuite d'eau importante" },
-  { id: "windows-doors", label: "Fen\u00EAtres / Portes" },
-  { id: "appliances", label: "Appareils / \u00C9quipements" },
-  { id: "humidity-mold", label: "Humidit\u00E9 / Moisissures" },
-  { id: "common-areas", label: "Parties communes" },
-  { id: "other", label: "Autre probl\u00E8me technique" },
+  { id: "plumbing", key: "catPlumbing" },
+  { id: "heating", key: "catHeating" },
+  { id: "hot-water", key: "catHotWater" },
+  { id: "electrical", key: "catElectrical" },
+  { id: "water-leak", key: "catWaterLeak" },
+  { id: "windows-doors", key: "catWindowsDoors" },
+  { id: "appliances", key: "catAppliances" },
+  { id: "humidity-mold", key: "catHumidityMold" },
+  { id: "common-areas", key: "catCommonAreas" },
+  { id: "other", key: "catOtherTechnical" },
 ];
 
 const ADMINISTRATIVE_CATEGORIES = [
-  { id: "rent-certificate", label: "Attestation de loyer" },
-  { id: "termination", label: "Annonce de d\u00E9part / R\u00E9siliation" },
-  { id: "move-in-out", label: "\u00C9tat des lieux" },
-  { id: "contact-change", label: "Changement de coordonn\u00E9es" },
-  { id: "occupant-change", label: "Changement d'occupant" },
-  { id: "other-admin", label: "Autre demande administrative" },
+  { id: "rent-certificate", key: "catRentCertificate" },
+  { id: "termination", key: "catTermination" },
+  { id: "move-in-out", key: "catMoveInOut" },
+  { id: "contact-change", key: "catContactChange" },
+  { id: "occupant-change", key: "catOccupantChange" },
+  { id: "other-admin", key: "catOtherAdmin" },
 ];
 
 const RENTAL_CATEGORIES = [
-  { id: "garage", label: "Place de garage" },
-  { id: "parking", label: "Place de parc ext\u00E9rieure" },
-  { id: "storage", label: "Cave / Local de stockage" },
-  { id: "other-rental", label: "Autre location" },
+  { id: "garage", key: "catGarage" },
+  { id: "parking", key: "catParking" },
+  { id: "storage", key: "catStorage" },
+  { id: "other-rental", key: "catOtherRental" },
 ];
 
 const STATUS_COLORS: Record<string, string> = {
@@ -655,7 +655,7 @@ function CreateRequestModal({
   setRequestType: (rt: RequestType) => void;
   formData: { category: string; title: string; description: string; urgency: UrgencyLevel; dateObserved: string };
   setFormData: (fd: any) => void;
-  getCategoriesForType: () => { id: string; label: string }[];
+  getCategoriesForType: () => { id: string; key: string }[];
   onSubmit: () => void;
   t: (k: string) => string;
 }) {
@@ -798,7 +798,7 @@ function CreateRequestModal({
               <option value="">{t("selectCategory")}</option>
               {getCategoriesForType().map((cat) => (
                 <option key={cat.id} value={cat.id}>
-                  {cat.label}
+                  {t(cat.key)}
                 </option>
               ))}
             </select>

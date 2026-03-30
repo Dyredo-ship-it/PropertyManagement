@@ -380,6 +380,27 @@ type TranslationSet = {
   calendarAddToGoogle: string;
   calendarSyncInfo: string;
   calendarEventCreated: string;
+  // Request categories
+  catPlumbing: string;
+  catHeating: string;
+  catHotWater: string;
+  catElectrical: string;
+  catWaterLeak: string;
+  catWindowsDoors: string;
+  catAppliances: string;
+  catHumidityMold: string;
+  catCommonAreas: string;
+  catOtherTechnical: string;
+  catRentCertificate: string;
+  catTermination: string;
+  catMoveInOut: string;
+  catContactChange: string;
+  catOccupantChange: string;
+  catOtherAdmin: string;
+  catGarage: string;
+  catParking: string;
+  catStorage: string;
+  catOtherRental: string;
   today: string;
   yesterday: string;
   daysAgo: string;
@@ -876,6 +897,26 @@ export const translations: Record<Language, TranslationSet> = {
     calendarAddToGoogle: "Ajouter à Google Calendar",
     calendarSyncInfo: "Synchronisez vos événements avec Google Calendar",
     calendarEventCreated: "Événement créé",
+    catPlumbing: "Plomberie (robinet, fuite, etc.)",
+    catHeating: "Chauffage",
+    catHotWater: "Eau chaude",
+    catElectrical: "Électricité / Panne électrique",
+    catWaterLeak: "Fuite d'eau importante",
+    catWindowsDoors: "Fenêtres / Portes",
+    catAppliances: "Appareils / Équipements",
+    catHumidityMold: "Humidité / Moisissures",
+    catCommonAreas: "Parties communes",
+    catOtherTechnical: "Autre problème technique",
+    catRentCertificate: "Attestation de loyer",
+    catTermination: "Annonce de départ / Résiliation",
+    catMoveInOut: "État des lieux",
+    catContactChange: "Changement de coordonnées",
+    catOccupantChange: "Changement d'occupant",
+    catOtherAdmin: "Autre demande administrative",
+    catGarage: "Place de garage",
+    catParking: "Place de parc extérieure",
+    catStorage: "Cave / Local de stockage",
+    catOtherRental: "Autre location",
     today: "Aujourd'hui",
     yesterday: "Hier",
     daysAgo: "Il y a {n} jours",
@@ -1363,6 +1404,26 @@ export const translations: Record<Language, TranslationSet> = {
     calendarAddToGoogle: "Add to Google Calendar",
     calendarSyncInfo: "Sync your events with Google Calendar",
     calendarEventCreated: "Event created",
+    catPlumbing: "Plumbing (faucet, leak, etc.)",
+    catHeating: "Heating",
+    catHotWater: "Hot water",
+    catElectrical: "Electrical / Power outage",
+    catWaterLeak: "Major water leak",
+    catWindowsDoors: "Windows / Doors",
+    catAppliances: "Appliances / Equipment",
+    catHumidityMold: "Humidity / Mold",
+    catCommonAreas: "Common areas",
+    catOtherTechnical: "Other technical issue",
+    catRentCertificate: "Rent certificate",
+    catTermination: "Move-out notice / Termination",
+    catMoveInOut: "Property inspection",
+    catContactChange: "Contact information change",
+    catOccupantChange: "Occupant change",
+    catOtherAdmin: "Other administrative request",
+    catGarage: "Garage space",
+    catParking: "Outdoor parking",
+    catStorage: "Storage / Cellar",
+    catOtherRental: "Other rental",
     today: "Today",
     yesterday: "Yesterday",
     daysAgo: "{n} days ago",
@@ -1850,6 +1911,26 @@ export const translations: Record<Language, TranslationSet> = {
     calendarAddToGoogle: "Zu Google Kalender hinzufügen",
     calendarSyncInfo: "Synchronisieren Sie Ihre Termine mit Google Kalender",
     calendarEventCreated: "Termin erstellt",
+    catPlumbing: "Sanitär (Wasserhahn, Leck, etc.)",
+    catHeating: "Heizung",
+    catHotWater: "Warmwasser",
+    catElectrical: "Elektrik / Stromausfall",
+    catWaterLeak: "Schwerer Wasserschaden",
+    catWindowsDoors: "Fenster / Türen",
+    catAppliances: "Geräte / Ausstattung",
+    catHumidityMold: "Feuchtigkeit / Schimmel",
+    catCommonAreas: "Gemeinschaftsbereiche",
+    catOtherTechnical: "Anderes technisches Problem",
+    catRentCertificate: "Mietbescheinigung",
+    catTermination: "Auszugsmeldung / Kündigung",
+    catMoveInOut: "Wohnungsübergabe",
+    catContactChange: "Kontaktdaten ändern",
+    catOccupantChange: "Bewohnerwechsel",
+    catOtherAdmin: "Andere administrative Anfrage",
+    catGarage: "Garagenplatz",
+    catParking: "Außenparkplatz",
+    catStorage: "Keller / Lagerraum",
+    catOtherRental: "Andere Miete",
     today: "Heute",
     yesterday: "Gestern",
     daysAgo: "Vor {n} Tagen",
@@ -2337,6 +2418,26 @@ export const translations: Record<Language, TranslationSet> = {
     calendarAddToGoogle: "Aggiungi a Google Calendar",
     calendarSyncInfo: "Sincronizza i tuoi eventi con Google Calendar",
     calendarEventCreated: "Evento creato",
+    catPlumbing: "Idraulica (rubinetto, perdita, ecc.)",
+    catHeating: "Riscaldamento",
+    catHotWater: "Acqua calda",
+    catElectrical: "Elettricità / Guasto elettrico",
+    catWaterLeak: "Perdita d'acqua importante",
+    catWindowsDoors: "Finestre / Porte",
+    catAppliances: "Elettrodomestici / Attrezzature",
+    catHumidityMold: "Umidità / Muffa",
+    catCommonAreas: "Parti comuni",
+    catOtherTechnical: "Altro problema tecnico",
+    catRentCertificate: "Attestato di affitto",
+    catTermination: "Disdetta / Recesso",
+    catMoveInOut: "Stato dei luoghi",
+    catContactChange: "Cambio dati di contatto",
+    catOccupantChange: "Cambio occupante",
+    catOtherAdmin: "Altra richiesta amministrativa",
+    catGarage: "Posto garage",
+    catParking: "Parcheggio esterno",
+    catStorage: "Cantina / Deposito",
+    catOtherRental: "Altro affitto",
     today: "Oggi",
     yesterday: "Ieri",
     daysAgo: "{n} giorni fa",
