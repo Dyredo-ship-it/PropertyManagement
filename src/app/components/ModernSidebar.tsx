@@ -106,6 +106,7 @@ export function ModernSidebar({ activeView, onViewChange }: ModernSidebarProps) 
         items: [
           { id: "dashboard", labelKey: "navHome", icon: LayoutDashboard },
           { id: "requests", labelKey: "navMyRequests", icon: Wrench },
+          { id: "services", labelKey: "navServices", icon: Briefcase },
         ],
       },
       {

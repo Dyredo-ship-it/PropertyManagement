@@ -64,7 +64,7 @@ function AppContent() {
           {activeView === "interventions" && user?.role === "admin" && <InterventionsView />}
           {activeView === "requests" && user?.role === "admin" && <RequestsView />}
           {activeView === "requests" && user?.role === "tenant" && <TenantRequestsView />}
-          {activeView === "services" && user?.role === "admin" && <ServicesView />}
+          {activeView === "services" && <ServicesView />}
           {activeView === "analytics" && user?.role === "admin" && <AnalyticsDashboard />}
           {activeView === "calendar" && user?.role === "admin" && <CalendarView />}
           {activeView === "settings" && <SettingsView />}
