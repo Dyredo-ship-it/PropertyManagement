@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Search,
   Bell,
@@ -11,11 +11,23 @@ import {
   MessageSquare,
   AlertCircle,
   X,
+  Building2,
+  Users,
+  ClipboardList,
+  ChevronRight,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { useLanguage } from "../i18n/LanguageContext";
 import { LANGUAGES } from "../i18n/translations";
+import {
+  getBuildings,
+  getTenants,
+  getMaintenanceRequests,
+  type Building,
+  type Tenant,
+  type MaintenanceRequest,
+} from "../utils/storage";
 
 /* ─── Mock notifications ─────────────────────────────────────── */
 
@@ -59,7 +71,15 @@ const notifColor = (type: Notif["type"]) => {
 
 /* ─── Component ──────────────────────────────────────────────── */
 
-export function TopHeader() {
+type SearchResult = {
+  id: string;
+  type: "building" | "tenant" | "request";
+  title: string;
+  subtitle: string;
+  view: string;
+};
+
+export function TopHeader({ onNavigate }: { onNavigate?: (view: string) => void }) {
   const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { t, language, setLanguage } = useLanguage();
@@ -67,9 +87,12 @@ export function TopHeader() {
   const [isLangOpen, setIsLangOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [notifRead, setNotifRead] = useState<Set<number>>(new Set());
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
 
   const langRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLDivElement>(null);
 
   const notifs = user?.role === "admin" ? ADMIN_NOTIFS : TENANT_NOTIFS;
   const unreadCount = notifs.filter((n) => n.unread && !notifRead.has(n.id)).length;
@@ -78,11 +101,75 @@ export function TopHeader() {
     ? user.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
     : "U";
 
+  /* ─── Global search across all data ─── */
+  const searchResults = useMemo((): SearchResult[] => {
+    const q = searchQuery.trim().toLowerCase();
+    if (q.length < 2) return [];
+    const results: SearchResult[] = [];
+
+    try {
+      // Search buildings
+      const buildings = getBuildings();
+      for (const b of buildings) {
+        if (b.name.toLowerCase().includes(q) || b.address.toLowerCase().includes(q)) {
+          results.push({
+            id: `b-${b.id}`, type: "building",
+            title: b.name,
+            subtitle: b.address,
+            view: "buildings",
+          });
+        }
+        if (results.length >= 8) break;
+      }
+
+      // Search tenants
+      const tenants = getTenants() as any[];
+      for (const tn of tenants) {
+        if (
+          (tn.name ?? "").toLowerCase().includes(q) ||
+          (tn.email ?? "").toLowerCase().includes(q) ||
+          (tn.phone ?? "").toLowerCase().includes(q) ||
+          (tn.unit ?? "").toLowerCase().includes(q)
+        ) {
+          results.push({
+            id: `t-${tn.id}`, type: "tenant",
+            title: tn.name ?? "",
+            subtitle: `${tn.buildingName ?? ""} · ${t("unit")} ${tn.unit ?? ""}`,
+            view: "tenants",
+          });
+        }
+        if (results.length >= 8) break;
+      }
+
+      // Search requests
+      const requests = getMaintenanceRequests();
+      for (const r of requests) {
+        if (
+          (r.title ?? "").toLowerCase().includes(q) ||
+          (r.description ?? "").toLowerCase().includes(q)
+        ) {
+          results.push({
+            id: `r-${r.id}`, type: "request",
+            title: r.title ?? "",
+            subtitle: `${r.status} · ${r.priority ?? ""}`,
+            view: "requests",
+          });
+        }
+        if (results.length >= 8) break;
+      }
+    } catch { /* storage access may fail */ }
+
+    return results.slice(0, 8);
+  }, [searchQuery, t]);
+
+  const showResults = isSearchFocused && searchQuery.trim().length >= 2;
+
   /* Close dropdowns on outside click */
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (langRef.current && !langRef.current.contains(e.target as Node)) setIsLangOpen(false);
       if (notifRef.current && !notifRef.current.contains(e.target as Node)) setIsNotifOpen(false);
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) setIsSearchFocused(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -105,33 +192,179 @@ export function TopHeader() {
       }}
     >
       {/* Search */}
-      <div className="flex-1 max-w-[440px]">
-        <div className="relative">
+      <div ref={searchRef} style={{ flex: 1, maxWidth: 440, position: "relative" }}>
+        <div style={{ position: "relative" }}>
           <Search
-            className="absolute left-3 top-1/2 -translate-y-1/2 w-[15px] h-[15px] pointer-events-none"
-            style={{ color: "var(--muted-foreground)" }}
+            style={{
+              position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)",
+              width: 15, height: 15, color: "var(--muted-foreground)", pointerEvents: "none",
+            }}
           />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => { setSearchQuery(""); setIsSearchFocused(false); }}
+              style={{
+                position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)",
+                width: 22, height: 22, borderRadius: 6, border: "none",
+                background: "transparent", color: "var(--muted-foreground)",
+                cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "var(--background)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+            >
+              <X style={{ width: 13, height: 13 }} />
+            </button>
+          )}
           <input
             type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onFocus={() => setIsSearchFocused(true)}
             placeholder={t("searchPlaceholder")}
-            className="w-full text-[13px] outline-none transition-all"
             style={{
-              padding: "8px 14px 8px 36px",
+              width: "100%", fontSize: 13, outline: "none",
+              padding: "8px 32px 8px 36px",
               borderRadius: 12,
-              border: "1px solid var(--border)",
+              border: isSearchFocused ? "1px solid var(--primary)" : "1px solid var(--border)",
               background: "var(--background)",
               color: "var(--foreground)",
+              boxShadow: isSearchFocused ? "0 0 0 3px rgba(69,85,58,0.08)" : "none",
+              transition: "border-color 0.15s, box-shadow 0.15s",
             }}
-            onFocus={(e) => {
-              e.currentTarget.style.borderColor = "var(--primary)";
-              e.currentTarget.style.boxShadow = "0 0 0 3px rgba(69,85,58,0.08)";
-            }}
-            onBlur={(e) => {
-              e.currentTarget.style.borderColor = "var(--border)";
-              e.currentTarget.style.boxShadow = "none";
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                setSearchQuery("");
+                setIsSearchFocused(false);
+                (e.target as HTMLInputElement).blur();
+              }
             }}
           />
         </div>
+
+        {/* ─── Search results dropdown ─── */}
+        {showResults && (
+          <div
+            style={{
+              position: "absolute", top: "calc(100% + 8px)", left: 0, right: 0,
+              borderRadius: 16, overflow: "hidden",
+              background: "var(--card)",
+              border: "1px solid var(--border)",
+              boxShadow: "0 12px 40px rgba(0,0,0,0.12)",
+              zIndex: 60,
+            }}
+          >
+            {searchResults.length > 0 ? (
+              <>
+                {/* Group by type */}
+                {(["building", "tenant", "request"] as const).map((type) => {
+                  const group = searchResults.filter((r) => r.type === type);
+                  if (group.length === 0) return null;
+
+                  const cfg = {
+                    building: {
+                      icon: <Building2 style={{ width: 14, height: 14 }} />,
+                      label: t("navBuildings"),
+                      color: "var(--primary)",
+                      bg: "color-mix(in srgb, var(--primary) 8%, transparent)",
+                    },
+                    tenant: {
+                      icon: <Users style={{ width: 14, height: 14 }} />,
+                      label: t("tenantCount"),
+                      color: "#6D28D9",
+                      bg: "rgba(139,92,246,0.08)",
+                    },
+                    request: {
+                      icon: <ClipboardList style={{ width: 14, height: 14 }} />,
+                      label: t("requests"),
+                      color: "#B45309",
+                      bg: "rgba(245,158,11,0.08)",
+                    },
+                  }[type];
+
+                  return (
+                    <div key={type}>
+                      {/* Section header */}
+                      <div style={{
+                        padding: "10px 16px 6px",
+                        display: "flex", alignItems: "center", gap: 8,
+                      }}>
+                        <div style={{
+                          width: 22, height: 22, borderRadius: 6,
+                          background: cfg.bg, color: cfg.color,
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                        }}>
+                          {cfg.icon}
+                        </div>
+                        <span style={{
+                          fontSize: 10, fontWeight: 600, textTransform: "uppercase",
+                          letterSpacing: "0.06em", color: "var(--muted-foreground)",
+                        }}>
+                          {cfg.label}
+                        </span>
+                      </div>
+
+                      {/* Results */}
+                      {group.map((result) => (
+                        <button
+                          key={result.id}
+                          type="button"
+                          onClick={() => {
+                            if (onNavigate) onNavigate(result.view);
+                            setSearchQuery("");
+                            setIsSearchFocused(false);
+                          }}
+                          style={{
+                            width: "100%", display: "flex", alignItems: "center",
+                            gap: 12, padding: "10px 16px",
+                            border: "none", background: "transparent",
+                            cursor: "pointer", textAlign: "left",
+                            transition: "background 0.1s",
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = "var(--background)"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                        >
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{
+                              fontSize: 13, fontWeight: 500, color: "var(--foreground)",
+                              margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                            }}>
+                              {result.title}
+                            </p>
+                            <p style={{
+                              fontSize: 11, color: "var(--muted-foreground)", margin: 0, marginTop: 1,
+                              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                            }}>
+                              {result.subtitle}
+                            </p>
+                          </div>
+                          <ChevronRight style={{ width: 14, height: 14, color: "var(--muted-foreground)", flexShrink: 0 }} />
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })}
+
+                {/* Footer hint */}
+                <div style={{
+                  padding: "10px 16px", borderTop: "1px solid var(--border)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>
+                    {searchResults.length} {t("results")} · <span style={{ opacity: 0.7 }}>Esc {t("toClose")}</span>
+                  </span>
+                </div>
+              </>
+            ) : (
+              <div style={{ padding: "24px 16px", textAlign: "center" }}>
+                <Search style={{ width: 20, height: 20, color: "var(--muted-foreground)", margin: "0 auto 8px", opacity: 0.4 }} />
+                <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: 0 }}>
+                  {t("noResults")}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Spacer */}

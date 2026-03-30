@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Wrench,
   Plus,
@@ -11,7 +12,7 @@ import {
   Phone,
   MapPin,
   Calendar,
-  DollarSign,
+  Banknote,
   Users,
   MessageSquare,
   X,
@@ -24,24 +25,6 @@ import {
   CheckCheck,
   Eye,
 } from "lucide-react";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import { Label } from "./ui/label";
-import { Textarea } from "./ui/textarea";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "./ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "./ui/select";
 import {
   getMaintenanceRequests,
   saveMaintenanceRequests,
@@ -136,13 +119,15 @@ function FilterPill({
     <button
       type="button"
       onClick={onClick}
-      className="flex items-center gap-1.5 rounded-xl text-[13px] font-medium transition-all"
+      className="flex items-center gap-1.5 text-[12px] font-medium transition-all"
       style={{
-        padding: "7px 14px",
+        padding: "6px 13px",
+        borderRadius: 10,
         background: active ? "var(--primary)" : "var(--card)",
         color: active ? "var(--primary-foreground)" : "var(--muted-foreground)",
         border: `1px solid ${active ? "transparent" : "var(--border)"}`,
         boxShadow: active ? "0 1px 4px rgba(69,85,58,0.18)" : "none",
+        cursor: "pointer",
       }}
     >
       {children}
@@ -214,7 +199,7 @@ function ApplicationDrawer({
               type="button"
               onClick={onClose}
               className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors shrink-0"
-              style={{ color: "var(--muted-foreground)" }}
+              style={{ color: "var(--muted-foreground)", border: "none", background: "transparent", cursor: "pointer" }}
               onMouseEnter={(e) => { e.currentTarget.style.background = "var(--background)"; }}
               onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
             >
@@ -234,7 +219,7 @@ function ApplicationDrawer({
                   type="button"
                   onClick={() => onStatusChange(app.id, a.key)}
                   className="rounded-lg text-[12px] font-semibold transition-colors"
-                  style={{ padding: "5px 12px", background: a.bg, color: a.fg }}
+                  style={{ padding: "5px 12px", background: a.bg, color: a.fg, border: "none", cursor: "pointer" }}
                 >
                   {a.label}
                 </button>
@@ -273,7 +258,7 @@ function ApplicationDrawer({
           <Section title={t("applicationDetails")}>
             <DrawerGrid>
               <DrawerItem icon={<Calendar className="w-3.5 h-3.5" />} label={t("desiredMoveIn")} value={new Date(app.desiredMoveIn).toLocaleDateString("fr-CH")} />
-              <DrawerItem icon={<DollarSign className="w-3.5 h-3.5" />} label={t("monthlyIncome")} value={formatCHF(app.monthlyIncome)} />
+              <DrawerItem icon={<Banknote className="w-3.5 h-3.5" />} label={t("monthlyIncome")} value={formatCHF(app.monthlyIncome)} />
               <DrawerItem icon={<Users className="w-3.5 h-3.5" />} label={t("householdSize")} value={`${app.householdSize} ${t("numberOfPersons")}`} />
               <DrawerItem icon={<Calendar className="w-3.5 h-3.5" />} label={t("applicationDate")} value={new Date(app.createdAt).toLocaleDateString("fr-CH")} />
             </DrawerGrid>
@@ -339,6 +324,40 @@ function DrawerItem({
     </div>
   );
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   STYLED FORM HELPERS
+═══════════════════════════════════════════════════════════════ */
+
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  borderRadius: 12,
+  fontSize: 13,
+  padding: "11px 14px",
+  boxSizing: "border-box",
+  background: "var(--background)",
+  border: "1px solid var(--border)",
+  color: "var(--foreground)",
+  outline: "none",
+  transition: "border-color 0.15s",
+};
+
+const labelStyle: React.CSSProperties = {
+  display: "block",
+  fontSize: 12,
+  fontWeight: 600,
+  color: "var(--foreground)",
+  marginBottom: 6,
+};
+
+const selectStyle: React.CSSProperties = {
+  ...inputStyle,
+  appearance: "none" as const,
+  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239CA3AF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
+  backgroundRepeat: "no-repeat",
+  backgroundPosition: "right 12px center",
+  paddingRight: 36,
+};
 
 /* ═══════════════════════════════════════════════════════════════
    MAIN COMPONENT
@@ -509,237 +528,138 @@ export function RequestsView() {
      RENDER
   ───────────────────────────────────────────────────────────── */
   return (
-    <div className="min-h-screen" style={{ background: "var(--background)" }}>
+    <div style={{ background: "var(--background)" }}>
 
-      {/* ── Page header ───────────────────────────────────── */}
-      <div
-        className="sticky top-0 z-30"
-        style={{
-          background: "var(--card)",
-          borderBottom: "1px solid var(--border)",
-        }}
-      >
-        <div className="max-w-[1200px] mx-auto px-8 py-5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h1 className="text-xl font-bold" style={{ color: "var(--foreground)" }}>
-                {isAdmin ? t("requestsHub") : t("myRequestsTitle")}
-              </h1>
-              <p className="text-[13px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>
-                {isAdmin ? t("requestsHubSub") : t("requestsSubTenant")}
-              </p>
-            </div>
+      {/* ── Page content with left accent border ─── */}
+      <div style={{ padding: "32px 36px 48px", borderLeft: "4px solid var(--primary)" }}>
 
-            <div className="flex items-center gap-3">
-              {/* Search (maintenance tab only) */}
-              {activeTab === "maintenance" && (
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-[14px] h-[14px] pointer-events-none" style={{ color: "var(--muted-foreground)" }} />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder={t("search") + "..."}
-                    className="text-[13px] outline-none transition-all"
-                    style={{
-                      padding: "8px 14px 8px 34px",
-                      borderRadius: 12,
-                      border: "1px solid var(--border)",
-                      background: "var(--background)",
-                      color: "var(--foreground)",
-                      width: 200,
-                    }}
-                    onFocus={(e) => { e.currentTarget.style.borderColor = "var(--primary)"; }}
-                    onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
-                  />
-                </div>
-              )}
-
-              {/* Add buttons */}
-              {activeTab === "maintenance" && !isAdmin && (
-                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                  <DialogTrigger asChild>
-                    <button
-                      type="button"
-                      className="flex items-center gap-2 rounded-xl text-[13px] font-semibold transition-opacity"
-                      style={{ padding: "8px 16px", background: "var(--primary)", color: "var(--primary-foreground)" }}
-                    >
-                      <Plus className="w-4 h-4" />
-                      {t("newRequest")}
-                    </button>
-                  </DialogTrigger>
-                  <DialogContent className="rounded-2xl max-w-md" style={{ background: "var(--card)", border: "1px solid var(--border)" }}>
-                    <DialogHeader>
-                      <DialogTitle style={{ color: "var(--foreground)" }}>{t("newRequest")}</DialogTitle>
-                    </DialogHeader>
-                    <form onSubmit={handleSubmit} className="space-y-4 mt-4">
-                      <div>
-                        <Label style={{ color: "var(--foreground)" }}>{t("requestTitle")}</Label>
-                        <Input value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} required className="mt-2" style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }} />
-                      </div>
-                      <div>
-                        <Label style={{ color: "var(--foreground)" }}>{t("requestDescription")}</Label>
-                        <Textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} required rows={4} className="mt-2" style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }} />
-                      </div>
-                      <div>
-                        <Label style={{ color: "var(--foreground)" }}>{t("priority")}</Label>
-                        <Select value={formData.priority} onValueChange={(v: any) => setFormData({ ...formData, priority: v })}>
-                          <SelectTrigger className="mt-2" style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }}><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="low">{t("low")}</SelectItem>
-                            <SelectItem value="medium">{t("medium")}</SelectItem>
-                            <SelectItem value="high">{t("high")}</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="flex gap-3 pt-2">
-                        <button type="submit" className="flex-1 rounded-xl text-[13px] font-semibold py-2.5 transition-opacity" style={{ background: "var(--primary)", color: "var(--primary-foreground)" }}>{t("submit")}</button>
-                        <button type="button" onClick={() => setIsDialogOpen(false)} className="flex-1 rounded-xl text-[13px] font-medium py-2.5" style={{ border: "1px solid var(--border)", color: "var(--foreground)", background: "var(--background)" }}>{t("cancel")}</button>
-                      </div>
-                    </form>
-                  </DialogContent>
-                </Dialog>
-              )}
-
-              {activeTab === "applications" && isAdmin && (
-                <Dialog open={isAppDialogOpen} onOpenChange={setIsAppDialogOpen}>
-                  <DialogTrigger asChild>
-                    <button type="button" className="flex items-center gap-2 rounded-xl text-[13px] font-semibold transition-opacity" style={{ padding: "8px 16px", background: "var(--primary)", color: "var(--primary-foreground)" }}>
-                      <Plus className="w-4 h-4" />
-                      {t("newRentalApplication")}
-                    </button>
-                  </DialogTrigger>
-                  <DialogContent className="rounded-2xl max-w-lg max-h-[90vh] overflow-y-auto" style={{ background: "var(--card)", border: "1px solid var(--border)" }}>
-                    <DialogHeader>
-                      <DialogTitle style={{ color: "var(--foreground)" }}>{t("newRentalApplication")}</DialogTitle>
-                    </DialogHeader>
-                    <form onSubmit={handleAppSubmit} className="space-y-4 mt-4">
-                      <div>
-                        <Label style={{ color: "var(--foreground)" }}>{t("applicantName")}</Label>
-                        <Input value={appFormData.applicantName} onChange={(e) => setAppFormData({ ...appFormData, applicantName: e.target.value })} required className="mt-2" style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }} />
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <Label style={{ color: "var(--foreground)" }}>{t("applicantEmail")}</Label>
-                          <Input type="email" value={appFormData.applicantEmail} onChange={(e) => setAppFormData({ ...appFormData, applicantEmail: e.target.value })} required className="mt-2" style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }} />
-                        </div>
-                        <div>
-                          <Label style={{ color: "var(--foreground)" }}>{t("applicantPhone")}</Label>
-                          <Input value={appFormData.applicantPhone} onChange={(e) => setAppFormData({ ...appFormData, applicantPhone: e.target.value })} required className="mt-2" style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }} />
-                        </div>
-                      </div>
-                      <div>
-                        <Label style={{ color: "var(--foreground)" }}>{t("building")}</Label>
-                        <Select value={appFormData.buildingId} onValueChange={(v) => setAppFormData({ ...appFormData, buildingId: v })}>
-                          <SelectTrigger className="mt-2" style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }}><SelectValue placeholder={t("selectBuilding")} /></SelectTrigger>
-                          <SelectContent>
-                            {buildings.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <Label style={{ color: "var(--foreground)" }}>{t("desiredUnit")}</Label>
-                          <Input value={appFormData.desiredUnit} onChange={(e) => setAppFormData({ ...appFormData, desiredUnit: e.target.value })} required className="mt-2" style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }} />
-                        </div>
-                        <div>
-                          <Label style={{ color: "var(--foreground)" }}>{t("desiredMoveIn")}</Label>
-                          <Input type="date" value={appFormData.desiredMoveIn} onChange={(e) => setAppFormData({ ...appFormData, desiredMoveIn: e.target.value })} required className="mt-2" style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }} />
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-3 gap-3">
-                        <div>
-                          <Label style={{ color: "var(--foreground)" }}>{t("monthlyIncome")}</Label>
-                          <Input type="number" value={appFormData.monthlyIncome} onChange={(e) => setAppFormData({ ...appFormData, monthlyIncome: parseInt(e.target.value) || 0 })} required className="mt-2" style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }} />
-                        </div>
-                        <div>
-                          <Label style={{ color: "var(--foreground)" }}>{t("householdSize")}</Label>
-                          <Input type="number" min={1} value={appFormData.householdSize} onChange={(e) => setAppFormData({ ...appFormData, householdSize: parseInt(e.target.value) || 1 })} required className="mt-2" style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }} />
-                        </div>
-                        <div>
-                          <Label style={{ color: "var(--foreground)" }}>{t("applicantOccupation")}</Label>
-                          <Input value={appFormData.occupation} onChange={(e) => setAppFormData({ ...appFormData, occupation: e.target.value })} className="mt-2" style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }} />
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <Label style={{ color: "var(--foreground)" }}>{t("employer")}</Label>
-                          <Input value={appFormData.employer} onChange={(e) => setAppFormData({ ...appFormData, employer: e.target.value })} className="mt-2" style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }} />
-                        </div>
-                        <div>
-                          <Label style={{ color: "var(--foreground)" }}>{t("currentAddress")}</Label>
-                          <Input value={appFormData.currentAddress} onChange={(e) => setAppFormData({ ...appFormData, currentAddress: e.target.value })} required className="mt-2" style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }} />
-                        </div>
-                      </div>
-                      <div>
-                        <Label style={{ color: "var(--foreground)" }}>{t("applicationMessage")}</Label>
-                        <Textarea value={appFormData.message} onChange={(e) => setAppFormData({ ...appFormData, message: e.target.value })} rows={3} className="mt-2" style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }} />
-                      </div>
-                      <div className="flex gap-3 pt-2">
-                        <button type="submit" className="flex-1 rounded-xl text-[13px] font-semibold py-2.5" style={{ background: "var(--primary)", color: "var(--primary-foreground)" }}>{t("create")}</button>
-                        <button type="button" onClick={() => setIsAppDialogOpen(false)} className="flex-1 rounded-xl text-[13px] font-medium py-2.5" style={{ border: "1px solid var(--border)", color: "var(--foreground)", background: "var(--background)" }}>{t("cancel")}</button>
-                      </div>
-                    </form>
-                  </DialogContent>
-                </Dialog>
-              )}
-            </div>
+        {/* ── Page header ───────────────────────────────────── */}
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 28 }}>
+          <div>
+            <h1 style={{ fontSize: 22, fontWeight: 600, lineHeight: 1.3, color: "var(--foreground)", margin: 0 }}>
+              {isAdmin ? t("requestsHub") : t("myRequestsTitle")}
+            </h1>
+            <p style={{ fontSize: 13, color: "var(--muted-foreground)", marginTop: 4, margin: 0 }}>
+              {isAdmin ? t("requestsHubSub") : t("requestsSubTenant")}
+            </p>
           </div>
 
-          {/* Tabs (admin only) */}
-          {isAdmin && (
-            <div className="flex items-center gap-2 mt-5">
-              {[
-                { key: "maintenance", icon: Wrench, label: t("maintenanceTab"), badge: pendingCount },
-                { key: "applications", icon: FileText, label: t("rentalApplicationsTab"), badge: receivedCount },
-              ].map((tab) => {
-                const Icon = tab.icon;
-                const isActive = activeTab === tab.key as any;
-                return (
-                  <button
-                    key={tab.key}
-                    type="button"
-                    onClick={() => setActiveTab(tab.key as any)}
-                    className="flex items-center gap-2 rounded-xl text-[13px] font-medium transition-all"
-                    style={{
-                      padding: "8px 16px",
-                      background: isActive ? "var(--primary)" : "transparent",
-                      color: isActive ? "var(--primary-foreground)" : "var(--muted-foreground)",
-                      boxShadow: isActive ? "0 1px 4px rgba(69,85,58,0.18)" : "none",
-                    }}
-                    onMouseEnter={(e) => { if (!isActive) { e.currentTarget.style.background = "var(--background)"; e.currentTarget.style.color = "var(--foreground)"; } }}
-                    onMouseLeave={(e) => { if (!isActive) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--muted-foreground)"; } }}
-                  >
-                    <Icon className="w-4 h-4" />
-                    {tab.label}
-                    {tab.badge > 0 && (
-                      <span
-                        className="rounded-full text-[10px] font-bold"
-                        style={{
-                          padding: "1px 6px",
-                          background: isActive ? "rgba(255,255,255,0.22)" : "rgba(245,158,11,0.15)",
-                          color: isActive ? "#fff" : "#B45309",
-                        }}
-                      >
-                        {tab.badge}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+            {/* Search (maintenance tab only) */}
+            {activeTab === "maintenance" && (
+              <div style={{ position: "relative" }}>
+                <Search style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", width: 16, height: 16, color: "var(--muted-foreground)" }} />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={t("search") + "..."}
+                  style={{
+                    paddingLeft: 38, paddingRight: 16, paddingTop: 10, paddingBottom: 10,
+                    borderRadius: 14, fontSize: 13, width: 220,
+                    background: "var(--card)", border: "1px solid var(--border)",
+                    color: "var(--foreground)", outline: "none",
+                  }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = "var(--primary)"; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
+                />
+              </div>
+            )}
 
-      {/* ── Content ───────────────────────────────────────── */}
-      <div className="max-w-[1200px] mx-auto px-8 py-6">
+            {/* Add buttons */}
+            {activeTab === "maintenance" && !isAdmin && (
+              <button
+                type="button"
+                onClick={() => setIsDialogOpen(true)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 8,
+                  padding: "10px 20px", borderRadius: 14, border: "none",
+                  background: "var(--primary)", color: "var(--primary-foreground)",
+                  fontSize: 13, fontWeight: 500, cursor: "pointer",
+                  transition: "opacity 0.15s",
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.9"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
+              >
+                <Plus style={{ width: 16, height: 16 }} />
+                {t("newRequest")}
+              </button>
+            )}
+
+            {activeTab === "applications" && isAdmin && (
+              <button
+                type="button"
+                onClick={() => setIsAppDialogOpen(true)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 8,
+                  padding: "10px 20px", borderRadius: 14, border: "none",
+                  background: "var(--primary)", color: "var(--primary-foreground)",
+                  fontSize: 13, fontWeight: 500, cursor: "pointer",
+                  transition: "opacity 0.15s",
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.9"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
+              >
+                <Plus style={{ width: 16, height: 16 }} />
+                {t("newRentalApplication")}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Tabs (admin only) */}
+        {isAdmin && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 24 }}>
+            {[
+              { key: "maintenance", icon: Wrench, label: t("maintenanceTab"), badge: pendingCount },
+              { key: "applications", icon: FileText, label: t("rentalApplicationsTab"), badge: receivedCount },
+            ].map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.key as any;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setActiveTab(tab.key as any)}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 7,
+                    padding: "7px 15px", borderRadius: 10,
+                    background: isActive ? "var(--primary)" : "transparent",
+                    color: isActive ? "var(--primary-foreground)" : "var(--muted-foreground)",
+                    boxShadow: isActive ? "0 1px 4px rgba(69,85,58,0.18)" : "none",
+                    border: "none", cursor: "pointer",
+                    fontSize: 13, fontWeight: 500,
+                    transition: "all 0.15s",
+                  }}
+                  onMouseEnter={(e) => { if (!isActive) { e.currentTarget.style.background = "var(--background)"; e.currentTarget.style.color = "var(--foreground)"; } }}
+                  onMouseLeave={(e) => { if (!isActive) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--muted-foreground)"; } }}
+                >
+                  <Icon style={{ width: 16, height: 16 }} />
+                  {tab.label}
+                  {tab.badge > 0 && (
+                    <span
+                      style={{
+                        padding: "1px 6px",
+                        borderRadius: 99,
+                        fontSize: 10, fontWeight: 700,
+                        background: isActive ? "rgba(255,255,255,0.22)" : "rgba(245,158,11,0.15)",
+                        color: isActive ? "#fff" : "#B45309",
+                      }}
+                    >
+                      {tab.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* ═══ MAINTENANCE TAB ═══ */}
         {activeTab === "maintenance" && (
-          <div className="space-y-5">
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
             {/* Filters */}
-            <div className="flex flex-wrap gap-2">
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               {([
                 { key: "all",         label: t("filterAll") },
                 { key: "pending",     label: t("filterPending"),    count: pendingCount },
@@ -750,9 +670,9 @@ export function RequestsView() {
                   {f.label}
                   {(f as any).count > 0 && (
                     <span
-                      className="rounded-full text-[10px] font-bold"
                       style={{
-                        padding: "1px 6px",
+                        padding: "1px 6px", borderRadius: 99,
+                        fontSize: 10, fontWeight: 700,
                         background: filter === f.key ? "rgba(255,255,255,0.22)" : "rgba(245,158,11,0.15)",
                         color: filter === f.key ? "#fff" : "#B45309",
                       }}
@@ -765,106 +685,141 @@ export function RequestsView() {
             </div>
 
             {/* Request cards */}
-            <div className="space-y-3">
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               {filteredRequests.map((req) => {
                 const sc = MAINT_STATUS[req.status] ?? MAINT_STATUS.pending;
                 return (
                   <div
                     key={req.id}
-                    className="group rounded-2xl p-5 transition-all"
+                    className="group"
                     style={{
+                      borderRadius: 16, overflow: "hidden",
                       background: "var(--card)",
                       border: "1px solid var(--border)",
-                      boxShadow: "0 1px 2px rgba(0,0,0,0.03)",
+                      transition: "border-color 0.15s, box-shadow 0.15s",
                     }}
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(69,85,58,0.25)"; }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = "var(--border)"; }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(69,85,58,0.25)"; (e.currentTarget as HTMLDivElement).style.boxShadow = "0 4px 16px rgba(0,0,0,0.06)"; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = "var(--border)"; (e.currentTarget as HTMLDivElement).style.boxShadow = "none"; }}
                   >
-                    <div className="flex items-start gap-4">
-                      {/* Status icon */}
-                      <div
-                        className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
-                        style={{ background: sc.bg, color: sc.fg }}
-                      >
-                        {statusIcon(req.status)}
-                      </div>
+                    <div style={{ display: "flex" }}>
+                      {/* Left accent bar */}
+                      <div style={{ width: 4, flexShrink: 0, background: sc.dot }} />
 
-                      <div className="flex-1 min-w-0">
-                        {/* Title row */}
-                        <div className="flex items-start justify-between gap-3 mb-1">
-                          <h3 className="text-[14px] font-semibold leading-tight" style={{ color: "var(--foreground)" }}>
-                            {req.title}
-                          </h3>
-                          <div className="flex items-center gap-2 shrink-0">
+                      <div style={{ flex: 1, padding: "18px 20px" }}>
+                        {/* Top row: title + badges + delete */}
+                        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 10 }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+                              <h3 style={{ fontSize: 15, fontWeight: 650, color: "var(--foreground)", margin: 0, lineHeight: 1.3 }}>
+                                {req.title}
+                              </h3>
+                            </div>
+                            <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: 0, lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                              {req.description}
+                            </p>
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
                             <PriorityBadge priority={req.priority} t={t} />
                             <MaintBadge status={req.status} t={t} />
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(req.id)}
+                              className="opacity-0 group-hover:opacity-100"
+                              style={{
+                                width: 30, height: 30, borderRadius: 8,
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                                color: "var(--muted-foreground)", border: "none",
+                                background: "transparent", cursor: "pointer",
+                                transition: "all 0.15s",
+                              }}
+                              onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(239,68,68,0.08)"; e.currentTarget.style.color = "#DC2626"; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--muted-foreground)"; }}
+                            >
+                              <Trash2 style={{ width: 14, height: 14 }} />
+                            </button>
                           </div>
                         </div>
 
-                        {/* Description */}
-                        <p className="text-[13px] mb-3 line-clamp-2" style={{ color: "var(--muted-foreground)" }}>
-                          {req.description}
-                        </p>
+                        {/* Divider */}
+                        <div style={{ height: 1, background: "var(--border)", marginBottom: 12 }} />
 
-                        {/* Meta row */}
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mb-3">
-                          <span className="flex items-center gap-1.5 text-[12px]" style={{ color: "var(--muted-foreground)" }}>
-                            <Home className="w-3.5 h-3.5" />
-                            {req.buildingName} · {t("unit")} {req.unit}
-                          </span>
+                        {/* Bottom row: meta + status actions */}
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+                          {/* Meta info */}
+                          <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              <div style={{
+                                width: 26, height: 26, borderRadius: 7,
+                                background: "var(--background)", border: "1px solid var(--border)",
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                              }}>
+                                <Home style={{ width: 13, height: 13, color: "var(--primary)" }} />
+                              </div>
+                              <span style={{ fontSize: 12, fontWeight: 500, color: "var(--foreground)" }}>
+                                {req.buildingName}
+                              </span>
+                              <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>
+                                {t("unit")} {req.unit}
+                              </span>
+                            </div>
+
+                            {isAdmin && (
+                              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                <div style={{
+                                  width: 26, height: 26, borderRadius: 7,
+                                  background: "var(--background)", border: "1px solid var(--border)",
+                                  display: "flex", alignItems: "center", justifyContent: "center",
+                                }}>
+                                  <User style={{ width: 13, height: 13, color: "var(--muted-foreground)" }} />
+                                </div>
+                                <span style={{ fontSize: 12, fontWeight: 500, color: "var(--foreground)" }}>
+                                  {req.tenantName}
+                                </span>
+                              </div>
+                            )}
+
+                            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                              <Calendar style={{ width: 12, height: 12, color: "var(--muted-foreground)" }} />
+                              <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>
+                                {formatDate(req.createdAt)}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Admin status actions */}
                           {isAdmin && (
-                            <span className="flex items-center gap-1.5 text-[12px]" style={{ color: "var(--muted-foreground)" }}>
-                              <User className="w-3.5 h-3.5" />
-                              {req.tenantName}
-                            </span>
+                            <div style={{ display: "flex", gap: 6 }}>
+                              {(["pending", "in-progress", "completed"] as const).map((s) => {
+                                const sc2 = MAINT_STATUS[s];
+                                const isActive = req.status === s;
+                                return (
+                                  <button
+                                    key={s}
+                                    type="button"
+                                    onClick={() => handleStatusChange(req.id, s)}
+                                    disabled={isActive}
+                                    style={{
+                                      display: "flex", alignItems: "center", gap: 5,
+                                      padding: "5px 11px", borderRadius: 8, fontSize: 11, fontWeight: 600,
+                                      background: isActive ? sc2.bg : "transparent",
+                                      color: isActive ? sc2.fg : "var(--muted-foreground)",
+                                      border: isActive ? "1.5px solid " + sc2.dot : "1px solid var(--border)",
+                                      cursor: isActive ? "default" : "pointer",
+                                      transition: "all 0.15s",
+                                    }}
+                                  >
+                                    <span style={{
+                                      width: 6, height: 6, borderRadius: "50%",
+                                      background: isActive ? sc2.dot : "var(--muted-foreground)",
+                                    }} />
+                                    {s === "pending" ? t("pending") : s === "in-progress" ? t("inProgress") : t("completed")}
+                                  </button>
+                                );
+                              })}
+                            </div>
                           )}
-                          <span className="flex items-center gap-1.5 text-[12px]" style={{ color: "var(--muted-foreground)" }}>
-                            <Calendar className="w-3.5 h-3.5" />
-                            {formatDate(req.createdAt)}
-                          </span>
                         </div>
-
-                        {/* Admin status actions */}
-                        {isAdmin && (
-                          <div className="flex flex-wrap gap-2">
-                            {(["pending", "in-progress", "completed"] as const).map((s) => {
-                              const sc2 = MAINT_STATUS[s];
-                              const isActive = req.status === s;
-                              return (
-                                <button
-                                  key={s}
-                                  type="button"
-                                  onClick={() => handleStatusChange(req.id, s)}
-                                  disabled={isActive}
-                                  className="flex items-center gap-1.5 rounded-lg text-[11px] font-semibold transition-all"
-                                  style={{
-                                    padding: "5px 10px",
-                                    background: isActive ? sc2.bg : "var(--background)",
-                                    color: isActive ? sc2.fg : "var(--muted-foreground)",
-                                    border: `1px solid ${isActive ? "transparent" : "var(--border)"}`,
-                                    cursor: isActive ? "default" : "pointer",
-                                  }}
-                                >
-                                  <StatusDot color={isActive ? sc2.dot : "var(--muted-foreground)"} />
-                                  {s === "pending" ? t("pending") : s === "in-progress" ? t("inProgress") : t("completed")}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
                       </div>
-
-                      {/* Delete */}
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(req.id)}
-                        className="w-8 h-8 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shrink-0 mt-0.5"
-                        style={{ color: "var(--muted-foreground)" }}
-                        onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(239,68,68,0.08)"; e.currentTarget.style.color = "#DC2626"; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--muted-foreground)"; }}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
                     </div>
                   </div>
                 );
@@ -873,12 +828,15 @@ export function RequestsView() {
 
             {filteredRequests.length === 0 && (
               <div
-                className="rounded-2xl p-14 text-center"
-                style={{ background: "var(--card)", border: "1px solid var(--border)" }}
+                style={{
+                  borderRadius: 16, padding: "56px 20px",
+                  textAlign: "center",
+                  background: "var(--card)", border: "1px solid var(--border)",
+                }}
               >
-                <Wrench className="w-10 h-10 mx-auto mb-3 opacity-20" style={{ color: "var(--muted-foreground)" }} />
-                <p className="text-[14px] font-semibold" style={{ color: "var(--foreground)" }}>{t("noRequests")}</p>
-                <p className="text-[12px] mt-1" style={{ color: "var(--muted-foreground)" }}>
+                <Wrench style={{ width: 40, height: 40, margin: "0 auto 12px", opacity: 0.2, color: "var(--muted-foreground)" }} />
+                <p style={{ fontSize: 14, fontWeight: 600, color: "var(--foreground)", margin: 0 }}>{t("noRequests")}</p>
+                <p style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 4 }}>
                   {filter === "all" ? (isAdmin ? t("noRequestsAdmin") : t("noRequestsTenant")) : t("noRequestsFilter")}
                 </p>
               </div>
@@ -888,9 +846,9 @@ export function RequestsView() {
 
         {/* ═══ APPLICATIONS TAB ═══ */}
         {activeTab === "applications" && isAdmin && (
-          <div className="space-y-5">
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
             {/* Filters */}
-            <div className="flex flex-wrap gap-2">
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               {([
                 { key: "all",          label: t("filterAll") },
                 { key: "received",     label: t("received"),    count: receivedCount },
@@ -901,7 +859,7 @@ export function RequestsView() {
                 <FilterPill key={f.key} active={appFilter === f.key} onClick={() => setAppFilter(f.key)}>
                   {f.label}
                   {(f as any).count > 0 && (
-                    <span className="rounded-full text-[10px] font-bold" style={{ padding: "1px 6px", background: appFilter === f.key ? "rgba(255,255,255,0.22)" : "rgba(99,102,241,0.12)", color: appFilter === f.key ? "#fff" : "#4338CA" }}>
+                    <span style={{ padding: "1px 6px", borderRadius: 99, fontSize: 10, fontWeight: 700, background: appFilter === f.key ? "rgba(255,255,255,0.22)" : "rgba(99,102,241,0.12)", color: appFilter === f.key ? "#fff" : "#4338CA" }}>
                       {(f as any).count}
                     </span>
                   )}
@@ -910,127 +868,149 @@ export function RequestsView() {
             </div>
 
             {/* Application cards */}
-            <div className="space-y-3">
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               {filteredApplications.map((app) => {
                 const sc = APP_STATUS[app.status];
                 return (
                   <div
                     key={app.id}
-                    className="group rounded-2xl overflow-hidden transition-all cursor-pointer"
+                    className="group"
                     style={{
+                      borderRadius: 16, overflow: "hidden",
                       background: "var(--card)",
                       border: "1px solid var(--border)",
-                      boxShadow: "0 1px 2px rgba(0,0,0,0.03)",
+                      cursor: "pointer",
+                      transition: "border-color 0.15s, box-shadow 0.15s",
                     }}
                     onClick={() => setDrawerAppId(app.id)}
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(69,85,58,0.25)"; (e.currentTarget as HTMLDivElement).style.boxShadow = "0 2px 8px rgba(0,0,0,0.07)"; }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = "var(--border)"; (e.currentTarget as HTMLDivElement).style.boxShadow = "0 1px 2px rgba(0,0,0,0.03)"; }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(69,85,58,0.25)"; (e.currentTarget as HTMLDivElement).style.boxShadow = "0 4px 16px rgba(0,0,0,0.06)"; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = "var(--border)"; (e.currentTarget as HTMLDivElement).style.boxShadow = "none"; }}
                   >
-                    {/* Status accent bar */}
-                    <div className="h-1 w-full" style={{ background: sc?.dot ?? "var(--border)" }} />
+                    <div style={{ display: "flex" }}>
+                      {/* Left accent bar */}
+                      <div style={{ width: 4, flexShrink: 0, background: sc?.dot ?? "var(--border)" }} />
 
-                    <div className="p-5">
-                      {/* 3-column grid layout */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-6">
-
-                        {/* LEFT: Identity */}
-                        <div className="flex items-start gap-3">
-                          <div
-                            className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 text-[15px] font-bold"
-                            style={{ background: "var(--sidebar-accent)", color: "var(--primary)" }}
-                          >
-                            {app.applicantName.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-[14px] font-semibold leading-tight" style={{ color: "var(--foreground)" }}>
-                              {app.applicantName}
-                            </p>
-                            <p className="text-[12px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>
-                              {app.occupation}
-                            </p>
-                            <p className="text-[11px] mt-1" style={{ color: "var(--muted-foreground)" }}>
-                              {app.employer}
-                            </p>
-                            <div className="mt-2">
-                              <AppBadge status={app.status} />
+                      <div style={{ flex: 1, padding: "18px 20px" }}>
+                        {/* Top row: Identity + badge + delete */}
+                        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 14 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0 }}>
+                            <div style={{
+                              width: 42, height: 42, borderRadius: 11, flexShrink: 0,
+                              background: "var(--sidebar-accent)", color: "var(--primary)",
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                              fontSize: 14, fontWeight: 700,
+                            }}>
+                              {app.applicantName.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)}
                             </div>
-                          </div>
-                        </div>
-
-                        {/* CENTER: Property + financials */}
-                        <div className="space-y-2.5">
-                          <div>
-                            <p className="text-[10px] font-semibold uppercase mb-0.5" style={{ color: "var(--muted-foreground)", letterSpacing: "0.06em" }}>
-                              Bien
-                            </p>
-                            <div className="flex items-center gap-1.5">
-                              <Home className="w-3.5 h-3.5 shrink-0" style={{ color: "var(--primary)" }} />
-                              <p className="text-[13px] font-medium" style={{ color: "var(--foreground)" }}>
-                                {app.buildingName}
+                            <div style={{ minWidth: 0 }}>
+                              <p style={{ fontSize: 15, fontWeight: 650, color: "var(--foreground)", margin: 0, lineHeight: 1.3 }}>
+                                {app.applicantName}
                               </p>
-                            </div>
-                            <p className="text-[12px] mt-0.5 ml-5" style={{ color: "var(--muted-foreground)" }}>
-                              {t("unit")} {app.desiredUnit}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] font-semibold uppercase mb-0.5" style={{ color: "var(--muted-foreground)", letterSpacing: "0.06em" }}>
-                              Revenu mensuel
-                            </p>
-                            <div className="flex items-center gap-1.5">
-                              <DollarSign className="w-3.5 h-3.5 shrink-0" style={{ color: "var(--primary)" }} />
-                              <p className="text-[13px] font-semibold" style={{ color: "var(--foreground)" }}>
-                                {formatCHF(app.monthlyIncome)}
+                              <p style={{ fontSize: 12, color: "var(--muted-foreground)", margin: 0, marginTop: 2 }}>
+                                {app.occupation}{app.employer ? ` · ${app.employer}` : ""}
                               </p>
                             </div>
                           </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                            <AppBadge status={app.status} />
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); handleAppDelete(app.id); }}
+                              className="opacity-0 group-hover:opacity-100"
+                              style={{
+                                width: 30, height: 30, borderRadius: 8,
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                                color: "var(--muted-foreground)", border: "none",
+                                background: "transparent", cursor: "pointer", transition: "all 0.15s",
+                              }}
+                              onMouseEnter={(e2) => { e2.currentTarget.style.background = "rgba(239,68,68,0.08)"; e2.currentTarget.style.color = "#DC2626"; }}
+                              onMouseLeave={(e2) => { e2.currentTarget.style.background = "transparent"; e2.currentTarget.style.color = "var(--muted-foreground)"; }}
+                            >
+                              <Trash2 style={{ width: 14, height: 14 }} />
+                            </button>
+                          </div>
                         </div>
 
-                        {/* RIGHT: Dates, household, actions */}
-                        <div className="flex flex-col justify-between gap-3">
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-2">
-                              <Calendar className="w-3.5 h-3.5 shrink-0" style={{ color: "var(--muted-foreground)" }} />
+                        {/* Divider */}
+                        <div style={{ height: 1, background: "var(--border)", marginBottom: 14 }} />
+
+                        {/* Bottom: metadata grid + actions */}
+                        <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+                          {/* Meta items */}
+                          <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              <div style={{
+                                width: 26, height: 26, borderRadius: 7,
+                                background: "var(--background)", border: "1px solid var(--border)",
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                              }}>
+                                <Home style={{ width: 13, height: 13, color: "var(--primary)" }} />
+                              </div>
                               <div>
-                                <p className="text-[10px]" style={{ color: "var(--muted-foreground)" }}>Entrée souhaitée</p>
-                                <p className="text-[12px] font-medium" style={{ color: "var(--foreground)" }}>
-                                  {new Date(app.desiredMoveIn).toLocaleDateString("fr-CH")}
-                                </p>
+                                <span style={{ fontSize: 12, fontWeight: 500, color: "var(--foreground)" }}>
+                                  {app.buildingName}
+                                </span>
+                                <span style={{ fontSize: 11, color: "var(--muted-foreground)", marginLeft: 4 }}>
+                                  {t("unit")} {app.desiredUnit}
+                                </span>
                               </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <Users className="w-3.5 h-3.5 shrink-0" style={{ color: "var(--muted-foreground)" }} />
-                              <p className="text-[12px]" style={{ color: "var(--muted-foreground)" }}>
-                                {app.householdSize} {t("numberOfPersons")}
-                              </p>
+
+                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              <div style={{
+                                width: 26, height: 26, borderRadius: 7,
+                                background: "var(--background)", border: "1px solid var(--border)",
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                              }}>
+                                <Banknote style={{ width: 13, height: 13, color: "var(--primary)" }} />
+                              </div>
+                              <span style={{ fontSize: 12, fontWeight: 600, color: "var(--foreground)" }}>
+                                {formatCHF(app.monthlyIncome)}
+                              </span>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <Calendar className="w-3.5 h-3.5 shrink-0" style={{ color: "var(--muted-foreground)" }} />
-                              <p className="text-[12px]" style={{ color: "var(--muted-foreground)" }}>
-                                {t("applicationDate")}: {formatDate(app.createdAt)}
-                              </p>
+
+                            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                              <Calendar style={{ width: 12, height: 12, color: "var(--muted-foreground)" }} />
+                              <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>
+                                {new Date(app.desiredMoveIn).toLocaleDateString("fr-CH")}
+                              </span>
+                            </div>
+
+                            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                              <Users style={{ width: 12, height: 12, color: "var(--muted-foreground)" }} />
+                              <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>
+                                {app.householdSize} {t("numberOfPersons")}
+                              </span>
                             </div>
                           </div>
 
                           {/* Quick actions */}
-                          <div className="flex items-center gap-2 flex-wrap">
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                             <button
                               type="button"
                               onClick={(e) => { e.stopPropagation(); setDrawerAppId(app.id); }}
-                              className="flex items-center gap-1.5 rounded-lg text-[11px] font-semibold transition-colors"
-                              style={{ padding: "5px 10px", background: "var(--sidebar-accent)", color: "var(--primary)" }}
+                              style={{
+                                display: "flex", alignItems: "center", gap: 5,
+                                padding: "5px 11px", borderRadius: 8, fontSize: 11, fontWeight: 600,
+                                background: "var(--sidebar-accent)", color: "var(--primary)",
+                                border: "none", cursor: "pointer", transition: "opacity 0.15s",
+                              }}
                             >
-                              <Eye className="w-3.5 h-3.5" />
+                              <Eye style={{ width: 13, height: 13 }} />
                               Dossier
                             </button>
                             {app.status !== "accepted" && (
                               <button
                                 type="button"
                                 onClick={(e) => { e.stopPropagation(); handleAppStatusChange(app.id, "accepted"); }}
-                                className="flex items-center gap-1.5 rounded-lg text-[11px] font-semibold transition-colors"
-                                style={{ padding: "5px 10px", background: "rgba(34,197,94,0.10)", color: "#15803D" }}
+                                style={{
+                                  display: "flex", alignItems: "center", gap: 5,
+                                  padding: "5px 11px", borderRadius: 8, fontSize: 11, fontWeight: 600,
+                                  background: "rgba(34,197,94,0.10)", color: "#15803D",
+                                  border: "none", cursor: "pointer", transition: "opacity 0.15s",
+                                }}
                               >
-                                <CheckCheck className="w-3.5 h-3.5" />
+                                <CheckCheck style={{ width: 13, height: 13 }} />
                                 {t("approve")}
                               </button>
                             )}
@@ -1038,23 +1018,17 @@ export function RequestsView() {
                               <button
                                 type="button"
                                 onClick={(e) => { e.stopPropagation(); handleAppStatusChange(app.id, "rejected"); }}
-                                className="flex items-center gap-1.5 rounded-lg text-[11px] font-semibold transition-colors"
-                                style={{ padding: "5px 10px", background: "rgba(239,68,68,0.08)", color: "#DC2626" }}
+                                style={{
+                                  display: "flex", alignItems: "center", gap: 5,
+                                  padding: "5px 11px", borderRadius: 8, fontSize: 11, fontWeight: 600,
+                                  background: "rgba(239,68,68,0.08)", color: "#DC2626",
+                                  border: "none", cursor: "pointer", transition: "opacity 0.15s",
+                                }}
                               >
-                                <X className="w-3.5 h-3.5" />
+                                <X style={{ width: 13, height: 13 }} />
                                 {t("reject")}
                               </button>
                             )}
-                            <button
-                              type="button"
-                              onClick={(e) => { e.stopPropagation(); handleAppDelete(app.id); }}
-                              className="w-7 h-7 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all ml-auto"
-                              style={{ color: "var(--muted-foreground)" }}
-                              onMouseEnter={(e2) => { e2.currentTarget.style.background = "rgba(239,68,68,0.08)"; e2.currentTarget.style.color = "#DC2626"; }}
-                              onMouseLeave={(e2) => { e2.currentTarget.style.background = "transparent"; e2.currentTarget.style.color = "var(--muted-foreground)"; }}
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
                           </div>
                         </div>
                       </div>
@@ -1066,17 +1040,465 @@ export function RequestsView() {
 
             {filteredApplications.length === 0 && (
               <div
-                className="rounded-2xl p-14 text-center"
-                style={{ background: "var(--card)", border: "1px solid var(--border)" }}
+                style={{
+                  borderRadius: 16, padding: "56px 20px",
+                  textAlign: "center",
+                  background: "var(--card)", border: "1px solid var(--border)",
+                }}
               >
-                <FileText className="w-10 h-10 mx-auto mb-3 opacity-20" style={{ color: "var(--muted-foreground)" }} />
-                <p className="text-[14px] font-semibold" style={{ color: "var(--foreground)" }}>{t("noApplications")}</p>
-                <p className="text-[12px] mt-1" style={{ color: "var(--muted-foreground)" }}>{t("noApplicationsSub")}</p>
+                <FileText style={{ width: 40, height: 40, margin: "0 auto 12px", opacity: 0.2, color: "var(--muted-foreground)" }} />
+                <p style={{ fontSize: 14, fontWeight: 600, color: "var(--foreground)", margin: 0 }}>{t("noApplications")}</p>
+                <p style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 4 }}>{t("noApplicationsSub")}</p>
               </div>
             )}
           </div>
         )}
       </div>
+
+      {/* ═══ MAINTENANCE REQUEST FORM MODAL ═══ */}
+      {isDialogOpen && createPortal(
+        <div
+          style={{
+            position: "fixed", inset: 0, zIndex: 50,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            background: "rgba(0,0,0,0.45)",
+            backdropFilter: "blur(4px)",
+            padding: 24,
+          }}
+          onClick={() => setIsDialogOpen(false)}
+        >
+          <div
+            style={{
+              width: "100%", maxWidth: 580,
+              maxHeight: "88vh", overflowY: "auto",
+              borderRadius: 24,
+              background: "var(--card)",
+              border: "1px solid var(--border)",
+              boxShadow: "0 24px 64px rgba(0,0,0,0.20)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal header */}
+            <div style={{ position: "relative", padding: "28px 32px 20px", borderBottom: "1px solid var(--border)" }}>
+              <div style={{ position: "absolute", top: 0, left: 32, right: 32, height: 3, borderRadius: "0 0 3px 3px", background: "var(--primary)" }} />
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <div style={{
+                  width: 44, height: 44, borderRadius: 12,
+                  background: "color-mix(in srgb, var(--primary) 10%, transparent)",
+                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                }}>
+                  <Wrench style={{ width: 20, height: 20, color: "var(--primary)" }} />
+                </div>
+                <div>
+                  <h2 style={{ fontSize: 18, fontWeight: 700, color: "var(--foreground)", margin: 0 }}>
+                    {t("newRequest")}
+                  </h2>
+                  <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: 0, marginTop: 2 }}>
+                    {t("requestsSubTenant")}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsDialogOpen(false)}
+                style={{
+                  position: "absolute", top: 20, right: 20,
+                  width: 36, height: 36, borderRadius: 10,
+                  border: "none", background: "transparent",
+                  color: "var(--muted-foreground)", cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  transition: "background 0.15s",
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = "var(--background)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+              >
+                <X style={{ width: 18, height: 18 }} />
+              </button>
+            </div>
+
+            {/* Form body */}
+            <form onSubmit={handleSubmit} style={{ padding: "24px 32px 28px" }}>
+              {/* Section: Request Details */}
+              <div style={{ marginBottom: 24 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+                  <Wrench style={{ width: 14, height: 14, color: "var(--primary)" }} />
+                  <span style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted-foreground)" }}>
+                    {t("requestTitle")}
+                  </span>
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  <div>
+                    <label style={labelStyle}>{t("requestTitle")}</label>
+                    <input
+                      type="text"
+                      value={formData.title}
+                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                      required
+                      style={inputStyle}
+                      onFocus={(e) => { e.currentTarget.style.borderColor = "var(--primary)"; }}
+                      onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={labelStyle}>{t("requestDescription")}</label>
+                    <textarea
+                      value={formData.description}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      required
+                      rows={4}
+                      style={{ ...inputStyle, resize: "vertical" }}
+                      onFocus={(e) => { e.currentTarget.style.borderColor = "var(--primary)"; }}
+                      onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={labelStyle}>{t("priority")}</label>
+                    <select
+                      value={formData.priority}
+                      onChange={(e) => setFormData({ ...formData, priority: e.target.value as any })}
+                      style={selectStyle}
+                      onFocus={(e) => { e.currentTarget.style.borderColor = "var(--primary)"; }}
+                      onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
+                    >
+                      <option value="low">{t("low")}</option>
+                      <option value="medium">{t("medium")}</option>
+                      <option value="high">{t("high")}</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Buttons */}
+              <div style={{ display: "flex", gap: 12, paddingTop: 8 }}>
+                <button
+                  type="submit"
+                  style={{
+                    flex: 1, padding: "11px 0", borderRadius: 12,
+                    background: "var(--primary)", color: "var(--primary-foreground)",
+                    fontSize: 13, fontWeight: 600, border: "none", cursor: "pointer",
+                    transition: "opacity 0.15s",
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.9"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
+                >
+                  {t("submit")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsDialogOpen(false)}
+                  style={{
+                    flex: 1, padding: "11px 0", borderRadius: 12,
+                    background: "var(--background)", color: "var(--foreground)",
+                    fontSize: 13, fontWeight: 500, border: "1px solid var(--border)", cursor: "pointer",
+                    transition: "background 0.15s",
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = "var(--card)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = "var(--background)"; }}
+                >
+                  {t("cancel")}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ═══ RENTAL APPLICATION FORM MODAL ═══ */}
+      {isAppDialogOpen && createPortal(
+        <div
+          style={{
+            position: "fixed", inset: 0, zIndex: 50,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            background: "rgba(0,0,0,0.45)",
+            backdropFilter: "blur(4px)",
+            padding: 24,
+          }}
+          onClick={() => setIsAppDialogOpen(false)}
+        >
+          <div
+            style={{
+              width: "100%", maxWidth: 640,
+              maxHeight: "88vh", overflowY: "auto",
+              borderRadius: 24,
+              background: "var(--card)",
+              border: "1px solid var(--border)",
+              boxShadow: "0 24px 64px rgba(0,0,0,0.20)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal header */}
+            <div style={{ position: "relative", padding: "28px 32px 20px", borderBottom: "1px solid var(--border)" }}>
+              <div style={{ position: "absolute", top: 0, left: 32, right: 32, height: 3, borderRadius: "0 0 3px 3px", background: "var(--primary)" }} />
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <div style={{
+                  width: 44, height: 44, borderRadius: 12,
+                  background: "color-mix(in srgb, var(--primary) 10%, transparent)",
+                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                }}>
+                  <FileText style={{ width: 20, height: 20, color: "var(--primary)" }} />
+                </div>
+                <div>
+                  <h2 style={{ fontSize: 18, fontWeight: 700, color: "var(--foreground)", margin: 0 }}>
+                    {t("newRentalApplication")}
+                  </h2>
+                  <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: 0, marginTop: 2 }}>
+                    {t("requestsHubSub")}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAppDialogOpen(false)}
+                style={{
+                  position: "absolute", top: 20, right: 20,
+                  width: 36, height: 36, borderRadius: 10,
+                  border: "none", background: "transparent",
+                  color: "var(--muted-foreground)", cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  transition: "background 0.15s",
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = "var(--background)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+              >
+                <X style={{ width: 18, height: 18 }} />
+              </button>
+            </div>
+
+            {/* Form body */}
+            <form onSubmit={handleAppSubmit} style={{ padding: "24px 32px 28px" }}>
+
+              {/* Section: Applicant */}
+              <div style={{ marginBottom: 24 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+                  <User style={{ width: 14, height: 14, color: "var(--primary)" }} />
+                  <span style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted-foreground)" }}>
+                    {t("applicantInfo")}
+                  </span>
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  <div>
+                    <label style={labelStyle}>{t("applicantName")}</label>
+                    <input
+                      type="text"
+                      value={appFormData.applicantName}
+                      onChange={(e) => setAppFormData({ ...appFormData, applicantName: e.target.value })}
+                      required
+                      style={inputStyle}
+                      onFocus={(e) => { e.currentTarget.style.borderColor = "var(--primary)"; }}
+                      onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
+                    />
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                    <div>
+                      <label style={labelStyle}>{t("applicantEmail")}</label>
+                      <input
+                        type="email"
+                        value={appFormData.applicantEmail}
+                        onChange={(e) => setAppFormData({ ...appFormData, applicantEmail: e.target.value })}
+                        required
+                        style={inputStyle}
+                        onFocus={(e) => { e.currentTarget.style.borderColor = "var(--primary)"; }}
+                        onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
+                      />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>{t("applicantPhone")}</label>
+                      <input
+                        type="text"
+                        value={appFormData.applicantPhone}
+                        onChange={(e) => setAppFormData({ ...appFormData, applicantPhone: e.target.value })}
+                        required
+                        style={inputStyle}
+                        onFocus={(e) => { e.currentTarget.style.borderColor = "var(--primary)"; }}
+                        onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>{t("currentAddress")}</label>
+                    <input
+                      type="text"
+                      value={appFormData.currentAddress}
+                      onChange={(e) => setAppFormData({ ...appFormData, currentAddress: e.target.value })}
+                      required
+                      style={inputStyle}
+                      onFocus={(e) => { e.currentTarget.style.borderColor = "var(--primary)"; }}
+                      onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Section: Property */}
+              <div style={{ marginBottom: 24 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+                  <Home style={{ width: 14, height: 14, color: "var(--primary)" }} />
+                  <span style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted-foreground)" }}>
+                    {t("building")}
+                  </span>
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  <div>
+                    <label style={labelStyle}>{t("building")}</label>
+                    <select
+                      value={appFormData.buildingId}
+                      onChange={(e) => setAppFormData({ ...appFormData, buildingId: e.target.value })}
+                      required
+                      style={selectStyle}
+                      onFocus={(e) => { e.currentTarget.style.borderColor = "var(--primary)"; }}
+                      onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
+                    >
+                      <option value="">{t("selectBuilding")}</option>
+                      {buildings.map((b) => (
+                        <option key={b.id} value={b.id}>{b.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                    <div>
+                      <label style={labelStyle}>{t("desiredUnit")}</label>
+                      <input
+                        type="text"
+                        value={appFormData.desiredUnit}
+                        onChange={(e) => setAppFormData({ ...appFormData, desiredUnit: e.target.value })}
+                        required
+                        style={inputStyle}
+                        onFocus={(e) => { e.currentTarget.style.borderColor = "var(--primary)"; }}
+                        onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
+                      />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>{t("desiredMoveIn")}</label>
+                      <input
+                        type="date"
+                        value={appFormData.desiredMoveIn}
+                        onChange={(e) => setAppFormData({ ...appFormData, desiredMoveIn: e.target.value })}
+                        required
+                        style={inputStyle}
+                        onFocus={(e) => { e.currentTarget.style.borderColor = "var(--primary)"; }}
+                        onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section: Financial */}
+              <div style={{ marginBottom: 24 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+                  <Banknote style={{ width: 14, height: 14, color: "var(--primary)" }} />
+                  <span style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted-foreground)" }}>
+                    {t("applicationDetails")}
+                  </span>
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+                    <div>
+                      <label style={labelStyle}>{t("monthlyIncome")}</label>
+                      <input
+                        type="number"
+                        value={appFormData.monthlyIncome}
+                        onChange={(e) => setAppFormData({ ...appFormData, monthlyIncome: parseInt(e.target.value) || 0 })}
+                        required
+                        style={inputStyle}
+                        onFocus={(e) => { e.currentTarget.style.borderColor = "var(--primary)"; }}
+                        onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
+                      />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>{t("householdSize")}</label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={appFormData.householdSize}
+                        onChange={(e) => setAppFormData({ ...appFormData, householdSize: parseInt(e.target.value) || 1 })}
+                        required
+                        style={inputStyle}
+                        onFocus={(e) => { e.currentTarget.style.borderColor = "var(--primary)"; }}
+                        onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
+                      />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>{t("applicantOccupation")}</label>
+                      <input
+                        type="text"
+                        value={appFormData.occupation}
+                        onChange={(e) => setAppFormData({ ...appFormData, occupation: e.target.value })}
+                        style={inputStyle}
+                        onFocus={(e) => { e.currentTarget.style.borderColor = "var(--primary)"; }}
+                        onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>{t("employer")}</label>
+                    <input
+                      type="text"
+                      value={appFormData.employer}
+                      onChange={(e) => setAppFormData({ ...appFormData, employer: e.target.value })}
+                      style={inputStyle}
+                      onFocus={(e) => { e.currentTarget.style.borderColor = "var(--primary)"; }}
+                      onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Message */}
+              <div style={{ marginBottom: 24 }}>
+                <label style={labelStyle}>{t("applicationMessage")}</label>
+                <textarea
+                  value={appFormData.message}
+                  onChange={(e) => setAppFormData({ ...appFormData, message: e.target.value })}
+                  rows={3}
+                  style={{ ...inputStyle, resize: "vertical" }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = "var(--primary)"; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
+                />
+              </div>
+
+              {/* Buttons */}
+              <div style={{ display: "flex", gap: 12, paddingTop: 8 }}>
+                <button
+                  type="submit"
+                  style={{
+                    flex: 1, padding: "11px 0", borderRadius: 12,
+                    background: "var(--primary)", color: "var(--primary-foreground)",
+                    fontSize: 13, fontWeight: 600, border: "none", cursor: "pointer",
+                    transition: "opacity 0.15s",
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.9"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
+                >
+                  {t("create")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsAppDialogOpen(false)}
+                  style={{
+                    flex: 1, padding: "11px 0", borderRadius: 12,
+                    background: "var(--background)", color: "var(--foreground)",
+                    fontSize: 13, fontWeight: 500, border: "1px solid var(--border)", cursor: "pointer",
+                    transition: "background 0.15s",
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = "var(--card)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = "var(--background)"; }}
+                >
+                  {t("cancel")}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* Application drawer */}
       <ApplicationDrawer

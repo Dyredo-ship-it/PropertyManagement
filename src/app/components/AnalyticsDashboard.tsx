@@ -17,7 +17,7 @@ import {
   TrendingUp,
   TrendingDown,
   Building,
-  DollarSign,
+  Banknote,
   Users,
   Wrench,
   ChevronDown,
@@ -345,7 +345,7 @@ export function AnalyticsDashboard() {
       {/* ── KPI Strip ────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4" style={{ marginBottom: 36 }}>
         <KpiCard
-          icon={DollarSign}
+          icon={Banknote}
           label="Total Revenue"
           value={formatCHF(totalRevenue)}
           sub="Year to date"

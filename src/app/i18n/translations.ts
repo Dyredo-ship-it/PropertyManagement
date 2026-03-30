@@ -64,6 +64,9 @@ type TranslationSet = {
 
   // Top Header
   searchPlaceholder: string;
+  noResults: string;
+  results: string;
+  toClose: string;
 
   // Dashboard (Admin)
   dashboardTitle: string;
@@ -100,6 +103,12 @@ type TranslationSet = {
   unitsOccupied: string;
   activeTenants: string;
   acrossProperties: string;
+  latePayments: string;
+  allPaymentsUpToDate: string;
+  todoList: string;
+  todoPlaceholder: string;
+  addTask: string;
+  noTasks: string;
 
   // Dashboard (Tenant)
   hello: string;
@@ -160,6 +169,9 @@ type TranslationSet = {
   addTenant: string;
   editTenant: string;
   newTenant: string;
+  newTenantSub: string;
+  editTenantSub: string;
+  personalInfo: string;
   fullName: string;
   phone: string;
   building: string;
@@ -192,6 +204,8 @@ type TranslationSet = {
   chargesLabel: string;
   monthlyTotal: string;
   sendEmail: string;
+  portalNotification: string;
+  notificationSentTo: string;
   confirmDeleteTenant: string;
   selectBuilding: string;
 
@@ -331,6 +345,41 @@ type TranslationSet = {
   broadcastMessage: string;
   recipients: string;
   sendToAll: string;
+  // Notification categories & sorting
+  catAll: string;
+  catGeneral: string;
+  catMaintenance: string;
+  catPayment: string;
+  catInspection: string;
+  catUrgent: string;
+  sortNewest: string;
+  sortOldest: string;
+  sortUnread: string;
+  notifCategory: string;
+  // Calendar
+  navCalendar: string;
+  calendarTitle: string;
+  calendarSub: string;
+  calendarToday: string;
+  calendarMonth: string;
+  calendarWeek: string;
+  calendarNoEvents: string;
+  calendarAddEvent: string;
+  calendarEventTitle: string;
+  calendarEventDate: string;
+  calendarEventTime: string;
+  calendarEventType: string;
+  calendarEventBuilding: string;
+  calendarEventNotes: string;
+  calendarTypeVisit: string;
+  calendarTypeInspection: string;
+  calendarTypeSigning: string;
+  calendarTypeMeeting: string;
+  calendarTypeOther: string;
+  calendarConnectGoogle: string;
+  calendarAddToGoogle: string;
+  calendarSyncInfo: string;
+  calendarEventCreated: string;
   today: string;
   yesterday: string;
   daysAgo: string;
@@ -523,6 +572,9 @@ export const translations: Record<Language, TranslationSet> = {
     navMyRequests: "Mes demandes",
 
     searchPlaceholder: "Rechercher propriétés, locataires ou demandes...",
+    noResults: "Aucun résultat trouvé",
+    results: "résultats",
+    toClose: "pour fermer",
 
     dashboardTitle: "Vue d'ensemble",
     dashboardSubtitle: "Vue complète de votre portefeuille immobilier",
@@ -558,6 +610,12 @@ export const translations: Record<Language, TranslationSet> = {
     unitsOccupied: "unités occupées",
     activeTenants: "Locataires actifs",
     acrossProperties: "Dans toutes les propriétés",
+    latePayments: "Retards de paiement",
+    allPaymentsUpToDate: "Tous les paiements sont à jour",
+    todoList: "Liste de tâches",
+    todoPlaceholder: "Nouvelle tâche…",
+    addTask: "Ajouter",
+    noTasks: "Aucune tâche pour le moment",
 
     hello: "Bonjour",
     welcomeTenant: "Bienvenue dans votre espace locataire",
@@ -615,6 +673,9 @@ export const translations: Record<Language, TranslationSet> = {
     addTenant: "Ajouter un locataire",
     editTenant: "Modifier le locataire",
     newTenant: "Nouveau locataire",
+    newTenantSub: "Remplissez les informations du nouveau locataire",
+    editTenantSub: "Modifiez les informations du locataire",
+    personalInfo: "Informations personnelles",
     fullName: "Nom complet",
     phone: "Téléphone",
     building: "Bâtiment",
@@ -647,6 +708,8 @@ export const translations: Record<Language, TranslationSet> = {
     chargesLabel: "Charges",
     monthlyTotal: "Total mensuel",
     sendEmail: "Envoyer un email",
+    portalNotification: "Notification portail",
+    notificationSentTo: "Notification envoyée à",
     confirmDeleteTenant: "Êtes-vous sûr de vouloir supprimer ce locataire ?",
     selectBuilding: "Sélectionner un bâtiment",
 
@@ -780,6 +843,39 @@ export const translations: Record<Language, TranslationSet> = {
     broadcastMessage: "Message",
     recipients: "Destinataires",
     sendToAll: "Envoyer à tous",
+    catAll: "Toutes",
+    catGeneral: "Général",
+    catMaintenance: "Maintenance",
+    catPayment: "Paiement",
+    catInspection: "Inspection",
+    catUrgent: "Urgent",
+    sortNewest: "Plus récentes",
+    sortOldest: "Plus anciennes",
+    sortUnread: "Non lues d'abord",
+    notifCategory: "Catégorie",
+    navCalendar: "Calendrier",
+    calendarTitle: "Calendrier",
+    calendarSub: "Planifiez vos rendez-vous et événements immobiliers",
+    calendarToday: "Aujourd'hui",
+    calendarMonth: "Mois",
+    calendarWeek: "Semaine",
+    calendarNoEvents: "Aucun événement prévu",
+    calendarAddEvent: "Nouvel événement",
+    calendarEventTitle: "Titre de l'événement",
+    calendarEventDate: "Date",
+    calendarEventTime: "Heure",
+    calendarEventType: "Type",
+    calendarEventBuilding: "Bâtiment",
+    calendarEventNotes: "Notes",
+    calendarTypeVisit: "Visite",
+    calendarTypeInspection: "État des lieux",
+    calendarTypeSigning: "Signature de bail",
+    calendarTypeMeeting: "Réunion",
+    calendarTypeOther: "Autre",
+    calendarConnectGoogle: "Connecter Google Calendar",
+    calendarAddToGoogle: "Ajouter à Google Calendar",
+    calendarSyncInfo: "Synchronisez vos événements avec Google Calendar",
+    calendarEventCreated: "Événement créé",
     today: "Aujourd'hui",
     yesterday: "Hier",
     daysAgo: "Il y a {n} jours",
@@ -963,6 +1059,9 @@ export const translations: Record<Language, TranslationSet> = {
     navMyRequests: "My Requests",
 
     searchPlaceholder: "Search properties, tenants, or requests...",
+    noResults: "No results found",
+    results: "results",
+    toClose: "to close",
 
     dashboardTitle: "Overview",
     dashboardSubtitle: "Complete view of your real estate portfolio",
@@ -998,6 +1097,12 @@ export const translations: Record<Language, TranslationSet> = {
     unitsOccupied: "units currently occupied",
     activeTenants: "Active Tenants",
     acrossProperties: "Across all properties",
+    latePayments: "Late payments",
+    allPaymentsUpToDate: "All payments are up to date",
+    todoList: "To-do list",
+    todoPlaceholder: "New task…",
+    addTask: "Add",
+    noTasks: "No tasks yet",
 
     hello: "Hello",
     welcomeTenant: "Welcome to your tenant space",
@@ -1055,6 +1160,9 @@ export const translations: Record<Language, TranslationSet> = {
     addTenant: "Add Tenant",
     editTenant: "Edit Tenant",
     newTenant: "New Tenant",
+    newTenantSub: "Fill in the new tenant's information",
+    editTenantSub: "Update the tenant's information",
+    personalInfo: "Personal information",
     fullName: "Full Name",
     phone: "Phone",
     building: "Building",
@@ -1087,6 +1195,8 @@ export const translations: Record<Language, TranslationSet> = {
     chargesLabel: "Charges",
     monthlyTotal: "Monthly Total",
     sendEmail: "Send email",
+    portalNotification: "Portal notification",
+    notificationSentTo: "Notification sent to",
     confirmDeleteTenant: "Are you sure you want to delete this tenant?",
     selectBuilding: "Select a building",
 
@@ -1220,6 +1330,39 @@ export const translations: Record<Language, TranslationSet> = {
     broadcastMessage: "Message",
     recipients: "Recipients",
     sendToAll: "Send to all",
+    catAll: "All",
+    catGeneral: "General",
+    catMaintenance: "Maintenance",
+    catPayment: "Payment",
+    catInspection: "Inspection",
+    catUrgent: "Urgent",
+    sortNewest: "Newest first",
+    sortOldest: "Oldest first",
+    sortUnread: "Unread first",
+    notifCategory: "Category",
+    navCalendar: "Calendar",
+    calendarTitle: "Calendar",
+    calendarSub: "Plan your property appointments and events",
+    calendarToday: "Today",
+    calendarMonth: "Month",
+    calendarWeek: "Week",
+    calendarNoEvents: "No events scheduled",
+    calendarAddEvent: "New event",
+    calendarEventTitle: "Event title",
+    calendarEventDate: "Date",
+    calendarEventTime: "Time",
+    calendarEventType: "Type",
+    calendarEventBuilding: "Building",
+    calendarEventNotes: "Notes",
+    calendarTypeVisit: "Visit",
+    calendarTypeInspection: "Property inspection",
+    calendarTypeSigning: "Lease signing",
+    calendarTypeMeeting: "Meeting",
+    calendarTypeOther: "Other",
+    calendarConnectGoogle: "Connect Google Calendar",
+    calendarAddToGoogle: "Add to Google Calendar",
+    calendarSyncInfo: "Sync your events with Google Calendar",
+    calendarEventCreated: "Event created",
     today: "Today",
     yesterday: "Yesterday",
     daysAgo: "{n} days ago",
@@ -1403,6 +1546,9 @@ export const translations: Record<Language, TranslationSet> = {
     navMyRequests: "Meine Anfragen",
 
     searchPlaceholder: "Immobilien, Mieter oder Anfragen suchen...",
+    noResults: "Keine Ergebnisse gefunden",
+    results: "Ergebnisse",
+    toClose: "zum Schließen",
 
     dashboardTitle: "Übersicht",
     dashboardSubtitle: "Gesamtübersicht Ihres Immobilienportfolios",
@@ -1438,6 +1584,12 @@ export const translations: Record<Language, TranslationSet> = {
     unitsOccupied: "Einheiten aktuell belegt",
     activeTenants: "Aktive Mieter",
     acrossProperties: "Über alle Immobilien",
+    latePayments: "Zahlungsrückstände",
+    allPaymentsUpToDate: "Alle Zahlungen sind aktuell",
+    todoList: "Aufgabenliste",
+    todoPlaceholder: "Neue Aufgabe…",
+    addTask: "Hinzufügen",
+    noTasks: "Noch keine Aufgaben",
 
     hello: "Hallo",
     welcomeTenant: "Willkommen in Ihrem Mieterbereich",
@@ -1495,6 +1647,9 @@ export const translations: Record<Language, TranslationSet> = {
     addTenant: "Mieter hinzufügen",
     editTenant: "Mieter bearbeiten",
     newTenant: "Neuer Mieter",
+    newTenantSub: "Geben Sie die Informationen des neuen Mieters ein",
+    editTenantSub: "Aktualisieren Sie die Informationen des Mieters",
+    personalInfo: "Persönliche Informationen",
     fullName: "Vollständiger Name",
     phone: "Telefon",
     building: "Gebäude",
@@ -1527,6 +1682,8 @@ export const translations: Record<Language, TranslationSet> = {
     chargesLabel: "Nebenkosten",
     monthlyTotal: "Monatlich gesamt",
     sendEmail: "E-Mail senden",
+    portalNotification: "Portal-Benachrichtigung",
+    notificationSentTo: "Benachrichtigung gesendet an",
     confirmDeleteTenant: "Sind Sie sicher, dass Sie diesen Mieter löschen möchten?",
     selectBuilding: "Gebäude auswählen",
 
@@ -1660,6 +1817,39 @@ export const translations: Record<Language, TranslationSet> = {
     broadcastMessage: "Nachricht",
     recipients: "Empfänger",
     sendToAll: "An alle senden",
+    catAll: "Alle",
+    catGeneral: "Allgemein",
+    catMaintenance: "Wartung",
+    catPayment: "Zahlung",
+    catInspection: "Inspektion",
+    catUrgent: "Dringend",
+    sortNewest: "Neueste zuerst",
+    sortOldest: "Älteste zuerst",
+    sortUnread: "Ungelesene zuerst",
+    notifCategory: "Kategorie",
+    navCalendar: "Kalender",
+    calendarTitle: "Kalender",
+    calendarSub: "Planen Sie Ihre Immobilientermine und Veranstaltungen",
+    calendarToday: "Heute",
+    calendarMonth: "Monat",
+    calendarWeek: "Woche",
+    calendarNoEvents: "Keine Termine geplant",
+    calendarAddEvent: "Neuer Termin",
+    calendarEventTitle: "Titel des Termins",
+    calendarEventDate: "Datum",
+    calendarEventTime: "Uhrzeit",
+    calendarEventType: "Typ",
+    calendarEventBuilding: "Gebäude",
+    calendarEventNotes: "Notizen",
+    calendarTypeVisit: "Besichtigung",
+    calendarTypeInspection: "Wohnungsübergabe",
+    calendarTypeSigning: "Mietvertragsunterzeichnung",
+    calendarTypeMeeting: "Besprechung",
+    calendarTypeOther: "Sonstiges",
+    calendarConnectGoogle: "Google Kalender verbinden",
+    calendarAddToGoogle: "Zu Google Kalender hinzufügen",
+    calendarSyncInfo: "Synchronisieren Sie Ihre Termine mit Google Kalender",
+    calendarEventCreated: "Termin erstellt",
     today: "Heute",
     yesterday: "Gestern",
     daysAgo: "Vor {n} Tagen",
@@ -1843,6 +2033,9 @@ export const translations: Record<Language, TranslationSet> = {
     navMyRequests: "Le mie richieste",
 
     searchPlaceholder: "Cerca proprietà, inquilini o richieste...",
+    noResults: "Nessun risultato trovato",
+    results: "risultati",
+    toClose: "per chiudere",
 
     dashboardTitle: "Panoramica",
     dashboardSubtitle: "Vista completa del vostro portafoglio immobiliare",
@@ -1878,6 +2071,12 @@ export const translations: Record<Language, TranslationSet> = {
     unitsOccupied: "unità attualmente occupate",
     activeTenants: "Inquilini attivi",
     acrossProperties: "In tutte le proprietà",
+    latePayments: "Pagamenti in ritardo",
+    allPaymentsUpToDate: "Tutti i pagamenti sono in regola",
+    todoList: "Lista attività",
+    todoPlaceholder: "Nuova attività…",
+    addTask: "Aggiungi",
+    noTasks: "Nessuna attività al momento",
 
     hello: "Buongiorno",
     welcomeTenant: "Benvenuto nel vostro spazio inquilino",
@@ -1935,6 +2134,9 @@ export const translations: Record<Language, TranslationSet> = {
     addTenant: "Aggiungi inquilino",
     editTenant: "Modifica inquilino",
     newTenant: "Nuovo inquilino",
+    newTenantSub: "Compila le informazioni del nuovo inquilino",
+    editTenantSub: "Aggiorna le informazioni dell'inquilino",
+    personalInfo: "Informazioni personali",
     fullName: "Nome completo",
     phone: "Telefono",
     building: "Edificio",
@@ -1967,6 +2169,8 @@ export const translations: Record<Language, TranslationSet> = {
     chargesLabel: "Spese",
     monthlyTotal: "Totale mensile",
     sendEmail: "Inviare email",
+    portalNotification: "Notifica portale",
+    notificationSentTo: "Notifica inviata a",
     confirmDeleteTenant: "Sei sicuro di voler eliminare questo inquilino?",
     selectBuilding: "Seleziona un edificio",
 
@@ -2100,6 +2304,39 @@ export const translations: Record<Language, TranslationSet> = {
     broadcastMessage: "Messaggio",
     recipients: "Destinatari",
     sendToAll: "Invia a tutti",
+    catAll: "Tutte",
+    catGeneral: "Generale",
+    catMaintenance: "Manutenzione",
+    catPayment: "Pagamento",
+    catInspection: "Ispezione",
+    catUrgent: "Urgente",
+    sortNewest: "Più recenti",
+    sortOldest: "Più vecchie",
+    sortUnread: "Non lette prima",
+    notifCategory: "Categoria",
+    navCalendar: "Calendario",
+    calendarTitle: "Calendario",
+    calendarSub: "Pianifica i tuoi appuntamenti e eventi immobiliari",
+    calendarToday: "Oggi",
+    calendarMonth: "Mese",
+    calendarWeek: "Settimana",
+    calendarNoEvents: "Nessun evento previsto",
+    calendarAddEvent: "Nuovo evento",
+    calendarEventTitle: "Titolo dell'evento",
+    calendarEventDate: "Data",
+    calendarEventTime: "Ora",
+    calendarEventType: "Tipo",
+    calendarEventBuilding: "Edificio",
+    calendarEventNotes: "Note",
+    calendarTypeVisit: "Visita",
+    calendarTypeInspection: "Stato dei luoghi",
+    calendarTypeSigning: "Firma del contratto",
+    calendarTypeMeeting: "Riunione",
+    calendarTypeOther: "Altro",
+    calendarConnectGoogle: "Connetti Google Calendar",
+    calendarAddToGoogle: "Aggiungi a Google Calendar",
+    calendarSyncInfo: "Sincronizza i tuoi eventi con Google Calendar",
+    calendarEventCreated: "Evento creato",
     today: "Oggi",
     yesterday: "Ieri",
     daysAgo: "{n} giorni fa",

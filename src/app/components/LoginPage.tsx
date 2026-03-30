@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Globe } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../i18n/LanguageContext";
@@ -11,6 +11,16 @@ export function LoginPage() {
   const [error, setError] = useState("");
   const { login } = useAuth();
   const { t, language, setLanguage } = useLanguage();
+
+  // Lock body scroll on login page only
+  useEffect(() => {
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.documentElement.style.overflow = "";
+      document.body.style.overflow = "";
+    };
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,7 +39,7 @@ export function LoginPage() {
 
   const inputStyle: React.CSSProperties = {
     width: "100%",
-    height: 48,
+    height: 44,
     padding: "0 16px",
     borderRadius: 10,
     border: "1px solid #E0E0E0",
@@ -44,7 +54,8 @@ export function LoginPage() {
   return (
     <div
       style={{
-        minHeight: "100vh",
+        height: "100vh",
+        overflow: "hidden",
         display: "flex",
         fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
       }}
@@ -53,7 +64,7 @@ export function LoginPage() {
       <div
         style={{
           width: "45%",
-          minHeight: "100vh",
+          height: "100%",
           position: "relative",
           overflow: "hidden",
           display: "none",
@@ -140,10 +151,11 @@ export function LoginPage() {
           flexDirection: "column",
           justifyContent: "center",
           alignItems: "center",
-          padding: "48px 24px",
+          padding: "24px",
           background: "#FFFFFF",
           position: "relative",
-          minHeight: "100vh",
+          height: "100%",
+          overflow: "hidden",
         }}
       >
         {/* Language switcher — top right */}
@@ -208,10 +220,10 @@ export function LoginPage() {
           {/* Welcome heading */}
           <h1
             style={{
-              fontSize: 36,
+              fontSize: 32,
               fontWeight: 400,
               color: "#1A1A1A",
-              margin: "32px 0 48px",
+              margin: "20px 0 28px",
               lineHeight: 1.2,
               letterSpacing: "-0.02em",
             }}
@@ -224,7 +236,7 @@ export function LoginPage() {
           {/* Form */}
           <form onSubmit={handleSubmit}>
             {/* Email */}
-            <div style={{ marginBottom: 24 }}>
+            <div style={{ marginBottom: 16 }}>
               <label
                 htmlFor="email"
                 style={{
@@ -257,7 +269,7 @@ export function LoginPage() {
             </div>
 
             {/* Password */}
-            <div style={{ marginBottom: 32 }}>
+            <div style={{ marginBottom: 20 }}>
               <label
                 htmlFor="password"
                 style={{
@@ -355,7 +367,7 @@ export function LoginPage() {
           <div
             className="login-demo-mobile"
             style={{
-              marginTop: 40,
+              marginTop: 24,
               padding: 16,
               borderRadius: 12,
               background: "#F8F8F8",

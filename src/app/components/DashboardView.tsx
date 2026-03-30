@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   Building as BuildingIcon,
   Users,
-  DollarSign,
+  Banknote,
   Wrench,
   TrendingUp,
   AlertCircle,
@@ -18,15 +18,27 @@ import {
   Clock,
   CheckCircle2,
   Calendar,
+  X,
+  Trash2,
+  ListTodo,
+  CreditCard,
 } from "lucide-react";
 
 import {
   getBuildings,
   getTenants,
   getMaintenanceRequests,
+  getBuildingActions,
+  addBuildingAction,
+  updateBuildingAction,
+  deleteBuildingAction,
+  getNotifications,
+  saveNotifications,
   type Building,
   type Tenant,
   type MaintenanceRequest,
+  type BuildingAction,
+  type Notification,
 } from "../utils/storage";
 import { useAuth } from "../context/AuthContext";
 import { useCurrency } from "../context/CurrencyContext";
@@ -68,6 +80,91 @@ function AdminDashboard({
   const { t } = useLanguage();
   const { formatAmount, convertToBase, getBuildingCurrency } = useCurrency();
   const [filter, setFilter] = useState<"all" | "pending" | "in-progress" | "completed">("all");
+
+  /* ─── To-Do state ─── */
+  const [todos, setTodos] = useState<BuildingAction[]>([]);
+  const [showAddTodo, setShowAddTodo] = useState(false);
+  const [newTodoTitle, setNewTodoTitle] = useState("");
+  const [newTodoBuildingId, setNewTodoBuildingId] = useState("");
+  const [newTodoPriority, setNewTodoPriority] = useState<"low" | "medium" | "high">("medium");
+  const [newTodoDueDate, setNewTodoDueDate] = useState("");
+
+  useEffect(() => {
+    setTodos(getBuildingActions());
+    // Check for due tasks and create notifications
+    checkDueTasks();
+  }, []);
+
+  const checkDueTasks = () => {
+    const actions = getBuildingActions();
+    const today = new Date().toISOString().slice(0, 10); // yyyy-mm-dd
+    const existingNotifs = getNotifications();
+    const newNotifs: Notification[] = [];
+
+    actions.forEach((action) => {
+      if (action.status === "done" || !action.dueDate) return;
+      const dueDateDay = action.dueDate.slice(0, 10);
+      if (dueDateDay > today) return; // not due yet
+      // Check if we already generated a notification for this task today
+      const alreadyNotified = existingNotifs.some(
+        (n) => n.title?.includes(action.title) && n.date?.slice(0, 10) === today && (n as any).todoId === action.id
+      );
+      if (alreadyNotified) return;
+
+      const buildingName = action.buildingId
+        ? getBuildings().find((b) => b.id === action.buildingId)?.name
+        : undefined;
+
+      newNotifs.push({
+        id: `todo-notif-${action.id}-${today}`,
+        title: `⏰ Tâche à effectuer : ${action.title}`,
+        message: `Cette tâche était prévue pour le ${new Date(action.dueDate).toLocaleDateString("fr-CH")}${buildingName ? ` — ${buildingName}` : ""}. Priorité : ${action.priority}.`,
+        date: new Date().toISOString(),
+        read: false,
+        buildingId: action.buildingId || undefined,
+        category: action.priority === "high" ? "urgent" : "maintenance",
+        ...(({ todoId: action.id }) as any),
+      });
+    });
+
+    if (newNotifs.length > 0) {
+      saveNotifications([...existingNotifs, ...newNotifs]);
+    }
+  };
+
+  const handleAddTodo = () => {
+    if (!newTodoTitle.trim()) return;
+    addBuildingAction({
+      buildingId: newTodoBuildingId || "",
+      title: newTodoTitle.trim(),
+      priority: newTodoPriority,
+      status: "open",
+      dueDate: newTodoDueDate || undefined,
+    });
+    setTodos(getBuildingActions());
+    setNewTodoTitle("");
+    setNewTodoBuildingId("");
+    setNewTodoPriority("medium");
+    setNewTodoDueDate("");
+    setShowAddTodo(false);
+  };
+
+  const handleToggleTodo = (todo: BuildingAction) => {
+    updateBuildingAction({ ...todo, status: todo.status === "open" ? "done" : "open", updatedAt: new Date().toISOString() });
+    setTodos(getBuildingActions());
+  };
+
+  const handleDeleteTodo = (id: string) => {
+    deleteBuildingAction(id);
+    setTodos(getBuildingActions());
+  };
+
+  /* ─── Late payment tenants ─── */
+  const latePaymentTenants = useMemo(() => {
+    return (tenants as any[]).filter((tn) =>
+      tn.status === "active" && (tn.paymentStatus === "late" || tn.paymentStatus === "very-late")
+    ).sort((a: any, b: any) => (b.latePaymentMonths ?? 1) - (a.latePaymentMonths ?? 1));
+  }, [tenants]);
 
   const totalUnits = buildings.reduce((s, b) => s + (b.units ?? 0), 0);
   const occupied = buildings.reduce((s, b) => s + (b.occupiedUnits ?? 0), 0);
@@ -139,7 +236,7 @@ function AdminDashboard({
         {[
           { icon: BuildingIcon, label: t("totalBuildings"), value: String(buildings.length), sub: `${totalUnits} ${t("totalUnits")}` },
           { icon: Users, label: t("occupancyRate"), value: `${occPct.toFixed(1)}%`, sub: `${occupied} / ${totalUnits}` },
-          { icon: DollarSign, label: t("monthlyRevenue"), value: formatAmount(revenue), sub: t("combinedTotal") },
+          { icon: Banknote, label: t("monthlyRevenue"), value: formatAmount(revenue), sub: t("combinedTotal") },
           { icon: Wrench, label: t("pendingRequests"), value: String(cols.pending.length), sub: `${requests.length} total` },
         ].map((kpi, i, arr) => {
           const Icon = kpi.icon;
@@ -220,10 +317,321 @@ function AdminDashboard({
           </div>
         </div>
 
-        {/* ── Right sidebar: Buildings + Activity ── */}
+        {/* ── Right sidebar: Late Payments + To-Do + Buildings ── */}
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
-          {/* Buildings overview */}
+          {/* ═══ LATE PAYMENTS ═══ */}
+          <div style={{
+            borderRadius: 14, border: "1px solid var(--border)",
+            background: "var(--card)", padding: "18px 20px",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+              <CreditCard style={{ width: 15, height: 15, color: "#DC2626" }} />
+              <h3 style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)", margin: 0 }}>
+                {t("latePayments")}
+              </h3>
+              {latePaymentTenants.length > 0 && (
+                <span style={{
+                  minWidth: 20, height: 20, borderRadius: 10,
+                  background: "rgba(239,68,68,0.10)", color: "#DC2626",
+                  fontSize: 11, fontWeight: 700,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  padding: "0 6px", marginLeft: "auto",
+                }}>
+                  {latePaymentTenants.length}
+                </span>
+              )}
+            </div>
+
+            {latePaymentTenants.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "16px 0" }}>
+                <CheckCircle2 style={{ width: 20, height: 20, color: "#22C55E", margin: "0 auto 6px", opacity: 0.6 }} />
+                <p style={{ fontSize: 12, color: "var(--muted-foreground)", margin: 0 }}>
+                  {t("allPaymentsUpToDate")}
+                </p>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {latePaymentTenants.slice(0, 5).map((tn: any) => {
+                  const isVeryLate = tn.paymentStatus === "very-late";
+                  const months = tn.latePaymentMonths ?? 1;
+                  const total = (Number(tn.rentNet ?? 0) || 0) + (Number(tn.charges ?? 0) || 0);
+                  return (
+                    <div
+                      key={tn.id}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 10,
+                        padding: "10px 12px", borderRadius: 10,
+                        background: isVeryLate ? "rgba(239,68,68,0.04)" : "var(--background)",
+                        border: isVeryLate ? "1px solid rgba(239,68,68,0.15)" : "1px solid transparent",
+                      }}
+                    >
+                      <div style={{
+                        width: 32, height: 32, borderRadius: 8,
+                        background: isVeryLate ? "rgba(239,68,68,0.10)" : "rgba(245,158,11,0.10)",
+                        color: isVeryLate ? "#DC2626" : "#B45309",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontSize: 11, fontWeight: 700, flexShrink: 0,
+                      }}>
+                        {months}m
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: 12, fontWeight: 600, color: "var(--foreground)", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {tn.name}
+                        </p>
+                        <p style={{ fontSize: 11, color: "var(--muted-foreground)", margin: 0, marginTop: 1 }}>
+                          {tn.buildingName} · {t("unit")} {tn.unit}
+                        </p>
+                      </div>
+                      <span style={{
+                        fontSize: 12, fontWeight: 600, flexShrink: 0,
+                        color: isVeryLate ? "#DC2626" : "#B45309",
+                      }}>
+                        {formatAmount(total * months)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* ═══ TO-DO LIST ═══ */}
+          <div style={{
+            borderRadius: 14, border: "1px solid var(--border)",
+            background: "var(--card)", padding: "18px 20px",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+              <ListTodo style={{ width: 15, height: 15, color: "var(--primary)" }} />
+              <h3 style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)", margin: 0, flex: 1 }}>
+                {t("todoList")}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowAddTodo(!showAddTodo)}
+                style={{
+                  width: 26, height: 26, borderRadius: 8,
+                  border: "1px solid var(--border)", background: "var(--background)",
+                  color: "var(--muted-foreground)", cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  transition: "all 0.15s",
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = "color-mix(in srgb, var(--primary) 8%, transparent)"; e.currentTarget.style.color = "var(--primary)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = "var(--background)"; e.currentTarget.style.color = "var(--muted-foreground)"; }}
+              >
+                {showAddTodo ? <X style={{ width: 13, height: 13 }} /> : <Plus style={{ width: 13, height: 13 }} />}
+              </button>
+            </div>
+
+            {/* Add todo form */}
+            {showAddTodo && (
+              <div style={{
+                padding: 12, borderRadius: 10, marginBottom: 12,
+                background: "var(--background)", border: "1px solid var(--border)",
+                display: "flex", flexDirection: "column", gap: 8,
+              }}>
+                {/* Task input with inline add button */}
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input
+                    type="text"
+                    value={newTodoTitle}
+                    onChange={(e) => setNewTodoTitle(e.target.value)}
+                    placeholder={t("todoPlaceholder")}
+                    onKeyDown={(e) => { if (e.key === "Enter" && newTodoTitle.trim()) handleAddTodo(); }}
+                    style={{
+                      flex: 1, padding: "8px 10px", borderRadius: 8, fontSize: 12,
+                      border: "1px solid var(--border)", background: "var(--card)",
+                      color: "var(--foreground)", outline: "none",
+                      boxSizing: "border-box",
+                      transition: "border-color 0.15s",
+                    }}
+                    onFocus={(e) => { e.currentTarget.style.borderColor = "var(--primary)"; }}
+                    onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddTodo}
+                    disabled={!newTodoTitle.trim()}
+                    style={{
+                      padding: "0 16px", borderRadius: 8, border: "none", flexShrink: 0,
+                      background: newTodoTitle.trim() ? "var(--primary)" : "var(--border)",
+                      color: newTodoTitle.trim() ? "var(--primary-foreground)" : "var(--muted-foreground)",
+                      fontSize: 11, fontWeight: 600, cursor: newTodoTitle.trim() ? "pointer" : "default",
+                      transition: "opacity 0.15s",
+                    }}
+                    onMouseEnter={(e) => { if (newTodoTitle.trim()) e.currentTarget.style.opacity = "0.9"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
+                  >
+                    <Plus style={{ width: 13, height: 13 }} />
+                  </button>
+                </div>
+                {/* Date + Building + Priority row */}
+                <div style={{ display: "flex", gap: 8 }}>
+                  <div style={{ position: "relative", flex: 1 }}>
+                    <Calendar style={{
+                      position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)",
+                      width: 11, height: 11, color: "var(--muted-foreground)", pointerEvents: "none",
+                    }} />
+                    <input
+                      type="datetime-local"
+                      value={newTodoDueDate}
+                      onChange={(e) => setNewTodoDueDate(e.target.value)}
+                      style={{
+                        width: "100%", padding: "6px 8px 6px 24px", borderRadius: 7, fontSize: 11,
+                        border: "1px solid var(--border)", background: "var(--card)",
+                        color: newTodoDueDate ? "var(--foreground)" : "var(--muted-foreground)",
+                        outline: "none", boxSizing: "border-box",
+                        transition: "border-color 0.15s",
+                      }}
+                      onFocus={(e) => { e.currentTarget.style.borderColor = "var(--primary)"; }}
+                      onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
+                    />
+                  </div>
+                  <select
+                    value={newTodoBuildingId}
+                    onChange={(e) => setNewTodoBuildingId(e.target.value)}
+                    style={{
+                      flex: 1, padding: "6px 8px", borderRadius: 7, fontSize: 11,
+                      border: "1px solid var(--border)", background: "var(--card)",
+                      color: newTodoBuildingId ? "var(--foreground)" : "var(--muted-foreground)",
+                      outline: "none", boxSizing: "border-box",
+                      transition: "border-color 0.15s",
+                    }}
+                    onFocus={(e) => { e.currentTarget.style.borderColor = "var(--primary)"; }}
+                    onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
+                  >
+                    <option value="">{t("allBuildings")}</option>
+                    {buildings.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                  </select>
+                  <select
+                    value={newTodoPriority}
+                    onChange={(e) => setNewTodoPriority(e.target.value as any)}
+                    style={{
+                      width: 90, padding: "6px 8px", borderRadius: 7, fontSize: 11,
+                      border: "1px solid var(--border)", background: "var(--card)",
+                      color: "var(--foreground)", outline: "none", boxSizing: "border-box",
+                      transition: "border-color 0.15s",
+                    }}
+                    onFocus={(e) => { e.currentTarget.style.borderColor = "var(--primary)"; }}
+                    onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
+                  >
+                    <option value="low">{t("low")}</option>
+                    <option value="medium">{t("medium")}</option>
+                    <option value="high">{t("high")}</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {/* Todo items */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {todos.filter((td) => td.status === "open").length === 0 && !showAddTodo ? (
+                <p style={{ fontSize: 12, color: "var(--muted-foreground)", textAlign: "center", padding: "16px 0" }}>
+                  {t("noTasks")}
+                </p>
+              ) : (
+                [...todos]
+                  .sort((a, b) => {
+                    if (a.status !== b.status) return a.status === "open" ? -1 : 1;
+                    const prio = { high: 0, medium: 1, low: 2 };
+                    return (prio[a.priority] ?? 1) - (prio[b.priority] ?? 1);
+                  })
+                  .slice(0, 10)
+                  .map((todo) => {
+                    const isDone = todo.status === "done";
+                    const bName = buildings.find((b) => b.id === todo.buildingId)?.name;
+                    const prioColor = { high: "#DC2626", medium: "#F59E0B", low: "#6B7280" }[todo.priority];
+                    const isOverdue = todo.dueDate && !isDone && todo.dueDate.slice(0, 10) <= new Date().toISOString().slice(0, 10);
+                    return (
+                      <div
+                        key={todo.id}
+                        style={{
+                          display: "flex", alignItems: "center", gap: 10,
+                          padding: "8px 10px", borderRadius: 8,
+                          opacity: isDone ? 0.5 : 1,
+                          transition: "background 0.15s",
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = "var(--background)"; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                      >
+                        {/* Checkbox */}
+                        <button
+                          type="button"
+                          onClick={() => handleToggleTodo(todo)}
+                          style={{
+                            width: 20, height: 20, borderRadius: 6, flexShrink: 0,
+                            border: isDone ? "none" : "2px solid var(--border)",
+                            background: isDone ? "var(--primary)" : "transparent",
+                            cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                            transition: "all 0.15s",
+                          }}
+                        >
+                          {isDone && <CheckCircle2 style={{ width: 13, height: 13, color: "var(--primary-foreground)" }} />}
+                        </button>
+
+                        {/* Content */}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{
+                            fontSize: 12, fontWeight: 500, margin: 0,
+                            color: isDone ? "var(--muted-foreground)" : "var(--foreground)",
+                            textDecoration: isDone ? "line-through" : "none",
+                            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                          }}>
+                            {todo.title}
+                          </p>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
+                            {bName && (
+                              <span style={{ fontSize: 10, color: "var(--muted-foreground)" }}>
+                                {bName}
+                              </span>
+                            )}
+                            {todo.dueDate && (
+                              <>
+                                {bName && <span style={{ fontSize: 10, color: "var(--border)" }}>·</span>}
+                                <span style={{
+                                  display: "inline-flex", alignItems: "center", gap: 3,
+                                  fontSize: 10,
+                                  color: isOverdue ? "#DC2626" : "var(--muted-foreground)",
+                                  fontWeight: isOverdue ? 600 : 400,
+                                }}>
+                                  <Calendar style={{ width: 9, height: 9 }} />
+                                  {new Date(todo.dueDate).toLocaleDateString("fr-CH")}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Priority dot */}
+                        <span style={{
+                          width: 6, height: 6, borderRadius: 3,
+                          background: prioColor, flexShrink: 0,
+                        }} />
+
+                        {/* Delete */}
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteTodo(todo.id)}
+                          style={{
+                            width: 22, height: 22, borderRadius: 6, border: "none",
+                            background: "transparent", color: "var(--muted-foreground)",
+                            cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                            opacity: 0, transition: "opacity 0.15s",
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.color = "#DC2626"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.opacity = "0"; }}
+                        >
+                          <Trash2 style={{ width: 12, height: 12 }} />
+                        </button>
+                      </div>
+                    );
+                  })
+              )}
+            </div>
+          </div>
+
+          {/* ═══ BUILDINGS OVERVIEW ═══ */}
           <div style={{
             borderRadius: 14, border: "1px solid var(--border)",
             background: "var(--card)", padding: "18px 20px",
@@ -278,58 +686,6 @@ function AdminDashboard({
               ))}
             </div>
           </div>
-
-          {/* Recent activity */}
-          <div style={{
-            borderRadius: 14, border: "1px solid var(--border)",
-            background: "var(--card)", padding: "18px 20px",
-          }}>
-            <h3 style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)", margin: 0, marginBottom: 14 }}>
-              {t("recentRequests")}
-            </h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {recentRequests.length === 0 ? (
-                <p style={{ fontSize: 12, color: "var(--muted-foreground)", textAlign: "center", padding: "20px 0" }}>
-                  Aucune activité
-                </p>
-              ) : (
-                recentRequests.map((req) => {
-                  const priority = PRIORITY_STYLES[req.priority] || PRIORITY_STYLES.medium;
-                  const dateStr = req.createdAt
-                    ? new Date(req.createdAt).toLocaleDateString("fr-CH", { month: "short", day: "numeric" })
-                    : "";
-                  return (
-                    <div
-                      key={req.id}
-                      style={{
-                        display: "flex", alignItems: "center", gap: 10,
-                        padding: "8px 10px", borderRadius: 8,
-                        transition: "background 0.15s",
-                      }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = "var(--background)"; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
-                    >
-                      <span style={{
-                        width: 7, height: 7, borderRadius: 4,
-                        background: priority.dot, flexShrink: 0,
-                      }} />
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <p style={{ fontSize: 12, fontWeight: 500, color: "var(--foreground)", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {req.title}
-                        </p>
-                        <p style={{ fontSize: 11, color: "var(--muted-foreground)", margin: 0, marginTop: 1 }}>
-                          {req.buildingName}
-                        </p>
-                      </div>
-                      <span style={{ fontSize: 10, color: "var(--muted-foreground)", flexShrink: 0 }}>
-                        {dateStr}
-                      </span>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
         </div>
       </div>
     </div>
@@ -358,12 +714,9 @@ function KanbanColumn({
         className="flex items-center justify-between"
         style={{ marginBottom: 14, padding: "0 2px" }}
       >
-        <div className="flex items-center gap-2">
-          <Icon className="w-4 h-4" style={{ color }} />
-          <h3
-            className="text-[14px] font-semibold"
-            style={{ color: "var(--foreground)" }}
-          >
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <Icon style={{ width: 16, height: 16, color, flexShrink: 0 }} />
+          <h3 style={{ fontSize: 14, fontWeight: 600, color: "var(--foreground)", margin: 0 }}>
             {title}
           </h3>
         </div>
@@ -577,7 +930,7 @@ function TenantDashboard({
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4" style={{ marginBottom: 24 }}>
         {[
           { icon: Home, label: t("myBuilding"), value: myBuilding?.name ?? "—", sub: myTenant?.unit ? `Apt ${myTenant.unit}` : undefined },
-          { icon: DollarSign, label: t("monthlyRent"), value: myTenant ? formatAmount(myTenant.rent) : "—", sub: t("currentAmount") },
+          { icon: Banknote, label: t("monthlyRent"), value: myTenant ? formatAmount(myTenant.rent) : "—", sub: t("currentAmount") },
           { icon: Wrench, label: t("waiting"), value: pendingCount, sub: t("requests") },
           { icon: AlertCircle, label: t("ongoing"), value: inProgressCount, sub: t("requests") },
         ].map((kpi) => {

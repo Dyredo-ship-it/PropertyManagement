@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import { createPortal } from "react-dom";
 import {
   Wrench,
   Zap,
@@ -17,7 +18,7 @@ import {
   Search,
   Award,
   Clock,
-  DollarSign,
+  Banknote,
   CheckCircle,
   X,
 } from "lucide-react";
@@ -234,163 +235,109 @@ export function ServicesView() {
     });
   }, [selectedCategory, searchQuery]);
 
-  const featuredProviders = useMemo(
-    () => MOCK_PROVIDERS.filter((p) => p.featured).slice(0, 3),
-    []
-  );
-
   return (
-    <div style={{ padding: "32px 32px 48px" }}>
-      {/* ── Header ────────────────────────────────────────────── */}
-      <div className="flex items-start justify-between gap-4" style={{ marginBottom: 24 }}>
-        <div>
-          <h1
-            className="text-[22px] font-semibold leading-tight"
-            style={{ color: "var(--foreground)" }}
-          >
+    <div style={{ padding: "32px 36px 48px" }}>
+      {/* ── Header row: title + search ──────────────────────── */}
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 24, marginBottom: 20 }}>
+        <div style={{ flexShrink: 0 }}>
+          <h1 style={{
+            fontSize: 22, fontWeight: 600, lineHeight: 1.2, margin: 0,
+            color: "var(--foreground)",
+            borderLeft: "4px solid var(--primary)",
+            paddingLeft: 14,
+          }}>
             {t("servicesTitle")}
           </h1>
-          <p className="text-[13px] mt-1" style={{ color: "var(--muted-foreground)" }}>
+          <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: 0, marginTop: 4, paddingLeft: 18 }}>
             {t("servicesSub")}
           </p>
         </div>
-        <div
-          className="flex items-center gap-2 text-[12px] font-medium shrink-0"
-          style={{
-            padding: "8px 14px",
-            borderRadius: 12,
-            background: "rgba(69,85,58,0.06)",
-            color: "var(--primary)",
-          }}
-        >
-          <Award className="w-4 h-4" />
-          {t("premiumPartners")}
-        </div>
-      </div>
-
-      {/* ── Search ────────────────────────────────────────────── */}
-      <div className="relative" style={{ marginBottom: 20 }}>
-        <Search
-          className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none"
-          style={{ color: "var(--muted-foreground)" }}
-        />
-        <input
-          type="text"
-          placeholder={t("searchServicePlaceholder")}
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full text-[13px] outline-none transition-all"
-          style={{
-            padding: "11px 14px 11px 38px",
-            borderRadius: 14,
-            border: "1px solid var(--border)",
-            background: "var(--card)",
-            color: "var(--foreground)",
-          }}
-          onFocus={(e) => {
-            e.currentTarget.style.borderColor = "var(--primary)";
-            e.currentTarget.style.boxShadow = "0 0 0 3px rgba(69,85,58,0.06)";
-          }}
-          onBlur={(e) => {
-            e.currentTarget.style.borderColor = "var(--border)";
-            e.currentTarget.style.boxShadow = "none";
-          }}
-        />
-      </div>
-
-      {/* ── Categories ────────────────────────────────────────── */}
-      <div
-        className="flex flex-wrap gap-2"
-        style={{ marginBottom: 24 }}
-      >
-        {CATEGORIES.map((cat) => {
-          const Icon = cat.icon;
-          const active = selectedCategory === cat.id;
-          return (
-            <button
-              key={cat.id}
-              onClick={() => setSelectedCategory(cat.id)}
-              className="flex items-center gap-2 text-[12px] font-medium transition-colors"
-              style={{
-                padding: "7px 14px",
-                borderRadius: 10,
-                border: active ? "1px solid var(--primary)" : "1px solid var(--border)",
-                background: active ? "rgba(69,85,58,0.07)" : "var(--card)",
-                color: active ? "var(--primary)" : "var(--muted-foreground)",
-              }}
-              onMouseEnter={(e) => {
-                if (!active) e.currentTarget.style.background = "var(--background)";
-              }}
-              onMouseLeave={(e) => {
-                if (!active) e.currentTarget.style.background = "var(--card)";
-              }}
-            >
-              <Icon className="w-3.5 h-3.5" />
-              {cat.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* ── Featured ──────────────────────────────────────────── */}
-      {selectedCategory === "all" && !searchQuery && (
-        <div style={{ marginBottom: 24 }}>
-          <h2
-            className="flex items-center gap-2 text-[13px] font-semibold uppercase mb-3"
-            style={{ color: "var(--muted-foreground)", letterSpacing: "0.06em" }}
-          >
-            <Award className="w-4 h-4" style={{ color: "var(--primary)" }} />
-            {t("premiumPartners")}
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {featuredProviders.map((p) => (
-              <FeaturedCard key={p.id} provider={p} onClick={() => setSelectedProvider(p)} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ── Provider list ─────────────────────────────────────── */}
-      <div className="flex items-center justify-between mb-3">
-        <h2
-          className="text-[14px] font-semibold"
-          style={{ color: "var(--foreground)" }}
-        >
-          {selectedCategory === "all"
-            ? t("allServices")
-            : CATEGORIES.find((c) => c.id === selectedCategory)?.label}
-        </h2>
-        <span className="text-[12px]" style={{ color: "var(--muted-foreground)" }}>
-          {filteredProviders.length}{" "}
-          {filteredProviders.length > 1 ? t("results") : t("result")}
-        </span>
-      </div>
-
-      <div className="space-y-3">
-        {filteredProviders.length === 0 ? (
-          <div
-            className="flex flex-col items-center justify-center text-center"
+        {/* Search */}
+        <div style={{ position: "relative", width: 260, flexShrink: 0 }}>
+          <Search style={{
+            position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)",
+            width: 14, height: 14, color: "var(--muted-foreground)", pointerEvents: "none",
+          }} />
+          <input
+            type="text"
+            placeholder={t("searchServicePlaceholder")}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
             style={{
-              padding: "64px 24px",
-              borderRadius: 16,
+              width: "100%", boxSizing: "border-box",
+              padding: "8px 14px 8px 34px",
+              borderRadius: 10, fontSize: 12,
               border: "1px solid var(--border)",
               background: "var(--card)",
+              color: "var(--foreground)",
+              outline: "none",
+              transition: "border-color 0.15s",
             }}
-          >
-            <Search className="w-12 h-12 mb-4" style={{ color: "var(--border)" }} />
-            <p className="text-[14px] font-medium" style={{ color: "var(--foreground)" }}>
-              {t("noProviders")}
-            </p>
-            <p className="text-[12px] mt-1" style={{ color: "var(--muted-foreground)" }}>
-              {t("tryOtherCriteria")}
-            </p>
-          </div>
-        ) : (
-          filteredProviders.map((p) => (
-            <ProviderRow key={p.id} provider={p} onClick={() => setSelectedProvider(p)} />
-          ))
-        )}
+            onFocus={(e) => { e.currentTarget.style.borderColor = "var(--primary)"; }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
+          />
+        </div>
       </div>
+
+      {/* ── Categories + stats inline ─────────────────────────── */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 20, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          {CATEGORIES.map((cat) => {
+            const Icon = cat.icon;
+            const active = selectedCategory === cat.id;
+            return (
+              <button
+                key={cat.id}
+                onClick={() => setSelectedCategory(cat.id)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 5,
+                  padding: "5px 11px", borderRadius: 8, fontSize: 11, fontWeight: 500,
+                  border: active ? "1px solid var(--primary)" : "1px solid var(--border)",
+                  background: active ? "rgba(69,85,58,0.07)" : "var(--card)",
+                  color: active ? "var(--primary)" : "var(--muted-foreground)",
+                  cursor: "pointer", transition: "all 0.15s",
+                }}
+                onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = "var(--background)"; }}
+                onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = active ? "rgba(69,85,58,0.07)" : "var(--card)"; }}
+              >
+                <Icon style={{ width: 12, height: 12 }} />
+                {cat.label}
+              </button>
+          );
+        })}
+        </div>
+
+        {/* Inline stats */}
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+          <span style={{ fontSize: 11, fontWeight: 500, color: "var(--muted-foreground)" }}>
+            {filteredProviders.length} {filteredProviders.length > 1 ? t("results") : t("result")}
+          </span>
+          <span style={{ width: 1, height: 12, background: "var(--border)" }} />
+          <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#15803D" }}>
+            <CheckCircle style={{ width: 11, height: 11 }} />
+            {MOCK_PROVIDERS.filter((p) => p.availableNow).length} {t("available")}
+          </span>
+        </div>
+      </div>
+
+      {/* ── Provider grid ─────────────────────────────────────── */}
+
+      {filteredProviders.length === 0 ? (
+        <div style={{
+          padding: "56px 24px", borderRadius: 14, textAlign: "center",
+          border: "1px solid var(--border)", background: "var(--card)",
+        }}>
+          <Search style={{ width: 40, height: 40, margin: "0 auto 12px", color: "var(--border)" }} />
+          <p style={{ fontSize: 13, fontWeight: 500, color: "var(--foreground)", margin: 0 }}>{t("noProviders")}</p>
+          <p style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 4 }}>{t("tryOtherCriteria")}</p>
+        </div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
+          {filteredProviders.map((p) => (
+            <ProviderCard key={p.id} provider={p} onClick={() => setSelectedProvider(p)} />
+          ))}
+        </div>
+      )}
 
       {/* ── Detail Modal ──────────────────────────────────────── */}
       {selectedProvider && (
@@ -403,9 +350,9 @@ export function ServicesView() {
   );
 }
 
-/* ─── Featured Card ───────────────────────────────────────────── */
+/* ─── Provider Card (compact grid card) ──────────────────────── */
 
-function FeaturedCard({
+function ProviderCard({
   provider,
   onClick,
 }: {
@@ -418,15 +365,16 @@ function FeaturedCard({
   return (
     <button
       onClick={onClick}
-      className="text-left transition-all"
       style={{
-        borderRadius: 16,
+        textAlign: "left", width: "100%",
+        borderRadius: 14, overflow: "hidden",
         border: "1px solid var(--border)",
         background: "var(--card)",
-        padding: "20px",
+        cursor: "pointer",
+        transition: "border-color 0.15s, box-shadow 0.15s",
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.borderColor = "var(--primary)";
+        e.currentTarget.style.borderColor = "rgba(69,85,58,0.3)";
         e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,0,0,0.06)";
       }}
       onMouseLeave={(e) => {
@@ -434,199 +382,62 @@ function FeaturedCard({
         e.currentTarget.style.boxShadow = "none";
       }}
     >
-      <div className="flex items-start justify-between gap-3 mb-4">
-        <div
-          className="w-11 h-11 rounded-xl flex items-center justify-center"
-          style={{
-            background: "rgba(69,85,58,0.07)",
-            color: "var(--primary)",
-          }}
-        >
-          <Icon className="w-5 h-5" />
-        </div>
-        {provider.verified && (
-          <span
-            className="flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full"
-            style={{ background: "rgba(34,197,94,0.08)", color: "#15803D" }}
-          >
-            <CheckCircle className="w-3 h-3" />
-            {t("verified")}
-          </span>
-        )}
-      </div>
-
-      <h3
-        className="text-[14px] font-semibold leading-snug mb-1"
-        style={{ color: "var(--foreground)" }}
-      >
-        {provider.name}
-      </h3>
-
-      <div className="flex items-center gap-1 mb-2.5">
-        <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-        <span className="text-[12px] font-medium" style={{ color: "var(--foreground)" }}>
-          {provider.rating}
-        </span>
-        <span className="text-[11px]" style={{ color: "var(--muted-foreground)" }}>
-          ({provider.reviewCount})
-        </span>
-      </div>
-
-      <p
-        className="text-[12px] leading-relaxed line-clamp-2"
-        style={{ color: "var(--muted-foreground)" }}
-      >
-        {provider.description}
-      </p>
-    </button>
-  );
-}
-
-/* ─── Provider Row ────────────────────────────────────────────── */
-
-function ProviderRow({
-  provider,
-  onClick,
-}: {
-  provider: ServiceProvider;
-  onClick: () => void;
-}) {
-  const { t } = useLanguage();
-  const Icon = getCatIcon(provider.category);
-
-  return (
-    <button
-      onClick={onClick}
-      className="w-full text-left transition-all"
-      style={{
-        borderRadius: 16,
-        border: "1px solid var(--border)",
-        background: "var(--card)",
-        padding: "18px 20px",
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.background = "var(--background)";
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.background = "var(--card)";
-      }}
-    >
-      <div className="flex items-start gap-4">
-        {/* Icon */}
-        <div
-          className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
-          style={{
-            background: "var(--background)",
-            border: "1px solid var(--border)",
-            color: "var(--muted-foreground)",
-          }}
-        >
-          <Icon className="w-5 h-5" />
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-4 mb-1.5">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 mb-0.5">
-                <h3
-                  className="text-[14px] font-semibold truncate"
-                  style={{ color: "var(--foreground)" }}
-                >
-                  {provider.name}
-                </h3>
-                {provider.featured && (
-                  <Award className="w-3.5 h-3.5 shrink-0" style={{ color: "var(--primary)" }} />
-                )}
-              </div>
-              <p
-                className="text-[12px] line-clamp-1"
-                style={{ color: "var(--muted-foreground)" }}
-              >
-                {provider.description}
-              </p>
+      <div style={{ padding: "14px 16px" }}>
+        {/* Header: icon + name + rating */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+          <div style={{
+            width: 34, height: 34, borderRadius: 9, flexShrink: 0,
+            background: provider.featured ? "rgba(69,85,58,0.07)" : "var(--background)",
+            border: provider.featured ? "none" : "1px solid var(--border)",
+            color: provider.featured ? "var(--primary)" : "var(--muted-foreground)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            <Icon style={{ width: 16, height: 16 }} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: 13, fontWeight: 650, color: "var(--foreground)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {provider.name}
+              </span>
+              {provider.featured && <Award style={{ width: 12, height: 12, flexShrink: 0, color: "var(--primary)" }} />}
+              {provider.verified && <CheckCircle style={{ width: 12, height: 12, flexShrink: 0, color: "#15803D" }} />}
             </div>
+            <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>
+              {provider.description.length > 50 ? provider.description.slice(0, 50) + "…" : provider.description}
+            </span>
+          </div>
+        </div>
 
+        {/* Divider */}
+        <div style={{ height: 1, background: "var(--border)", marginBottom: 10 }} />
+
+        {/* Bottom: rating + meta inline */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             {/* Rating */}
-            <div className="shrink-0 text-right">
-              <div className="flex items-center gap-1">
-                <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                <span
-                  className="text-[14px] font-semibold"
-                  style={{ color: "var(--foreground)" }}
-                >
-                  {provider.rating}
-                </span>
-              </div>
-              <p className="text-[11px]" style={{ color: "var(--muted-foreground)" }}>
-                {provider.reviewCount} {t("reviews")}
-              </p>
+            <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+              <Star style={{ width: 12, height: 12 }} className="fill-amber-400 text-amber-400" />
+              <span style={{ fontSize: 12, fontWeight: 600, color: "var(--foreground)" }}>{provider.rating}</span>
+              <span style={{ fontSize: 10, color: "var(--muted-foreground)" }}>({provider.reviewCount})</span>
             </div>
+            {/* Response time */}
+            <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+              <Clock style={{ width: 11, height: 11, color: "var(--muted-foreground)" }} />
+              <span style={{ fontSize: 10, color: "var(--muted-foreground)" }}>{provider.responseTime}</span>
+            </div>
+            {/* Pricing */}
+            <span style={{ fontSize: 10, fontWeight: 600, color: "var(--muted-foreground)" }}>{provider.pricing}</span>
           </div>
 
-          {/* Service tags */}
-          <div className="flex flex-wrap gap-1.5 mb-3">
-            {provider.services.slice(0, 3).map((s, i) => (
-              <span
-                key={i}
-                className="text-[11px] px-2.5 py-0.5 rounded-full"
-                style={{
-                  background: "var(--background)",
-                  border: "1px solid var(--border)",
-                  color: "var(--muted-foreground)",
-                }}
-              >
-                {s}
-              </span>
-            ))}
-            {provider.services.length > 3 && (
-              <span
-                className="text-[11px] px-2.5 py-0.5 rounded-full"
-                style={{
-                  background: "var(--background)",
-                  border: "1px solid var(--border)",
-                  color: "var(--muted-foreground)",
-                }}
-              >
-                +{provider.services.length - 3}
-              </span>
-            )}
-          </div>
-
-          {/* Meta row */}
-          <div className="flex items-center gap-4 flex-wrap">
-            <span
-              className="flex items-center gap-1.5 text-[11px]"
-              style={{ color: "var(--muted-foreground)" }}
-            >
-              <Clock className="w-3.5 h-3.5" />
-              {t("responds")} {provider.responseTime}
+          {/* Available badge */}
+          {provider.availableNow && (
+            <span style={{
+              fontSize: 9, fontWeight: 600, padding: "2px 7px", borderRadius: 99,
+              background: "rgba(34,197,94,0.08)", color: "#15803D",
+            }}>
+              {t("available")}
             </span>
-            <span
-              className="flex items-center gap-1.5 text-[11px]"
-              style={{ color: "var(--muted-foreground)" }}
-            >
-              <DollarSign className="w-3.5 h-3.5" />
-              {provider.pricing}
-            </span>
-            {provider.verified && (
-              <span
-                className="flex items-center gap-1 text-[11px]"
-                style={{ color: "#15803D" }}
-              >
-                <CheckCircle className="w-3.5 h-3.5" />
-                {t("verified")}
-              </span>
-            )}
-            {provider.availableNow && (
-              <span
-                className="text-[10px] font-medium px-2 py-0.5 rounded-full"
-                style={{ background: "rgba(34,197,94,0.08)", color: "#15803D" }}
-              >
-                {t("available")}
-              </span>
-            )}
-          </div>
+          )}
         </div>
       </div>
     </button>
@@ -643,187 +454,267 @@ function ProviderModal({
   onClose: () => void;
 }) {
   const { t } = useLanguage();
+  const Icon = getCatIcon(provider.category);
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{ background: "rgba(0,0,0,0.35)", padding: 16 }}
+      style={{
+        position: "fixed", inset: 0, zIndex: 50,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        background: "rgba(0,0,0,0.35)", padding: 16,
+      }}
       onClick={onClose}
     >
       <div
-        className="w-full max-w-2xl max-h-[85vh] overflow-y-auto"
         style={{
-          borderRadius: 20,
+          width: "100%", maxWidth: 520, maxHeight: "85vh",
+          borderRadius: 16, overflow: "hidden",
           border: "1px solid var(--border)",
           background: "var(--card)",
-          padding: 32,
           boxShadow: "0 16px 48px rgba(0,0,0,0.14)",
+          display: "flex", flexDirection: "column",
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="flex items-start justify-between mb-6">
-          <div className="flex-1">
-            <div className="flex items-center gap-2.5 mb-2">
-              <h2
-                className="text-[20px] font-semibold"
-                style={{ color: "var(--foreground)" }}
-              >
-                {provider.name}
-              </h2>
-              {provider.featured && (
-                <Award className="w-5 h-5" style={{ color: "var(--primary)" }} />
-              )}
-              {provider.verified && (
-                <CheckCircle className="w-4 h-4" style={{ color: "#15803D" }} />
-              )}
-            </div>
-
-            <div className="flex items-center gap-2 mb-3">
-              <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
-              <span
-                className="text-[15px] font-semibold"
-                style={{ color: "var(--foreground)" }}
-              >
-                {provider.rating}
-              </span>
-              <span className="text-[12px]" style={{ color: "var(--muted-foreground)" }}>
-                ({provider.reviewCount} {t("reviews")})
-              </span>
-            </div>
-
-            <p
-              className="text-[13px] leading-relaxed"
-              style={{ color: "var(--muted-foreground)" }}
-            >
-              {provider.description}
-            </p>
+        {/* ── Accent header ─────────────────────────────────── */}
+        <div style={{
+          padding: "18px 22px",
+          borderBottom: "1px solid var(--border)",
+          display: "flex", alignItems: "center", gap: 14,
+        }}>
+          <div style={{
+            width: 40, height: 40, borderRadius: 10, flexShrink: 0,
+            background: "rgba(69,85,58,0.07)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            borderLeft: "3px solid var(--primary)",
+          }}>
+            <Icon style={{ width: 18, height: 18, color: "var(--primary)" }} />
           </div>
-
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: 16, fontWeight: 650, color: "var(--foreground)" }}>
+                {provider.name}
+              </span>
+              {provider.featured && <Award style={{ width: 14, height: 14, color: "var(--primary)", flexShrink: 0 }} />}
+              {provider.verified && <CheckCircle style={{ width: 13, height: 13, color: "#15803D", flexShrink: 0 }} />}
+            </div>
+            <span style={{ fontSize: 12, color: "var(--muted-foreground)" }}>
+              {provider.description}
+            </span>
+          </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors shrink-0 ml-4"
-            style={{ color: "var(--muted-foreground)" }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "var(--background)";
+            style={{
+              width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              background: "transparent", border: "none",
+              color: "var(--muted-foreground)", cursor: "pointer",
+              transition: "background 0.15s",
             }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "transparent";
-            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "var(--background)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
           >
-            <X className="w-4 h-4" />
+            <X style={{ width: 14, height: 14 }} />
           </button>
         </div>
 
-        {/* Services */}
-        <Section title={t("offeredServices")}>
-          <div className="flex flex-wrap gap-2">
-            {provider.services.map((s, i) => (
-              <span
-                key={i}
-                className="text-[12px] px-3 py-1.5 rounded-lg"
-                style={{
-                  background: "var(--background)",
-                  border: "1px solid var(--border)",
-                  color: "var(--foreground)",
-                }}
-              >
-                {s}
-              </span>
-            ))}
-          </div>
-        </Section>
+        {/* ── Body (scrollable) ─────────────────────────────── */}
+        <div style={{ padding: "18px 22px", overflowY: "auto", flex: 1 }}>
 
-        {/* Contact */}
-        <Section title={t("contactInfo")}>
-          <div className="space-y-3">
-            <ContactRow icon={Phone} text={provider.phone} />
-            <ContactRow icon={Mail} text={provider.email} />
-            <ContactRow icon={MapPin} text={provider.address} />
-            {provider.website && (
-              <div className="flex items-center gap-3">
-                <ExternalLink className="w-4 h-4" style={{ color: "var(--muted-foreground)" }} />
-                <a
-                  href={`https://${provider.website}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[13px] hover:underline"
-                  style={{ color: "var(--primary)" }}
-                >
-                  {provider.website}
-                </a>
-              </div>
+          {/* Rating + Response time + Pricing strip */}
+          <div style={{
+            display: "flex", alignItems: "center", gap: 16, marginBottom: 18,
+            padding: "10px 14px", borderRadius: 10,
+            background: "var(--background)",
+            border: "1px solid var(--border)",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <Star style={{ width: 13, height: 13 }} className="fill-amber-400 text-amber-400" />
+              <span style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground)" }}>{provider.rating}</span>
+              <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>({provider.reviewCount} {t("reviews")})</span>
+            </div>
+            <div style={{ width: 1, height: 14, background: "var(--border)" }} />
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <Clock style={{ width: 12, height: 12, color: "var(--muted-foreground)" }} />
+              <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>{provider.responseTime}</span>
+            </div>
+            <div style={{ width: 1, height: 14, background: "var(--border)" }} />
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <Banknote style={{ width: 12, height: 12, color: "var(--muted-foreground)" }} />
+              <span style={{ fontSize: 11, fontWeight: 600, color: "var(--muted-foreground)" }}>{provider.pricing}</span>
+            </div>
+            {provider.availableNow && (
+              <>
+                <div style={{ flex: 1 }} />
+                <span style={{
+                  fontSize: 10, fontWeight: 600, padding: "3px 9px", borderRadius: 99,
+                  background: "rgba(34,197,94,0.08)", color: "#15803D",
+                }}>
+                  {t("available")}
+                </span>
+              </>
             )}
           </div>
-        </Section>
 
-        {/* Certifications */}
-        {provider.certifications && provider.certifications.length > 0 && (
-          <Section title={t("certifications")}>
-            <div className="flex flex-wrap gap-2">
-              {provider.certifications.map((cert, i) => (
-                <span
-                  key={i}
-                  className="flex items-center gap-1.5 text-[12px] px-3 py-1.5 rounded-lg"
-                  style={{
-                    background: "rgba(34,197,94,0.06)",
-                    color: "#15803D",
-                  }}
-                >
-                  <Award className="w-3.5 h-3.5" />
-                  {cert}
+          {/* Services offered */}
+          <div style={{ marginBottom: 18 }}>
+            <h3 style={{
+              fontSize: 10, fontWeight: 650, textTransform: "uppercase",
+              letterSpacing: "0.06em", color: "var(--muted-foreground)",
+              marginBottom: 8, margin: 0, marginBottom: 8,
+            }}>
+              {t("offeredServices")}
+            </h3>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {provider.services.map((s, i) => (
+                <span key={i} style={{
+                  fontSize: 11, padding: "4px 10px", borderRadius: 8,
+                  background: "rgba(69,85,58,0.05)",
+                  border: "1px solid var(--border)",
+                  color: "var(--foreground)",
+                }}>
+                  {s}
                 </span>
               ))}
             </div>
-          </Section>
-        )}
+          </div>
 
-        {/* Actions */}
-        <div className="grid grid-cols-2 gap-3 mt-8">
+          {/* Contact info */}
+          <div style={{ marginBottom: 18 }}>
+            <h3 style={{
+              fontSize: 10, fontWeight: 650, textTransform: "uppercase",
+              letterSpacing: "0.06em", color: "var(--muted-foreground)",
+              margin: 0, marginBottom: 8,
+            }}>
+              {t("contactInfo")}
+            </h3>
+            <div style={{
+              display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8,
+            }}>
+              {/* Phone */}
+              <div style={{
+                display: "flex", alignItems: "center", gap: 8,
+                padding: "8px 12px", borderRadius: 8,
+                background: "var(--background)",
+                border: "1px solid var(--border)",
+              }}>
+                <Phone style={{ width: 13, height: 13, color: "var(--muted-foreground)", flexShrink: 0 }} />
+                <span style={{ fontSize: 11, color: "var(--foreground)" }}>{provider.phone}</span>
+              </div>
+              {/* Email */}
+              <div style={{
+                display: "flex", alignItems: "center", gap: 8,
+                padding: "8px 12px", borderRadius: 8,
+                background: "var(--background)",
+                border: "1px solid var(--border)",
+              }}>
+                <Mail style={{ width: 13, height: 13, color: "var(--muted-foreground)", flexShrink: 0 }} />
+                <span style={{ fontSize: 11, color: "var(--foreground)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{provider.email}</span>
+              </div>
+              {/* Address - full width */}
+              <div style={{
+                display: "flex", alignItems: "center", gap: 8,
+                padding: "8px 12px", borderRadius: 8,
+                background: "var(--background)",
+                border: "1px solid var(--border)",
+                gridColumn: provider.website ? "1 / -1" : "1 / -1",
+              }}>
+                <MapPin style={{ width: 13, height: 13, color: "var(--muted-foreground)", flexShrink: 0 }} />
+                <span style={{ fontSize: 11, color: "var(--foreground)" }}>{provider.address}</span>
+              </div>
+              {/* Website */}
+              {provider.website && (
+                <div style={{
+                  display: "flex", alignItems: "center", gap: 8,
+                  padding: "8px 12px", borderRadius: 8,
+                  background: "var(--background)",
+                  border: "1px solid var(--border)",
+                  gridColumn: "1 / -1",
+                }}>
+                  <ExternalLink style={{ width: 13, height: 13, color: "var(--muted-foreground)", flexShrink: 0 }} />
+                  <a
+                    href={`https://${provider.website}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ fontSize: 11, color: "var(--primary)", textDecoration: "none" }}
+                    onMouseEnter={(e) => { e.currentTarget.style.textDecoration = "underline"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.textDecoration = "none"; }}
+                  >
+                    {provider.website}
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Certifications */}
+          {provider.certifications && provider.certifications.length > 0 && (
+            <div style={{ marginBottom: 4 }}>
+              <h3 style={{
+                fontSize: 10, fontWeight: 650, textTransform: "uppercase",
+                letterSpacing: "0.06em", color: "var(--muted-foreground)",
+                margin: 0, marginBottom: 8,
+              }}>
+                {t("certifications")}
+              </h3>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {provider.certifications.map((cert, i) => (
+                  <span key={i} style={{
+                    display: "flex", alignItems: "center", gap: 5,
+                    fontSize: 11, padding: "4px 10px", borderRadius: 8,
+                    background: "rgba(34,197,94,0.06)", color: "#15803D",
+                  }}>
+                    <Award style={{ width: 11, height: 11 }} />
+                    {cert}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── Footer actions ────────────────────────────────── */}
+        <div style={{
+          padding: "14px 22px",
+          borderTop: "1px solid var(--border)",
+          display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10,
+        }}>
           <button
-            className="flex items-center justify-center gap-2 text-[13px] font-medium transition-colors"
             style={{
-              padding: "11px 0",
-              borderRadius: 12,
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
+              padding: "9px 0", borderRadius: 10, fontSize: 12, fontWeight: 550,
               border: "1px solid var(--border)",
-              background: "var(--card)",
-              color: "var(--foreground)",
+              background: "var(--card)", color: "var(--foreground)",
+              cursor: "pointer", transition: "background 0.15s",
             }}
             onClick={() => (window.location.href = `tel:${provider.phone}`)}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "var(--background)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "var(--card)";
-            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "var(--background)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "var(--card)"; }}
           >
-            <Phone className="w-4 h-4" />
+            <Phone style={{ width: 13, height: 13 }} />
             {t("call")}
           </button>
           <button
-            className="flex items-center justify-center gap-2 text-[13px] font-medium transition-colors"
             style={{
-              padding: "11px 0",
-              borderRadius: 12,
-              background: "var(--primary)",
-              color: "var(--primary-foreground)",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
+              padding: "9px 0", borderRadius: 10, fontSize: 12, fontWeight: 550,
+              border: "none",
+              background: "var(--primary)", color: "var(--primary-foreground)",
+              cursor: "pointer", transition: "opacity 0.15s",
             }}
             onClick={() =>
               (window.location.href = `mailto:${provider.email}?subject=Demande de devis`)
             }
-            onMouseEnter={(e) => {
-              e.currentTarget.style.opacity = "0.9";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.opacity = "1";
-            }}
+            onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.9"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
           >
-            <Mail className="w-4 h-4" />
+            <Mail style={{ width: 13, height: 13 }} />
             {t("requestQuote")}
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -837,9 +728,9 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <div style={{ marginBottom: 24 }}>
+    <div style={{ marginBottom: 20 }}>
       <h3
-        className="text-[12px] font-semibold uppercase mb-3"
+        className="text-[11px] font-semibold uppercase mb-2.5"
         style={{ color: "var(--muted-foreground)", letterSpacing: "0.06em" }}
       >
         {title}
@@ -857,9 +748,9 @@ function ContactRow({
   text: string;
 }) {
   return (
-    <div className="flex items-center gap-3">
-      <Icon className="w-4 h-4" style={{ color: "var(--muted-foreground)" }} />
-      <span className="text-[13px]" style={{ color: "var(--foreground)" }}>
+    <div className="flex items-center gap-2.5">
+      <Icon className="w-3.5 h-3.5" style={{ color: "var(--muted-foreground)" }} />
+      <span className="text-[12px]" style={{ color: "var(--foreground)" }}>
         {text}
       </span>
     </div>

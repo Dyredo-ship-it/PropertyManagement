@@ -19,6 +19,7 @@ import { BuildingDetailsView } from "./components/BuildingDetailsView";
 import { InterventionsView } from "./components/InterventionsView";
 import { AnalyticsDashboard } from "./components/AnalyticsDashboard";
 import { SettingsView } from "./components/SettingsView";
+import { CalendarView } from "./components/CalendarView";
 
 function AppContent() {
   const { isAuthenticated, user } = useAuth();
@@ -45,7 +46,7 @@ function AppContent() {
       <ModernSidebar activeView={activeView} onViewChange={setActiveView} />
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <TopHeader />
+        <TopHeader onNavigate={setActiveView} />
 
         <div className="flex-1 overflow-auto bg-background">
           {activeView === "dashboard" && user?.role === "admin" && <DashboardView />}
@@ -65,6 +66,7 @@ function AppContent() {
           {activeView === "requests" && user?.role === "tenant" && <TenantRequestsView />}
           {activeView === "services" && user?.role === "admin" && <ServicesView />}
           {activeView === "analytics" && user?.role === "admin" && <AnalyticsDashboard />}
+          {activeView === "calendar" && user?.role === "admin" && <CalendarView />}
           {activeView === "settings" && <SettingsView />}
           {activeView === "notifications" && <NotificationsView />}
           {(activeView === "info" || activeView === "informations") && <InformationsView />}

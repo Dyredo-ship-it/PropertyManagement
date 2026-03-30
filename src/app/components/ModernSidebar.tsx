@@ -78,6 +78,7 @@ export function ModernSidebar({ activeView, onViewChange }: ModernSidebarProps) 
             ],
           },
           { id: "services", labelKey: "navServices", icon: Briefcase },
+          { id: "calendar", labelKey: "navCalendar", icon: CalendarDays },
         ],
       },
       {

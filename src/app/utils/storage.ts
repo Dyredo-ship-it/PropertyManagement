@@ -68,7 +68,14 @@ export interface Tenant {
 
   // ✅ Genre
   gender: TenantGender;
+
+  // ✅ Suivi paiement
+  paymentStatus?: "up-to-date" | "late" | "very-late"; // défaut: up-to-date
+  latePaymentMonths?: number; // nombre de mois en retard
+  lastPaymentDate?: string;   // yyyy-mm-dd
 }
+
+export type NotificationCategory = "general" | "maintenance" | "payment" | "inspection" | "urgent";
 
 export interface Notification {
   id: string;
@@ -78,6 +85,7 @@ export interface Notification {
   read: boolean;
   buildingId?: string;
   recipientId?: string;
+  category?: NotificationCategory;
 }
 
 export type MaintenanceStatus = "pending" | "in-progress" | "completed";
@@ -129,6 +137,21 @@ export interface BuildingAction {
   updatedAt: string; // ISO
 }
 
+// ✅ Calendar Events
+export type CalendarEventType = "visit" | "inspection" | "signing" | "meeting" | "other";
+
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  date: string;       // yyyy-mm-dd
+  startTime: string;  // HH:mm
+  endTime?: string;    // HH:mm
+  type: CalendarEventType;
+  buildingId?: string;
+  notes?: string;
+  createdAt: string;
+}
+
 // ✅ Rental Applications (Demandes de location)
 export type RentalApplicationStatus = "received" | "under-review" | "accepted" | "rejected";
 
@@ -165,6 +188,7 @@ const LS_KEYS = {
   buildingActions: "buildingActions",
   tenantAbsences: "tenantAbsences",
   rentalApplications: "rentalApplications",
+  calendarEvents: "immostore_calendarEvents",
   baseCurrency: "immostore_baseCurrency",
   exchangeRates: "immostore_exchangeRates",
 } as const;
@@ -725,4 +749,28 @@ export const getExchangeRateCache = (): ExchangeRateCache | null => {
 
 export const saveExchangeRateCache = (cache: ExchangeRateCache): void => {
   localStorage.setItem(LS_KEYS.exchangeRates, JSON.stringify(cache));
+};
+
+// ─── Calendar Events ──────────────────────────────────────────
+
+export const getCalendarEvents = (): CalendarEvent[] =>
+  safeParse<CalendarEvent[]>(localStorage.getItem(LS_KEYS.calendarEvents), []);
+
+export const saveCalendarEvents = (events: CalendarEvent[]) =>
+  localStorage.setItem(LS_KEYS.calendarEvents, JSON.stringify(events));
+
+export const addCalendarEvent = (event: Omit<CalendarEvent, "id" | "createdAt">): CalendarEvent => {
+  const events = getCalendarEvents();
+  const newEvent: CalendarEvent = {
+    id: `${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
+    createdAt: nowISO(),
+    ...event,
+  };
+  saveCalendarEvents([newEvent, ...events]);
+  return newEvent;
+};
+
+export const deleteCalendarEvent = (id: string) => {
+  const events = getCalendarEvents();
+  saveCalendarEvents(events.filter((e) => e.id !== id));
 };

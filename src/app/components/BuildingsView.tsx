@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Building2,
   Plus,
@@ -10,19 +11,9 @@ import {
   TrendingUp,
   X,
   ArrowLeft,
-  DollarSign,
+  Banknote,
   ChevronRight,
 } from "lucide-react";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import { Label } from "./ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "./ui/dialog";
 import { getBuildings, saveBuildings, type Building, type Currency } from "../utils/storage";
 import { useLanguage } from "../i18n/LanguageContext";
 import { useCurrency } from "../context/CurrencyContext";
@@ -174,7 +165,6 @@ function BuildingBubble({
             </div>
             <div style={{ width: 1, height: 16, background: "rgba(255,255,255,0.25)" }} />
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <DollarSign style={{ width: 14, height: 14, color: "rgba(255,255,255,0.6)" }} />
               <span style={{ fontSize: 13, fontWeight: 600, color: "#FFFFFF" }}>
                 {formattedRevenue}
               </span>
@@ -261,156 +251,163 @@ function BuildingDetail({
     building.units > 0
       ? Math.round((building.occupiedUnits / building.units) * 100)
       : 0;
+  const occColor = occPct >= 90 ? "#15803D" : occPct >= 70 ? "var(--primary)" : "#B45309";
 
   return (
-    <div>
-      {/* Back button */}
-      <button
-        type="button"
-        onClick={onBack}
-        className="flex items-center gap-2 text-[13px] font-medium mb-6 transition-colors"
-        style={{ color: "var(--muted-foreground)" }}
-        onMouseEnter={(e) => { e.currentTarget.style.color = "var(--foreground)"; }}
-        onMouseLeave={(e) => { e.currentTarget.style.color = "var(--muted-foreground)"; }}
-      >
-        <ArrowLeft className="w-4 h-4" />
-        {t("buildingsTitle")}
-      </button>
+    <div style={{ padding: "32px 36px 48px" }}>
+      {/* ── Header: back + title + actions ──────────────────── */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 22 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <button
+            type="button"
+            onClick={onBack}
+            style={{
+              width: 32, height: 32, borderRadius: 8,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              border: "1px solid var(--border)", background: "var(--card)",
+              color: "var(--muted-foreground)", cursor: "pointer",
+              transition: "all 0.15s",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "var(--background)"; e.currentTarget.style.color = "var(--foreground)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "var(--card)"; e.currentTarget.style.color = "var(--muted-foreground)"; }}
+          >
+            <ArrowLeft style={{ width: 15, height: 15 }} />
+          </button>
+          <div>
+            <h1 style={{
+              fontSize: 20, fontWeight: 650, margin: 0, lineHeight: 1.2,
+              color: "var(--foreground)",
+              borderLeft: "4px solid var(--primary)",
+              paddingLeft: 12,
+            }}>
+              {building.name}
+            </h1>
+            <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 3, paddingLeft: 16 }}>
+              <MapPin style={{ width: 12, height: 12, color: "var(--muted-foreground)" }} />
+              <span style={{ fontSize: 12, color: "var(--muted-foreground)" }}>{building.address}</span>
+            </div>
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button
+            type="button"
+            onClick={() => onEdit(building)}
+            style={{
+              display: "flex", alignItems: "center", gap: 6,
+              padding: "7px 14px", borderRadius: 8, fontSize: 12, fontWeight: 550,
+              border: "1px solid var(--border)", background: "var(--card)",
+              color: "var(--foreground)", cursor: "pointer", transition: "background 0.15s",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "var(--background)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "var(--card)"; }}
+          >
+            <Edit style={{ width: 13, height: 13 }} />
+            {t("editBuilding")}
+          </button>
+          <button
+            type="button"
+            onClick={() => onDelete(building.id)}
+            style={{
+              display: "flex", alignItems: "center", gap: 6,
+              padding: "7px 14px", borderRadius: 8, fontSize: 12, fontWeight: 550,
+              border: "1px solid rgba(239,68,68,0.2)", background: "transparent",
+              color: "#DC2626", cursor: "pointer", transition: "background 0.15s",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(239,68,68,0.05)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+          >
+            <Trash2 style={{ width: 13, height: 13 }} />
+            {t("confirmDeleteBuilding")}
+          </button>
+        </div>
+      </div>
 
-      {/* Hero card */}
-      <div
-        className="overflow-hidden flex flex-col lg:flex-row"
-        style={{
-          borderRadius: 20,
-          border: "1px solid var(--border)",
-          background: "var(--card)",
-          marginBottom: 24,
-        }}
-      >
-        {/* Image */}
-        <div className="relative lg:w-[45%] min-h-[260px]">
+      {/* ── Top card: image + stats side by side ────────────── */}
+      <div style={{
+        display: "flex", gap: 16, marginBottom: 16,
+      }}>
+        {/* Image — compact */}
+        <div style={{
+          width: 220, height: 160, borderRadius: 14, overflow: "hidden",
+          flexShrink: 0, border: "1px solid var(--border)",
+          position: "relative",
+        }}>
           <img
             src={photo}
             alt={building.name}
-            className="absolute inset-0 w-full h-full object-cover"
+            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
           />
         </div>
 
-        {/* Info */}
-        <div className="lg:w-[55%] p-8 flex flex-col justify-between">
-          <div>
-            <h2
-              className="text-[24px] font-bold leading-tight mb-2"
-              style={{ color: "var(--foreground)" }}
-            >
-              {building.name}
-            </h2>
-            <p
-              className="flex items-center gap-1.5 text-[13px] mb-6"
-              style={{ color: "var(--muted-foreground)" }}
-            >
-              <MapPin className="w-3.5 h-3.5" />
-              {building.address}
-            </p>
-
-            {/* Stats grid */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              {[
-                { label: t("totalUnits"), value: building.units.toString(), icon: Home },
-                { label: t("occupiedUnits"), value: building.occupiedUnits.toString(), icon: Users },
-                { label: t("occupancyRate"), value: `${occPct}%`, icon: TrendingUp },
-                { label: t("monthlyRevenue"), value: formattedRevenue, icon: DollarSign },
-              ].map((s) => {
-                const Icon = s.icon;
-                return (
-                  <div
-                    key={s.label}
-                    style={{
-                      padding: "14px 16px",
-                      borderRadius: 14,
-                      background: "var(--background)",
-                      border: "1px solid var(--border)",
-                    }}
-                  >
-                    <Icon className="w-4 h-4 mb-2" style={{ color: "var(--primary)" }} />
-                    <p
-                      className="text-[18px] font-bold leading-tight"
-                      style={{ color: "var(--foreground)" }}
-                    >
-                      {s.value}
-                    </p>
-                    <p
-                      className="text-[10px] uppercase mt-0.5"
-                      style={{ color: "var(--muted-foreground)", letterSpacing: "0.06em" }}
-                    >
-                      {s.label}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Occupancy bar */}
-          <div className="mt-6">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[11px] font-medium" style={{ color: "var(--muted-foreground)" }}>
-                {t("occupancyRate")}
-              </span>
-              <span className="text-[13px] font-bold" style={{ color: "var(--foreground)" }}>
-                {occPct}%
-              </span>
-            </div>
-            <div
-              className="w-full h-2 rounded-full overflow-hidden"
-              style={{ background: "var(--muted)" }}
-            >
+        {/* Stats strip — horizontal */}
+        <div style={{ flex: 1, display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
+          {[
+            { label: t("totalUnits"), value: building.units.toString(), icon: Home },
+            { label: t("occupiedUnits"), value: building.occupiedUnits.toString(), icon: Users },
+            { label: t("occupancyRate"), value: `${occPct}%`, icon: TrendingUp, accent: true },
+            { label: t("monthlyRevenue"), value: formattedRevenue, icon: Banknote },
+          ].map((s) => {
+            const Icon = s.icon;
+            return (
               <div
-                className="h-full rounded-full transition-all"
+                key={s.label}
                 style={{
-                  width: `${occPct}%`,
-                  background: occPct >= 90 ? "#15803D" : occPct >= 70 ? "var(--primary)" : "#B45309",
+                  padding: "16px 14px",
+                  borderRadius: 12,
+                  background: "var(--card)",
+                  border: "1px solid var(--border)",
+                  borderLeft: s.accent ? `3px solid ${occColor}` : "1px solid var(--border)",
+                  display: "flex", flexDirection: "column", justifyContent: "center",
                 }}
-              />
-            </div>
-          </div>
+              >
+                <div style={{
+                  width: 26, height: 26, borderRadius: 7,
+                  background: "rgba(69,85,58,0.07)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  marginBottom: 10,
+                }}>
+                  <Icon style={{ width: 13, height: 13, color: "var(--primary)" }} />
+                </div>
+                <span style={{ fontSize: 18, fontWeight: 700, color: "var(--foreground)", lineHeight: 1.1 }}>
+                  {s.value}
+                </span>
+                <span style={{
+                  fontSize: 10, fontWeight: 550, textTransform: "uppercase",
+                  letterSpacing: "0.05em", color: "var(--muted-foreground)", marginTop: 3,
+                }}>
+                  {s.label}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
 
-          {/* Actions */}
-          <div className="flex items-center gap-3 mt-6">
-            <button
-              type="button"
-              onClick={() => onEdit(building)}
-              className="flex items-center gap-2 text-[13px] font-medium transition-colors"
-              style={{
-                padding: "9px 18px",
-                borderRadius: 12,
-                border: "1px solid var(--border)",
-                background: "var(--card)",
-                color: "var(--foreground)",
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = "var(--background)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = "var(--card)"; }}
-            >
-              <Edit className="w-3.5 h-3.5" />
-              {t("editBuilding")}
-            </button>
-            <button
-              type="button"
-              onClick={() => onDelete(building.id)}
-              className="flex items-center gap-2 text-[13px] font-medium transition-colors"
-              style={{
-                padding: "9px 18px",
-                borderRadius: 12,
-                border: "1px solid rgba(239,68,68,0.2)",
-                color: "#DC2626",
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(239,68,68,0.05)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              {t("confirmDeleteBuilding")}
-            </button>
+      {/* ── Occupancy bar ───────────────────────────────────── */}
+      <div style={{
+        padding: "14px 18px", borderRadius: 12,
+        background: "var(--card)", border: "1px solid var(--border)",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            {t("occupancyRate")}
+          </span>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+            <span style={{ fontSize: 16, fontWeight: 700, color: "var(--foreground)" }}>{occPct}%</span>
+            <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>
+              ({building.occupiedUnits}/{building.units} {t("unit")})
+            </span>
           </div>
+        </div>
+        <div style={{
+          width: "100%", height: 6, borderRadius: 99, overflow: "hidden",
+          background: "var(--background)",
+        }}>
+          <div style={{
+            height: "100%", borderRadius: 99,
+            width: `${occPct}%`, background: occColor,
+            transition: "width 0.4s ease",
+          }} />
         </div>
       </div>
     </div>
@@ -687,6 +684,20 @@ export function BuildingsView({ onSelectBuilding }: BuildingsViewProps) {
 
 /* ─── Form Dialog ────────────────────────────────────────────── */
 
+const inputStyle: React.CSSProperties = {
+  width: "100%", boxSizing: "border-box",
+  padding: "9px 12px", borderRadius: 9, fontSize: 13,
+  border: "1px solid var(--border)",
+  background: "var(--background)", color: "var(--foreground)",
+  outline: "none", transition: "border-color 0.15s",
+};
+
+const labelStyle: React.CSSProperties = {
+  display: "block", fontSize: 11, fontWeight: 600,
+  color: "var(--muted-foreground)", marginBottom: 5,
+  textTransform: "uppercase", letterSpacing: "0.04em",
+};
+
 function FormDialog({
   open,
   onOpenChange,
@@ -704,118 +715,196 @@ function FormDialog({
   editing: boolean;
   t: (k: string) => string;
 }) {
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className="rounded-2xl max-w-md"
-        style={{ background: "var(--card)", border: "1px solid var(--border)" }}
-      >
-        <DialogHeader>
-          <DialogTitle style={{ color: "var(--foreground)" }}>
-            {editing ? t("editBuilding") : t("newBuilding")}
-          </DialogTitle>
-        </DialogHeader>
+  if (!open) return null;
 
-        <form onSubmit={onSubmit} className="space-y-4 mt-4">
-          {[
-            { id: "name", label: t("buildingName"), type: "text", key: "name" as const },
-            { id: "address", label: t("buildingAddress"), type: "text", key: "address" as const },
-          ].map((field) => (
-            <div key={field.id}>
-              <Label htmlFor={field.id} style={{ color: "var(--foreground)" }}>{field.label}</Label>
-              <Input
-                id={field.id}
-                type={field.type}
-                value={formData[field.key] as string}
-                onChange={(e) => setFormData({ ...formData, [field.key]: e.target.value })}
+  return createPortal(
+    <div
+      style={{
+        position: "fixed", inset: 0, zIndex: 50,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        background: "rgba(0,0,0,0.35)", padding: 16,
+      }}
+      onClick={() => onOpenChange(false)}
+    >
+      <div
+        style={{
+          width: "100%", maxWidth: 480,
+          borderRadius: 16, overflow: "hidden",
+          border: "1px solid var(--border)",
+          background: "var(--card)",
+          boxShadow: "0 16px 48px rgba(0,0,0,0.14)",
+          display: "flex", flexDirection: "column",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* ── Accent header ─────────────────────────────────── */}
+        <div style={{
+          padding: "16px 22px",
+          borderBottom: "1px solid var(--border)",
+          display: "flex", alignItems: "center", gap: 12,
+        }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: 9, flexShrink: 0,
+            background: "rgba(69,85,58,0.07)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            borderLeft: "3px solid var(--primary)",
+          }}>
+            <Building2 style={{ width: 16, height: 16, color: "var(--primary)" }} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <span style={{ fontSize: 15, fontWeight: 650, color: "var(--foreground)" }}>
+              {editing ? t("editBuilding") : t("newBuilding")}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => onOpenChange(false)}
+            style={{
+              width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              background: "transparent", border: "none",
+              color: "var(--muted-foreground)", cursor: "pointer",
+              transition: "background 0.15s",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "var(--background)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+          >
+            <X style={{ width: 14, height: 14 }} />
+          </button>
+        </div>
+
+        {/* ── Form body ─────────────────────────────────────── */}
+        <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column" }}>
+          <div style={{ padding: "20px 22px", display: "flex", flexDirection: "column", gap: 14, overflow: "hidden" }}>
+            {/* Name */}
+            <div>
+              <label style={labelStyle}>{t("buildingName")}</label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 required
-                className="mt-2"
-                style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }}
+                style={inputStyle}
+                onFocus={(e) => { e.currentTarget.style.borderColor = "var(--primary)"; }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
               />
             </div>
-          ))}
 
-          <div className="grid grid-cols-2 gap-4">
-            {[
-              { id: "units", label: t("numberOfUnits"), key: "units" as const },
-              { id: "occupied", label: t("occupiedUnits"), key: "occupiedUnits" as const },
-            ].map((field) => (
-              <div key={field.id}>
-                <Label htmlFor={field.id} style={{ color: "var(--foreground)" }}>{field.label}</Label>
-                <Input
-                  id={field.id}
+            {/* Address */}
+            <div>
+              <label style={labelStyle}>{t("buildingAddress")}</label>
+              <input
+                type="text"
+                value={formData.address}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                required
+                style={inputStyle}
+                onFocus={(e) => { e.currentTarget.style.borderColor = "var(--primary)"; }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
+              />
+            </div>
+
+            {/* Units + Occupied */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div>
+                <label style={labelStyle}>{t("numberOfUnits")}</label>
+                <input
                   type="number"
-                  value={formData[field.key]}
-                  onChange={(e) => setFormData({ ...formData, [field.key]: parseInt(e.target.value) || 0 })}
+                  value={formData.units}
+                  onChange={(e) => setFormData({ ...formData, units: parseInt(e.target.value) || 0 })}
                   required
-                  className="mt-2"
-                  style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }}
+                  style={inputStyle}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = "var(--primary)"; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
                 />
               </div>
-            ))}
+              <div>
+                <label style={labelStyle}>{t("occupiedUnits")}</label>
+                <input
+                  type="number"
+                  value={formData.occupiedUnits}
+                  onChange={(e) => setFormData({ ...formData, occupiedUnits: parseInt(e.target.value) || 0 })}
+                  required
+                  style={inputStyle}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = "var(--primary)"; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
+                />
+              </div>
+            </div>
+
+            {/* Revenue + Currency */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div>
+                <label style={labelStyle}>{t("monthlyRevenueLabel")}</label>
+                <input
+                  type="number"
+                  value={formData.monthlyRevenue}
+                  onChange={(e) => setFormData({ ...formData, monthlyRevenue: parseInt(e.target.value) || 0 })}
+                  required
+                  style={inputStyle}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = "var(--primary)"; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>Currency</label>
+                <select
+                  value={formData.currency ?? ""}
+                  onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
+                  style={{
+                    ...inputStyle, cursor: "pointer",
+                    height: 38, padding: "0 12px",
+                  }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = "var(--primary)"; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
+                >
+                  <option value="">Base currency</option>
+                  <option value="CHF">CHF</option>
+                  <option value="EUR">EUR</option>
+                  <option value="USD">USD</option>
+                  <option value="GBP">GBP</option>
+                </select>
+              </div>
+            </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="revenue" style={{ color: "var(--foreground)" }}>{t("monthlyRevenueLabel")}</Label>
-              <Input
-                id="revenue"
-                type="number"
-                value={formData.monthlyRevenue}
-                onChange={(e) => setFormData({ ...formData, monthlyRevenue: parseInt(e.target.value) || 0 })}
-                required
-                className="mt-2"
-                style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }}
-              />
-            </div>
-            <div>
-              <Label htmlFor="currency" style={{ color: "var(--foreground)" }}>Currency</Label>
-              <select
-                id="currency"
-                value={formData.currency ?? ""}
-                onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
-                className="mt-2"
-                style={{
-                  width: "100%",
-                  height: 40,
-                  borderRadius: 8,
-                  border: "1px solid var(--border)",
-                  background: "var(--background)",
-                  color: "var(--foreground)",
-                  fontSize: 13,
-                  padding: "0 12px",
-                  cursor: "pointer",
-                  outline: "none",
-                }}
-              >
-                <option value="">Base currency</option>
-                <option value="CHF">CHF</option>
-                <option value="EUR">EUR</option>
-                <option value="USD">USD</option>
-                <option value="GBP">GBP</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="flex gap-3 pt-2">
+          {/* ── Footer actions ────────────────────────────────── */}
+          <div style={{
+            padding: "14px 22px",
+            borderTop: "1px solid var(--border)",
+            display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10,
+          }}>
             <button
               type="submit"
-              className="flex-1 rounded-xl text-[13px] font-medium py-2.5 transition-opacity"
-              style={{ background: "var(--primary)", color: "var(--primary-foreground)" }}
+              style={{
+                padding: "9px 0", borderRadius: 10, fontSize: 12, fontWeight: 600,
+                border: "none", cursor: "pointer",
+                background: "var(--primary)", color: "var(--primary-foreground)",
+                transition: "opacity 0.15s",
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.9"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
             >
               {editing ? t("update") : t("create")}
             </button>
             <button
               type="button"
               onClick={() => onOpenChange(false)}
-              className="flex-1 rounded-xl text-[13px] font-medium py-2.5 transition-colors"
-              style={{ border: "1px solid var(--border)", color: "var(--foreground)" }}
+              style={{
+                padding: "9px 0", borderRadius: 10, fontSize: 12, fontWeight: 550,
+                border: "1px solid var(--border)", background: "var(--card)",
+                color: "var(--foreground)", cursor: "pointer",
+                transition: "background 0.15s",
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "var(--background)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "var(--card)"; }}
             >
               {t("cancel")}
             </button>
           </div>
         </form>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>,
+    document.body
   );
 }

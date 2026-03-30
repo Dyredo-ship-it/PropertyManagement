@@ -28,23 +28,7 @@ import {
   Home,
   Upload,
 } from "lucide-react";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import { Label } from "./ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "./ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "./ui/select";
+// UI component imports removed — using inline-styled elements for full control
 import {
   getTenants,
   saveTenants,
@@ -58,6 +42,8 @@ import {
   type Notification,
 } from "../utils/storage";
 import { useLanguage } from "../i18n/LanguageContext";
+import { useCurrency } from "../context/CurrencyContext";
+import { Bell, ArrowUpDown } from "lucide-react";
 
 /* ─── Types ─── */
 
@@ -106,20 +92,17 @@ const fileToDataUrl = (file: File) =>
 
 /* ─── Premium building images ─── */
 
-const BUILDING_IMAGES = [
-  "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=900&h=500&fit=crop&q=80",
-  "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=900&h=500&fit=crop&q=80",
-  "https://images.unsplash.com/photo-1460317442991-0ec209397118?w=900&h=500&fit=crop&q=80",
-  "https://images.unsplash.com/photo-1515263487990-61b07816b324?w=900&h=500&fit=crop&q=80",
-  "https://images.unsplash.com/photo-1554469384-e58fac16e23a?w=900&h=500&fit=crop&q=80",
+const BUILDING_PHOTOS = [
+  "/building-1.jpg",
+  "/building-2.jpg",
+  "/building-3.jpg",
+  "https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=700&q=80",
+  "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=700&q=80",
 ];
 
 /* ─── Helpers ─── */
 
-const formatCHF = (value: number) => {
-  const n = Number.isFinite(value) ? value : 0;
-  return `CHF ${Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, "'")}`;
-};
+// formatCHF removed — use formatAmount from CurrencyContext instead
 
 const getInitials = (name: string) => {
   const parts = name.trim().split(/\s+/);
@@ -152,15 +135,13 @@ function TenantBubble({
   tenant,
   onClick,
   t,
+  formattedTotal,
 }: {
   tenant: any;
   onClick: () => void;
   t: (k: string) => string;
+  formattedTotal: string;
 }) {
-  const rentNet = Number(tenant.rentNet ?? tenant.rent ?? 0) || 0;
-  const charges = Number(tenant.charges ?? 0) || 0;
-  const total = rentNet + charges;
-
   return (
     <button
       onClick={onClick}
@@ -213,7 +194,7 @@ function TenantBubble({
           {t("totalMonthly")}
         </span>
         <span className="text-[13px] font-bold text-white/95 tabular-nums">
-          {formatCHF(total)}
+          {formattedTotal}
         </span>
       </div>
     </button>
@@ -231,6 +212,7 @@ function BuildingCard({
   onTenantClick,
   t,
   requests,
+  formatAmount,
 }: {
   building: Building;
   tenants: any[];
@@ -238,8 +220,9 @@ function BuildingCard({
   onTenantClick: (tenant: any) => void;
   t: (k: string) => string;
   requests: MaintenanceRequest[];
+  formatAmount: (amount: number) => string;
 }) {
-  const image = BUILDING_IMAGES[index % BUILDING_IMAGES.length];
+  const image = building.imageUrl || BUILDING_PHOTOS[index % BUILDING_PHOTOS.length];
   const activeTenants = tenants.filter((tn) => tn.status === "active").length;
   const pendingReqs = requests.filter((r) => r.buildingId === building.id && (r.status === "pending" || r.status === "in-progress")).length;
   const totalRevenue = tenants.reduce((sum, tn) => sum + (Number(tn.rentNet ?? 0) || 0) + (Number(tn.charges ?? 0) || 0), 0);
@@ -253,12 +236,12 @@ function BuildingCard({
         <img
           src={image}
           alt={building.name}
-          className="absolute inset-0 w-full h-full object-cover"
+          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
           loading="lazy"
         />
         {/* Gradient overlays for readability */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/10" />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/20 to-transparent" />
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.8), rgba(0,0,0,0.3) 50%, rgba(0,0,0,0.1))" }} />
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to right, rgba(0,0,0,0.2), transparent)" }} />
 
         {/* Building info — top area */}
         <div className="absolute top-0 left-0 right-0 p-6 flex items-start justify-between">
@@ -296,7 +279,7 @@ function BuildingCard({
               { label: t("tenantCount"), value: String(tenants.length), accent: false },
               { label: t("units"), value: String(building.units), accent: false },
               { label: t("occupancyLabel"), value: `${occupancyPct}%`, accent: true },
-              { label: t("revenue"), value: formatCHF(totalRevenue), accent: false },
+              { label: t("revenue"), value: formatAmount(totalRevenue), accent: false },
             ].map((m, i) => (
               <div key={i} className="px-4 py-2.5 rounded-2xl"
                 style={{
@@ -322,14 +305,19 @@ function BuildingCard({
           {/* ─── Tenant bubbles grid ─── */}
           {tenants.length > 0 ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-              {tenants.map((tenant) => (
-                <TenantBubble
-                  key={tenant.id}
-                  tenant={tenant}
-                  onClick={() => onTenantClick(tenant)}
-                  t={t}
-                />
-              ))}
+              {tenants.map((tenant) => {
+                const rentNet = Number(tenant.rentNet ?? tenant.rent ?? 0) || 0;
+                const charges = Number(tenant.charges ?? 0) || 0;
+                return (
+                  <TenantBubble
+                    key={tenant.id}
+                    tenant={tenant}
+                    onClick={() => onTenantClick(tenant)}
+                    t={t}
+                    formattedTotal={formatAmount(rentNet + charges)}
+                  />
+                );
+              })}
             </div>
           ) : (
             <div className="text-center py-8 rounded-2xl"
@@ -359,6 +347,7 @@ function TenantDetailDrawer({
   onEmail,
   ficheDocs,
   requests,
+  formatAmount,
 }: {
   tenant: any;
   open: boolean;
@@ -369,6 +358,7 @@ function TenantDetailDrawer({
   onEmail: () => void;
   ficheDocs: TenantDocument[];
   requests: MaintenanceRequest[];
+  formatAmount: (amount: number) => string;
 }) {
   const [showSendDoc, setShowSendDoc] = useState(false);
   const [sendDocFile, setSendDocFile] = useState<File | null>(null);
@@ -513,11 +503,11 @@ function TenantDetailDrawer({
             </div>
             <div className="p-3 rounded-xl text-center" style={{ background: "var(--background)" }}>
               <p className="text-[10px] uppercase tracking-wider font-medium mb-1" style={{ color: "var(--muted-foreground)" }}>{t("netRentLabel")}</p>
-              <p className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>{formatCHF(rentNet)}</p>
+              <p className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>{formatAmount(rentNet)}</p>
             </div>
             <div className="p-3 rounded-xl text-center" style={{ background: "color-mix(in srgb, var(--primary) 8%, transparent)" }}>
               <p className="text-[10px] uppercase tracking-wider font-medium mb-1" style={{ color: "var(--primary)" }}>{t("totalMonthly")}</p>
-              <p className="text-lg font-bold" style={{ color: "var(--primary)" }}>{formatCHF(total)}</p>
+              <p className="text-lg font-bold" style={{ color: "var(--primary)" }}>{formatAmount(total)}</p>
             </div>
           </div>
 
@@ -768,6 +758,7 @@ function StatusDotLight({ status, t }: { status: string; t: (k: string) => strin
 
 export function TenantsView() {
   const { t } = useLanguage();
+  const { formatAmount } = useCurrency();
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [requests, setRequests] = useState<MaintenanceRequest[]>([]);
@@ -779,6 +770,7 @@ export function TenantsView() {
   const [noteText, setNoteText] = useState<string>("");
   const [docCategory, setDocCategory] = useState<TenantDocument["category"]>("Contrat de bail");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [sortAlpha, setSortAlpha] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "", email: "", phone: "", buildingId: "", unit: "",
@@ -930,198 +922,236 @@ export function TenantsView() {
 
   const selectedBuildingTenants = useMemo(() => {
     if (!selectedBuildingId) return [];
-    return filteredTenants.filter((tn: any) => tn.buildingId === selectedBuildingId);
-  }, [filteredTenants, selectedBuildingId]);
+    const list = filteredTenants.filter((tn: any) => tn.buildingId === selectedBuildingId);
+    if (sortAlpha) {
+      return [...list].sort((a: any, b: any) => (a.name ?? "").localeCompare(b.name ?? "", "fr"));
+    }
+    return list;
+  }, [filteredTenants, selectedBuildingId, sortAlpha]);
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--background)" }}>
-      {/* ═══ PAGE HEADER ═══ */}
-      <div className="sticky top-0 z-30 border-b" style={{
-        background: "color-mix(in srgb, var(--background) 90%, transparent)",
-        backdropFilter: "blur(16px)",
-        WebkitBackdropFilter: "blur(16px)",
-        borderColor: "var(--border)",
-      }}>
-        <div className="px-6 lg:px-8 py-5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold" style={{ color: "var(--foreground)" }}>{t("tenantsTitle")}</h1>
-              <p className="text-sm mt-0.5" style={{ color: "var(--muted-foreground)" }}>{t("tenantsOverview")}</p>
-            </div>
+    <div style={{ background: "var(--background)", minHeight: "100vh" }}>
+      {/* ═══ PAGE CONTENT with left accent border ═══ */}
+      <div style={{ padding: "32px 36px 48px", borderLeft: "4px solid var(--primary)" }}>
 
-            <div className="flex items-center gap-3">
-              {/* Search */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--muted-foreground)" }} />
-                <input
-                  type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={t("searchTenants")}
-                  className="pl-10 pr-4 py-2.5 rounded-xl text-sm w-64 transition-all focus:outline-none focus:ring-2"
-                  style={{
-                    background: "var(--card)", border: "1px solid var(--border)",
-                    color: "var(--foreground)",
-                    "--tw-ring-color": "color-mix(in srgb, var(--primary) 20%, transparent)",
-                  } as any}
-                />
-              </div>
-
-              {/* Add tenant */}
-              <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
-                <DialogTrigger asChild>
-                  <Button className="rounded-xl h-10 px-5 shadow-sm" style={{ background: "var(--primary)", color: "var(--primary-foreground)" }}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    {t("addTenant")}
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-h-[90vh] overflow-y-auto rounded-2xl" style={{ background: "var(--card)", borderColor: "var(--border)" }}>
-                  <DialogHeader>
-                    <DialogTitle style={{ color: "var(--foreground)" }}>{editingTenant ? t("editTenant") : t("newTenant")}</DialogTitle>
-                  </DialogHeader>
-                  <form onSubmit={handleSubmit} className="space-y-4 mt-4">
-                    <FormField label={t("fullName")} id="name" value={formData.name} onChange={(v) => setFormData({ ...formData, name: v })} required />
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField label={t("email")} id="email" type="email" value={formData.email} onChange={(v) => setFormData({ ...formData, email: v })} required />
-                      <FormField label={t("phone")} id="phone" value={formData.phone} onChange={(v) => setFormData({ ...formData, phone: v })} required />
-                    </div>
-                    <div>
-                      <Label style={{ color: "var(--foreground)" }}>{t("building")}</Label>
-                      <Select value={formData.buildingId} onValueChange={(v) => setFormData({ ...formData, buildingId: v })}>
-                        <SelectTrigger className="mt-2" style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }}>
-                          <SelectValue placeholder={t("selectBuilding")} />
-                        </SelectTrigger>
-                        <SelectContent>{buildings.map((b: any) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}</SelectContent>
-                      </Select>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField label={t("units")} id="unit" value={formData.unit} onChange={(v) => setFormData({ ...formData, unit: v })} required />
-                      <div>
-                        <Label style={{ color: "var(--foreground)" }}>{t("gender")}</Label>
-                        <Select value={formData.gender} onValueChange={(v: any) => setFormData({ ...formData, gender: v })}>
-                          <SelectTrigger className="mt-2" style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }}><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="male">{t("male")}</SelectItem>
-                            <SelectItem value="female">{t("female")}</SelectItem>
-                            <SelectItem value="unspecified">{t("unspecified")}</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField label={t("netRent")} id="rentNet" type="number" value={String(formData.rentNet)} onChange={(v) => setFormData({ ...formData, rentNet: parseInt(v) || 0 })} required />
-                      <FormField label={t("monthlyCharges")} id="charges" type="number" value={String(formData.charges)} onChange={(v) => setFormData({ ...formData, charges: parseInt(v) || 0 })} required />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField label={t("leaseStartLabel")} id="leaseStart" type="date" value={formData.leaseStart} onChange={(v) => setFormData({ ...formData, leaseStart: v })} required />
-                      <FormField label={t("leaseEndOptional")} id="leaseEnd" type="date" value={formData.leaseEnd} onChange={(v) => setFormData({ ...formData, leaseEnd: v })} />
-                    </div>
-                    <div>
-                      <Label style={{ color: "var(--foreground)" }}>{t("status")}</Label>
-                      <Select value={formData.status} onValueChange={(v: any) => setFormData({ ...formData, status: v })}>
-                        <SelectTrigger className="mt-2" style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }}><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="active">{t("active")}</SelectItem>
-                          <SelectItem value="pending">{t("pending")}</SelectItem>
-                          <SelectItem value="ended">{t("ended")}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="flex gap-3 pt-4">
-                      <Button type="submit" className="flex-1" style={{ background: "var(--primary)", color: "var(--primary-foreground)" }}>
-                        {editingTenant ? t("update") : t("create")}
-                      </Button>
-                      <Button type="button" variant="outline" onClick={() => handleDialogChange(false)} className="flex-1"
-                        style={{ borderColor: "var(--border)", color: "var(--foreground)" }}>
-                        {t("cancel")}
-                      </Button>
-                    </div>
-                  </form>
-                </DialogContent>
-              </Dialog>
-            </div>
+        {/* ═══ PAGE HEADER — matching BuildingsView style ═══ */}
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 28 }}>
+          <div>
+            <h1 style={{ fontSize: 22, fontWeight: 600, lineHeight: 1.3, color: "var(--foreground)", margin: 0 }}>
+              {t("tenantsTitle")}
+            </h1>
+            <p style={{ fontSize: 13, color: "var(--muted-foreground)", marginTop: 4, margin: 0 }}>
+              {t("tenantsOverview")}
+            </p>
           </div>
 
-          {/* Summary stats */}
-          <div className="flex items-center gap-5 mt-4">
-            <StatPill icon={Users} value={totalTenants} label={t("tenantCount")} />
-            <div className="w-px h-7" style={{ background: "var(--border)" }} />
-            <StatPill icon={CheckCircle2} value={activeTenants} label={t("active")} accent />
-            <div className="w-px h-7" style={{ background: "var(--border)" }} />
-            <StatPill icon={Building2} value={buildings.length} label={t("navBuildings")} />
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+            {/* Search */}
+            <div style={{ position: "relative" }}>
+              <Search style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", width: 16, height: 16, color: "var(--muted-foreground)" }} />
+              <input
+                type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={t("searchTenants")}
+                style={{
+                  paddingLeft: 38, paddingRight: 16, paddingTop: 10, paddingBottom: 10,
+                  borderRadius: 14, fontSize: 13, width: 240,
+                  background: "var(--card)", border: "1px solid var(--border)",
+                  color: "var(--foreground)", outline: "none",
+                }}
+              />
+            </div>
+
+            {/* Add tenant */}
+            <button
+              type="button"
+              onClick={() => { resetForm(); setEditingTenant(null); setIsDialogOpen(true); }}
+              style={{
+                display: "flex", alignItems: "center", gap: 8,
+                padding: "10px 20px", borderRadius: 14, border: "none",
+                background: "var(--primary)", color: "var(--primary-foreground)",
+                fontSize: 13, fontWeight: 500, cursor: "pointer",
+                transition: "opacity 0.15s",
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.9"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
+            >
+              <Plus style={{ width: 16, height: 16 }} />
+              {t("addTenant")}
+            </button>
           </div>
         </div>
-      </div>
 
-      {/* ═══ BUILDING SELECTION BUBBLES ═══ */}
-      <div className="px-6 lg:px-8 py-8">
+        {/* ═══ SUMMARY STRIP — matching BuildingsView style ═══ */}
+        {tenants.length > 0 && (
+          <div
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              gap: 16, flexWrap: "wrap",
+              padding: "16px 24px",
+              borderRadius: 16,
+              border: "1px solid var(--border)",
+              background: "var(--card)",
+              marginBottom: 32,
+            }}
+          >
+            {[
+              { label: t("tenantCount"), value: String(totalTenants) },
+              { label: t("active"), value: String(activeTenants) },
+              { label: t("navBuildings"), value: String(buildings.length) },
+            ].map((m, i, arr) => (
+              <React.Fragment key={m.label}>
+                <div style={{ textAlign: "center" }}>
+                  <p style={{ fontSize: 18, fontWeight: 700, color: "var(--foreground)", margin: 0 }}>
+                    {m.value}
+                  </p>
+                  <p style={{ fontSize: 10, textTransform: "uppercase", marginTop: 2, color: "var(--muted-foreground)", letterSpacing: "0.06em", fontWeight: 500, margin: 0 }}>
+                    {m.label}
+                  </p>
+                </div>
+                {i < arr.length - 1 && (
+                  <div style={{ height: 32, width: 1, background: "var(--border)" }} />
+                )}
+              </React.Fragment>
+            ))}
+          </div>
+        )}
+
+        {/* ═══ BUILDING SELECTION — IMAGE OVERLAY CARDS ═══ */}
         {buildings.length > 0 ? (
           <>
-            <p className="text-xs uppercase tracking-widest font-semibold mb-6" style={{ color: "var(--muted-foreground)" }}>
-              {t("selectBuilding")}
-            </p>
-            <div className="flex flex-wrap gap-10 justify-start">
-              {buildings.map((b, i) => {
-                const image = BUILDING_IMAGES[i % BUILDING_IMAGES.length];
-                const tenantCount = tenants.filter((tn: any) => tn.buildingId === b.id).length;
-                const isSelected = selectedBuildingId === b.id;
-                return (
-                  <button
-                    key={b.id}
-                    type="button"
-                    onClick={() => setSelectedBuildingId(isSelected ? null : b.id)}
-                    className="flex flex-col items-center gap-3 group transition-all"
-                  >
-                    <div
-                      className="w-[130px] h-[130px] rounded-full overflow-hidden transition-all duration-200 shrink-0"
-                      style={{
-                        border: isSelected ? "4px solid var(--primary)" : "3px solid var(--border)",
-                        boxShadow: isSelected
-                          ? "0 0 0 4px color-mix(in srgb, var(--primary) 20%, transparent), 0 8px 24px rgba(0,0,0,0.12)"
-                          : "0 4px 12px rgba(0,0,0,0.06)",
-                        transform: isSelected ? "scale(1.05)" : "scale(1)",
-                      }}
-                    >
-                      <img src={image} alt={b.name} className="w-full h-full object-cover" loading="lazy" />
-                    </div>
-                    <div className="text-center">
-                      <p
-                        className="text-sm font-semibold leading-tight transition-colors"
-                        style={{ color: isSelected ? "var(--primary)" : "var(--foreground)" }}
+            {!selectedBuilding && (
+              <>
+                <p style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600, color: "var(--muted-foreground)", margin: 0, marginBottom: 20 }}>
+                  {t("selectBuilding")}
+                </p>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 28 }}>
+                  {buildings.map((b, i) => {
+                    const photo = b.imageUrl || BUILDING_PHOTOS[i % BUILDING_PHOTOS.length];
+                    const tenantCount = tenants.filter((tn: any) => tn.buildingId === b.id).length;
+                    const activeCnt = tenants.filter((tn: any) => tn.buildingId === b.id && tn.status === "active").length;
+                    const occPct = b.units > 0 ? Math.round((activeCnt / b.units) * 100) : 0;
+                    return (
+                      <button
+                        key={b.id}
+                        type="button"
+                        onClick={() => setSelectedBuildingId(b.id)}
+                        style={{
+                          position: "relative",
+                          minHeight: 280,
+                          borderRadius: 20,
+                          overflow: "hidden",
+                          border: "1px solid var(--border)",
+                          cursor: "pointer",
+                          textAlign: "left",
+                          padding: 0,
+                          boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
+                          transition: "transform 0.25s, box-shadow 0.25s",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.transform = "translateY(-4px)";
+                          e.currentTarget.style.boxShadow = "0 16px 48px rgba(0,0,0,0.12)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.transform = "translateY(0)";
+                          e.currentTarget.style.boxShadow = "0 2px 12px rgba(0,0,0,0.06)";
+                        }}
                       >
-                        {b.name}
-                      </p>
-                      <p className="text-[11px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>
-                        {b.units} {t("units")} &middot; {tenantCount} {t("tenantCount").toLowerCase()}
-                      </p>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+                        <img
+                          src={photo}
+                          alt={b.name}
+                          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+                          loading="lazy"
+                        />
+                        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.78), rgba(0,0,0,0.15) 55%, rgba(0,0,0,0.05))" }} />
+
+                        {/* Building name + address */}
+                        <div style={{ position: "absolute", top: 0, left: 0, right: 0, padding: "24px 26px" }}>
+                          <h3 style={{ fontSize: 21, fontWeight: 700, color: "white", margin: 0, textShadow: "0 2px 8px rgba(0,0,0,0.3)" }}>
+                            {b.name}
+                          </h3>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8 }}>
+                            <MapPin style={{ width: 13, height: 13, color: "rgba(255,255,255,0.55)" }} />
+                            <span style={{ fontSize: 13, color: "rgba(255,255,255,0.65)" }}>{b.address}</span>
+                          </div>
+                        </div>
+
+                        {/* Metric pills */}
+                        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "24px 26px" }}>
+                          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                            {[
+                              { label: t("tenantCount"), value: String(tenantCount) },
+                              { label: t("units"), value: String(b.units) },
+                              { label: t("occupancyLabel"), value: `${occPct}%` },
+                            ].map((m, mi) => (
+                              <div key={mi} style={{
+                                padding: "8px 14px",
+                                borderRadius: 12,
+                                background: "rgba(255,255,255,0.12)",
+                                backdropFilter: "blur(16px)",
+                                WebkitBackdropFilter: "blur(16px)",
+                                border: "1px solid rgba(255,255,255,0.12)",
+                              }}>
+                                <p style={{ fontSize: 15, fontWeight: 700, color: "white", margin: 0 }}>{m.value}</p>
+                                <p style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.08em", color: "rgba(255,255,255,0.5)", fontWeight: 500, marginTop: 2, margin: 0 }}>{m.label}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
 
             {/* ═══ SELECTED BUILDING → TENANT LIST ═══ */}
             {selectedBuilding && (
-              <div className="mt-10">
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center gap-3">
+              <div>
+                {/* Back + building header */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                     <button
                       type="button"
-                      onClick={() => setSelectedBuildingId(null)}
-                      className="p-2 rounded-xl transition-colors"
-                      style={{ color: "var(--muted-foreground)" }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = "var(--muted)"; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                      onClick={() => { setSelectedBuildingId(null); setSortAlpha(false); }}
+                      style={{
+                        width: 40, height: 40, borderRadius: 12,
+                        border: "1px solid var(--border)", background: "var(--card)",
+                        color: "var(--muted-foreground)", cursor: "pointer",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        transition: "background 0.15s",
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = "var(--background)"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = "var(--card)"; }}
                     >
-                      <ChevronRight className="w-4 h-4 rotate-180" />
+                      <ChevronRight style={{ width: 16, height: 16, transform: "rotate(180deg)" }} />
                     </button>
                     <div>
-                      <h2 className="text-lg font-bold" style={{ color: "var(--foreground)" }}>
+                      <h2 style={{ fontSize: 20, fontWeight: 700, color: "var(--foreground)", margin: 0 }}>
                         {selectedBuilding.name}
                       </h2>
-                      <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>
+                      <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: 0, marginTop: 2 }}>
                         {selectedBuilding.address} &middot; {selectedBuildingTenants.length} {t("tenantCount").toLowerCase()}
                       </p>
                     </div>
                   </div>
+
+                  {/* Sort toggle */}
+                  <button
+                    type="button"
+                    onClick={() => setSortAlpha(!sortAlpha)}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 8,
+                      padding: "8px 16px", borderRadius: 12,
+                      border: "1px solid var(--border)",
+                      background: sortAlpha ? "color-mix(in srgb, var(--primary) 8%, transparent)" : "var(--card)",
+                      color: sortAlpha ? "var(--primary)" : "var(--muted-foreground)",
+                      cursor: "pointer", fontSize: 13, fontWeight: 500,
+                      transition: "all 0.15s",
+                    }}
+                  >
+                    <ArrowUpDown style={{ width: 14, height: 14 }} />
+                    A → Z
+                  </button>
                 </div>
 
                 {selectedBuildingTenants.length > 0 ? (
@@ -1221,7 +1251,7 @@ export function TenantsView() {
                               <p style={{
                                 fontSize: 13, color: "var(--muted-foreground)", margin: 0, marginTop: 2,
                               }}>
-                                {tenant.buildingName} &middot; {t("unit")} {tenant.unit}
+                                {t("unit")} {tenant.unit}
                               </p>
                             </div>
                             <StatusDotLight status={tenant.status} t={t} />
@@ -1247,54 +1277,93 @@ export function TenantsView() {
                             </div>
                           </div>
 
-                          {/* ── Bottom section: Financials + Lease dates ── */}
+                          {/* ── Bottom section: Financials + Actions ── */}
                           <div style={{ display: "flex", alignItems: "center", gap: 0, flexWrap: "wrap" }}>
                             {/* Rent */}
-                            <div style={{ flex: 1, minWidth: 100 }}>
+                            <div style={{ flex: 1, minWidth: 90 }}>
                               <p style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted-foreground)", margin: 0 }}>
                                 {t("netRentLabel")}
                               </p>
                               <p style={{ fontSize: 14, fontWeight: 600, color: "var(--foreground)", margin: 0, marginTop: 4 }}>
-                                {formatCHF(rentNet)}
-                              </p>
-                            </div>
-                            {/* Charges */}
-                            <div style={{ flex: 1, minWidth: 100 }}>
-                              <p style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted-foreground)", margin: 0 }}>
-                                {t("monthlyCharges")}
-                              </p>
-                              <p style={{ fontSize: 14, fontWeight: 600, color: "var(--foreground)", margin: 0, marginTop: 4 }}>
-                                {formatCHF(charges)}
+                                {formatAmount(rentNet)}
                               </p>
                             </div>
                             {/* Total */}
-                            <div style={{ flex: 1, minWidth: 100 }}>
+                            <div style={{ flex: 1, minWidth: 90 }}>
                               <p style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--primary)", margin: 0 }}>
                                 {t("totalMonthly")}
                               </p>
                               <p style={{ fontSize: 15, fontWeight: 700, color: "var(--primary)", margin: 0, marginTop: 4 }}>
-                                {formatCHF(total)}
+                                {formatAmount(total)}
                               </p>
                             </div>
                             {/* Divider */}
                             <div style={{ width: 1, height: 36, background: "var(--border)", margin: "0 16px", flexShrink: 0 }} />
-                            {/* Lease start */}
-                            <div style={{ flex: 1, minWidth: 100 }}>
-                              <p style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted-foreground)", margin: 0 }}>
-                                {t("leaseStart")}
-                              </p>
-                              <p style={{ fontSize: 13, fontWeight: 500, color: "var(--foreground)", margin: 0, marginTop: 4 }}>
-                                {tenant.leaseStart ? new Date(tenant.leaseStart).toLocaleDateString("fr-CH") : "—"}
-                              </p>
-                            </div>
-                            {/* Lease end */}
-                            <div style={{ flex: 1, minWidth: 100 }}>
-                              <p style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted-foreground)", margin: 0 }}>
-                                {t("leaseEnd")}
-                              </p>
-                              <p style={{ fontSize: 13, fontWeight: 500, color: "var(--foreground)", margin: 0, marginTop: 4 }}>
-                                {tenant.leaseEnd ? new Date(tenant.leaseEnd).toLocaleDateString("fr-CH") : "—"}
-                              </p>
+                            {/* ── Quick action buttons ── */}
+                            <div style={{ display: "flex", gap: 8 }}>
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); window.location.href = `tel:${tenant.phone}`; }}
+                                title={t("call")}
+                                style={{
+                                  width: 38, height: 38, borderRadius: 10,
+                                  border: "1px solid var(--border)", background: "var(--card)",
+                                  color: "var(--muted-foreground)", cursor: "pointer",
+                                  display: "flex", alignItems: "center", justifyContent: "center",
+                                  transition: "all 0.15s",
+                                }}
+                                onMouseEnter={(e) => { e.currentTarget.style.background = "color-mix(in srgb, var(--primary) 8%, transparent)"; e.currentTarget.style.color = "var(--primary)"; e.currentTarget.style.borderColor = "var(--primary)"; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.background = "var(--card)"; e.currentTarget.style.color = "var(--muted-foreground)"; e.currentTarget.style.borderColor = "var(--border)"; }}
+                              >
+                                <Phone style={{ width: 15, height: 15 }} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); handleEmailTenant(tenant); }}
+                                title={t("sendEmail")}
+                                style={{
+                                  width: 38, height: 38, borderRadius: 10,
+                                  border: "1px solid var(--border)", background: "var(--card)",
+                                  color: "var(--muted-foreground)", cursor: "pointer",
+                                  display: "flex", alignItems: "center", justifyContent: "center",
+                                  transition: "all 0.15s",
+                                }}
+                                onMouseEnter={(e) => { e.currentTarget.style.background = "color-mix(in srgb, var(--primary) 8%, transparent)"; e.currentTarget.style.color = "var(--primary)"; e.currentTarget.style.borderColor = "var(--primary)"; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.background = "var(--card)"; e.currentTarget.style.color = "var(--muted-foreground)"; e.currentTarget.style.borderColor = "var(--border)"; }}
+                              >
+                                <Mail style={{ width: 15, height: 15 }} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  // Send a portal notification to the tenant
+                                  const allNotifications = getNotifications();
+                                  const newNotif: Notification = {
+                                    id: `notif-${Date.now()}`,
+                                    title: t("portalNotification"),
+                                    message: `${t("notificationSentTo")} ${tenant.name}`,
+                                    date: new Date().toISOString(),
+                                    read: false,
+                                    buildingId: tenant.buildingId,
+                                    recipientId: tenant.id,
+                                  };
+                                  saveNotifications([...allNotifications, newNotif]);
+                                  alert(`${t("portalNotification")} → ${tenant.name}`);
+                                }}
+                                title={t("portalNotification")}
+                                style={{
+                                  width: 38, height: 38, borderRadius: 10,
+                                  border: "1px solid var(--border)", background: "var(--card)",
+                                  color: "var(--muted-foreground)", cursor: "pointer",
+                                  display: "flex", alignItems: "center", justifyContent: "center",
+                                  transition: "all 0.15s",
+                                }}
+                                onMouseEnter={(e) => { e.currentTarget.style.background = "color-mix(in srgb, var(--primary) 8%, transparent)"; e.currentTarget.style.color = "var(--primary)"; e.currentTarget.style.borderColor = "var(--primary)"; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.background = "var(--card)"; e.currentTarget.style.color = "var(--muted-foreground)"; e.currentTarget.style.borderColor = "var(--border)"; }}
+                              >
+                                <Bell style={{ width: 15, height: 15 }} />
+                              </button>
                             </div>
                           </div>
                         </div>
@@ -1315,12 +1384,324 @@ export function TenantsView() {
             <Building2 className="w-16 h-16 mx-auto mb-4" style={{ color: "var(--muted)" }} />
             <h3 className="text-xl font-semibold mb-2" style={{ color: "var(--foreground)" }}>{t("noTenants")}</h3>
             <p className="text-sm mb-6" style={{ color: "var(--muted-foreground)" }}>{t("startAddTenant")}</p>
-            <Button onClick={() => setIsDialogOpen(true)} className="rounded-xl" style={{ background: "var(--primary)", color: "var(--primary-foreground)" }}>
-              <Plus className="w-4 h-4 mr-2" />{t("addTenant")}
-            </Button>
+            <button
+              type="button"
+              onClick={() => { resetForm(); setEditingTenant(null); setIsDialogOpen(true); }}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 8,
+                padding: "10px 20px", borderRadius: 14, border: "none",
+                background: "var(--primary)", color: "var(--primary-foreground)",
+                fontSize: 13, fontWeight: 500, cursor: "pointer",
+              }}
+            >
+              <Plus style={{ width: 16, height: 16 }} />
+              {t("addTenant")}
+            </button>
           </div>
         )}
       </div>
+
+      {/* ═══ ADD / EDIT TENANT FORM MODAL ═══ */}
+      {isDialogOpen && createPortal(
+        <div
+          style={{
+            position: "fixed", inset: 0, zIndex: 50,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            background: "rgba(0,0,0,0.45)",
+            backdropFilter: "blur(4px)",
+            padding: 24,
+          }}
+          onClick={() => handleDialogChange(false)}
+        >
+          <div
+            style={{
+              width: "100%", maxWidth: 640,
+              maxHeight: "88vh",
+              overflowY: "auto",
+              borderRadius: 24,
+              background: "var(--card)",
+              border: "1px solid var(--border)",
+              boxShadow: "0 24px 64px rgba(0,0,0,0.20)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* ─── Modal header with accent bar ─── */}
+            <div style={{
+              position: "relative",
+              padding: "28px 32px 20px",
+              borderBottom: "1px solid var(--border)",
+            }}>
+              {/* Top accent line */}
+              <div style={{
+                position: "absolute", top: 0, left: 32, right: 32, height: 3,
+                borderRadius: "0 0 3px 3px",
+                background: "var(--primary)",
+              }} />
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <div style={{
+                  width: 44, height: 44, borderRadius: 12,
+                  background: "color-mix(in srgb, var(--primary) 10%, transparent)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  flexShrink: 0,
+                }}>
+                  <User style={{ width: 20, height: 20, color: "var(--primary)" }} />
+                </div>
+                <div>
+                  <h2 style={{ fontSize: 18, fontWeight: 700, color: "var(--foreground)", margin: 0 }}>
+                    {editingTenant ? t("editTenant") : t("newTenant")}
+                  </h2>
+                  <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: 0, marginTop: 2 }}>
+                    {editingTenant ? t("editTenantSub") : t("newTenantSub")}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleDialogChange(false)}
+                style={{
+                  position: "absolute", top: 20, right: 20,
+                  width: 36, height: 36, borderRadius: 10,
+                  border: "none", background: "transparent",
+                  color: "var(--muted-foreground)", cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  transition: "background 0.15s",
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = "var(--background)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+              >
+                <X style={{ width: 18, height: 18 }} />
+              </button>
+            </div>
+
+            {/* ─── Form body ─── */}
+            <form onSubmit={handleSubmit} style={{ padding: "24px 32px 28px", overflow: "hidden" }}>
+
+              {/* Section: Personal Information */}
+              <div style={{ marginBottom: 28 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+                  <User style={{ width: 14, height: 14, color: "var(--primary)" }} />
+                  <span style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted-foreground)" }}>
+                    {t("personalInfo")}
+                  </span>
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  {/* Full name */}
+                  <StyledInput
+                    label={t("fullName")} id="form-name" value={formData.name}
+                    onChange={(v) => setFormData({ ...formData, name: v })}
+                    icon={<User style={{ width: 15, height: 15, color: "var(--muted-foreground)" }} />}
+                    required
+                  />
+                  {/* Email + Phone row */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                    <StyledInput
+                      label={t("email")} id="form-email" type="email" value={formData.email}
+                      onChange={(v) => setFormData({ ...formData, email: v })}
+                      icon={<Mail style={{ width: 15, height: 15, color: "var(--muted-foreground)" }} />}
+                      required
+                    />
+                    <StyledInput
+                      label={t("phone")} id="form-phone" value={formData.phone}
+                      onChange={(v) => setFormData({ ...formData, phone: v })}
+                      icon={<Phone style={{ width: 15, height: 15, color: "var(--muted-foreground)" }} />}
+                      required
+                    />
+                  </div>
+                  {/* Gender */}
+                  <div style={{ maxWidth: "50%" }}>
+                    <label style={{ display: "block", fontSize: 12, fontWeight: 500, color: "var(--muted-foreground)", marginBottom: 6 }}>
+                      {t("gender")}
+                    </label>
+                    <select
+                      value={formData.gender}
+                      onChange={(e) => setFormData({ ...formData, gender: e.target.value as any })}
+                      style={{
+                        width: "100%", boxSizing: "border-box", padding: "11px 14px", borderRadius: 12, fontSize: 13,
+                        border: "1px solid var(--border)", background: "var(--background)",
+                        color: "var(--foreground)", outline: "none",
+                        transition: "border-color 0.15s",
+                      }}
+                      onFocus={(e) => { e.currentTarget.style.borderColor = "var(--primary)"; }}
+                      onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
+                    >
+                      <option value="male">{t("male")}</option>
+                      <option value="female">{t("female")}</option>
+                      <option value="unspecified">{t("unspecified")}</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Divider */}
+              <div style={{ height: 1, background: "var(--border)", marginBottom: 28 }} />
+
+              {/* Section: Building & Unit */}
+              <div style={{ marginBottom: 28 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+                  <Building2 style={{ width: 14, height: 14, color: "var(--primary)" }} />
+                  <span style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted-foreground)" }}>
+                    {t("building")} & {t("units")}
+                  </span>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  {/* Building select */}
+                  <div>
+                    <label style={{ display: "block", fontSize: 12, fontWeight: 500, color: "var(--muted-foreground)", marginBottom: 6 }}>
+                      {t("building")}
+                    </label>
+                    <select
+                      value={formData.buildingId}
+                      onChange={(e) => setFormData({ ...formData, buildingId: e.target.value })}
+                      required
+                      style={{
+                        width: "100%", boxSizing: "border-box", padding: "11px 14px", borderRadius: 12, fontSize: 13,
+                        border: "1px solid var(--border)", background: "var(--background)",
+                        color: formData.buildingId ? "var(--foreground)" : "var(--muted-foreground)",
+                        outline: "none", transition: "border-color 0.15s",
+                      }}
+                      onFocus={(e) => { e.currentTarget.style.borderColor = "var(--primary)"; }}
+                      onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
+                    >
+                      <option value="" disabled>{t("selectBuilding")}</option>
+                      {buildings.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                    </select>
+                  </div>
+                  {/* Unit */}
+                  <StyledInput
+                    label={t("units")} id="form-unit" value={formData.unit}
+                    onChange={(v) => setFormData({ ...formData, unit: v })}
+                    icon={<Home style={{ width: 15, height: 15, color: "var(--muted-foreground)" }} />}
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Divider */}
+              <div style={{ height: 1, background: "var(--border)", marginBottom: 28 }} />
+
+              {/* Section: Financials */}
+              <div style={{ marginBottom: 28 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+                  <FileText style={{ width: 14, height: 14, color: "var(--primary)" }} />
+                  <span style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted-foreground)" }}>
+                    {t("financials")}
+                  </span>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <StyledInput
+                    label={t("netRentLabel")} id="form-rentNet" type="number"
+                    value={String(formData.rentNet)}
+                    onChange={(v) => setFormData({ ...formData, rentNet: parseInt(v) || 0 })}
+                    required
+                  />
+                  <StyledInput
+                    label={t("chargesLabel")} id="form-charges" type="number"
+                    value={String(formData.charges)}
+                    onChange={(v) => setFormData({ ...formData, charges: parseInt(v) || 0 })}
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Divider */}
+              <div style={{ height: 1, background: "var(--border)", marginBottom: 28 }} />
+
+              {/* Section: Lease & Status */}
+              <div style={{ marginBottom: 32 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+                  <Calendar style={{ width: 14, height: 14, color: "var(--primary)" }} />
+                  <span style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted-foreground)" }}>
+                    {t("leaseDetails")}
+                  </span>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
+                  <StyledInput
+                    label={t("leaseStartLabel")} id="form-leaseStart" type="date"
+                    value={formData.leaseStart}
+                    onChange={(v) => setFormData({ ...formData, leaseStart: v })}
+                    required
+                  />
+                  <StyledInput
+                    label={t("leaseEndOptional")} id="form-leaseEnd" type="date"
+                    value={formData.leaseEnd}
+                    onChange={(v) => setFormData({ ...formData, leaseEnd: v })}
+                  />
+                </div>
+
+                {/* Status */}
+                <div>
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 500, color: "var(--muted-foreground)", marginBottom: 6 }}>
+                    {t("status")}
+                  </label>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    {(["active", "pending", "ended"] as const).map((s) => {
+                      const isActive = formData.status === s;
+                      const colors: Record<string, { bg: string; border: string; text: string }> = {
+                        active: { bg: "rgba(34,197,94,0.08)", border: "rgba(34,197,94,0.4)", text: "#16a34a" },
+                        pending: { bg: "rgba(245,158,11,0.08)", border: "rgba(245,158,11,0.4)", text: "#d97706" },
+                        ended: { bg: "rgba(148,163,184,0.08)", border: "rgba(148,163,184,0.4)", text: "#64748b" },
+                      };
+                      const c = colors[s];
+                      return (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => setFormData({ ...formData, status: s })}
+                          style={{
+                            flex: 1, padding: "10px 0", borderRadius: 12, fontSize: 13, fontWeight: 500,
+                            border: isActive ? `2px solid ${c.border}` : "1px solid var(--border)",
+                            background: isActive ? c.bg : "var(--background)",
+                            color: isActive ? c.text : "var(--muted-foreground)",
+                            cursor: "pointer", transition: "all 0.15s",
+                          }}
+                        >
+                          {t(s)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* ─── Action buttons ─── */}
+              <div style={{ display: "flex", gap: 12 }}>
+                <button
+                  type="submit"
+                  style={{
+                    flex: 1, padding: "12px 0", borderRadius: 14, border: "none",
+                    background: "var(--primary)", color: "var(--primary-foreground)",
+                    fontSize: 14, fontWeight: 600, cursor: "pointer",
+                    transition: "opacity 0.15s",
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.9"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
+                >
+                  {editingTenant ? t("update") : t("create")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDialogChange(false)}
+                  style={{
+                    flex: 1, padding: "12px 0", borderRadius: 14,
+                    border: "1px solid var(--border)", background: "var(--card)",
+                    color: "var(--foreground)", fontSize: 14, fontWeight: 500,
+                    cursor: "pointer", transition: "background 0.15s",
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = "var(--background)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = "var(--card)"; }}
+                >
+                  {t("cancel")}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* ═══ TENANT PROFILE POPUP ═══ */}
       <TenantDetailDrawer
@@ -1333,36 +1714,62 @@ export function TenantsView() {
         onEmail={() => drawerTenant && handleEmailTenant(drawerTenant)}
         ficheDocs={ficheDocs}
         requests={requests}
+        formatAmount={formatAmount}
       />
     </div>
   );
 }
 
-/* ─── Reusable micro-components ─── */
-
-function StatPill({ icon: Icon, value, label, accent }: { icon: any; value: number; label: string; accent?: boolean }) {
-  return (
-    <div className="flex items-center gap-2">
-      <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-        style={{ background: accent ? "color-mix(in srgb, var(--primary) 10%, transparent)" : "color-mix(in srgb, var(--primary) 6%, transparent)" }}>
-        <Icon className="w-4 h-4" style={{ color: "var(--primary)" }} />
-      </div>
-      <div>
-        <p className="text-lg font-bold leading-none" style={{ color: "var(--foreground)" }}>{value}</p>
-        <p className="text-[10px] uppercase tracking-wider" style={{ color: "var(--muted-foreground)" }}>{label}</p>
-      </div>
-    </div>
-  );
-}
-
-function FormField({ label, id, type = "text", value, onChange, required }: {
-  label: string; id: string; type?: string; value: string; onChange: (v: string) => void; required?: boolean;
+function StyledInput({
+  label, id, type = "text", value, onChange, icon, required, placeholder,
+}: {
+  label: string; id: string; type?: string; value: string;
+  onChange: (v: string) => void; icon?: React.ReactNode;
+  required?: boolean; placeholder?: string;
 }) {
   return (
     <div>
-      <Label htmlFor={id} style={{ color: "var(--foreground)" }}>{label}</Label>
-      <Input id={id} type={type} value={value} onChange={(e) => onChange(e.target.value)} required={required}
-        className="mt-2" style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }} />
+      <label
+        htmlFor={id}
+        style={{ display: "block", fontSize: 12, fontWeight: 500, color: "var(--muted-foreground)", marginBottom: 6 }}
+      >
+        {label}
+      </label>
+      <div style={{ position: "relative" }}>
+        {icon && (
+          <div style={{
+            position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)",
+            pointerEvents: "none", display: "flex", alignItems: "center",
+          }}>
+            {icon}
+          </div>
+        )}
+        <input
+          id={id} type={type} value={value}
+          onChange={(e) => onChange(e.target.value)}
+          required={required}
+          placeholder={placeholder}
+          style={{
+            width: "100%",
+            boxSizing: "border-box",
+            padding: icon ? "11px 14px 11px 38px" : "11px 14px",
+            borderRadius: 12, fontSize: 13,
+            border: "1px solid var(--border)",
+            background: "var(--background)",
+            color: "var(--foreground)",
+            outline: "none",
+            transition: "border-color 0.15s, box-shadow 0.15s",
+          }}
+          onFocus={(e) => {
+            e.currentTarget.style.borderColor = "var(--primary)";
+            e.currentTarget.style.boxShadow = "0 0 0 3px color-mix(in srgb, var(--primary) 10%, transparent)";
+          }}
+          onBlur={(e) => {
+            e.currentTarget.style.borderColor = "var(--border)";
+            e.currentTarget.style.boxShadow = "none";
+          }}
+        />
+      </div>
     </div>
   );
 }
