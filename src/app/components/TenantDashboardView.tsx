@@ -361,12 +361,10 @@ function StatCard({
       style={{
         borderRadius: 14,
         border: "1px solid var(--border)",
-        borderLeft: `3px solid ${accent}`,
         background: "var(--card)",
         padding: "18px 18px",
-        borderColor: hovered ? accent : undefined,
-        boxShadow: hovered ? `0 2px 12px ${accent}18` : "none",
-        transition: "border-color 0.15s, box-shadow 0.15s",
+        boxShadow: hovered ? "0 2px 12px rgba(0,0,0,0.06)" : "none",
+        transition: "box-shadow 0.15s",
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
@@ -375,7 +373,7 @@ function StatCard({
             width: 26,
             height: 26,
             borderRadius: 7,
-            background: "rgba(69,85,58,0.07)",
+            background: `${accent}12`,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -425,13 +423,11 @@ function ActionCard({
         textAlign: "left" as const,
         borderRadius: 14,
         border: "1px solid var(--border)",
-        borderLeft: `3px solid ${color.accent}`,
         background: hovered ? "var(--background)" : "var(--card)",
         padding: "18px 18px",
         cursor: "pointer",
-        transition: "background 0.15s, border-color 0.15s, box-shadow 0.15s",
-        borderColor: hovered ? color.accent : undefined,
-        boxShadow: hovered ? `0 2px 12px ${color.accent}18` : "none",
+        transition: "background 0.15s, box-shadow 0.15s",
+        boxShadow: hovered ? "0 2px 12px rgba(0,0,0,0.06)" : "none",
       }}
     >
       <div
