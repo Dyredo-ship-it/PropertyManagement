@@ -1,16 +1,15 @@
 import React, { useEffect, useState, useMemo } from "react";
+import { createPortal } from "react-dom";
 import {
   Wrench,
   FileText,
   CircleParking,
   Plus,
   X,
-  Upload,
   Clock,
   CheckCircle,
   AlertCircle,
   TrendingUp,
-  MessageSquare,
   Calendar,
   Image as ImageIcon,
 } from "lucide-react";
@@ -55,6 +54,58 @@ const RENTAL_CATEGORIES = [
   { id: "other-rental", label: "Autre location" },
 ];
 
+const STATUS_COLORS: Record<string, string> = {
+  pending: "#F59E0B",
+  "in-progress": "var(--primary)",
+  completed: "#15803D",
+};
+
+const STATUS_BG: Record<string, { bg: string; fg: string; dot: string }> = {
+  pending:       { bg: "rgba(245,158,11,0.10)", fg: "#B45309", dot: "#F59E0B" },
+  "in-progress": { bg: "rgba(69,85,58,0.10)",   fg: "var(--primary)", dot: "var(--primary)" },
+  completed:     { bg: "rgba(34,197,94,0.10)",   fg: "#15803D", dot: "#22C55E" },
+};
+
+/* ================================================================
+   LABEL / INPUT STYLE HELPERS
+================================================================ */
+
+const labelStyle: React.CSSProperties = {
+  display: "block",
+  fontSize: 11,
+  fontWeight: 600,
+  color: "var(--muted-foreground)",
+  textTransform: "uppercase",
+  letterSpacing: "0.04em",
+  marginBottom: 5,
+};
+
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  boxSizing: "border-box",
+  padding: "9px 12px",
+  borderRadius: 9,
+  fontSize: 13,
+  border: "1px solid var(--border)",
+  background: "var(--background)",
+  color: "var(--foreground)",
+  outline: "none",
+};
+
+function useFocusBorder() {
+  const [focused, setFocused] = useState(false);
+  return {
+    focused,
+    onFocus: () => setFocused(true),
+    onBlur: () => setFocused(false),
+    borderColor: focused ? "var(--primary)" : "var(--border)",
+  };
+}
+
+/* ================================================================
+   MAIN VIEW
+================================================================ */
+
 export function TenantRequestsView() {
   const { user } = useAuth();
   const { t } = useLanguage();
@@ -79,12 +130,9 @@ export function TenantRequestsView() {
     try {
       const allRequests = getMaintenanceRequests();
       const allTenants = getTenants();
-
       setRequests(allRequests);
-
       const currentTenant = allTenants.find((t) => t.email === user?.email);
       setTenant(currentTenant);
-
       if (currentTenant) {
         const tenantRequests = allRequests.filter(
           (r) => r.tenantId === currentTenant.id
@@ -117,7 +165,6 @@ export function TenantRequestsView() {
       alert(t("fillAllFields"));
       return;
     }
-
     if (!tenant) {
       alert("Erreur: Locataire non trouv\u00E9");
       return;
@@ -145,7 +192,6 @@ export function TenantRequestsView() {
     setRequests(updatedRequests);
     setMyRequests([...myRequests, newRequest]);
 
-    // Reset form
     setFormData({
       category: "",
       title: "",
@@ -169,402 +215,200 @@ export function TenantRequestsView() {
     }
   };
 
+  const sectionTitle =
+    activeTab === "all"
+      ? t("allMyRequests")
+      : activeTab === "pending"
+      ? t("pendingRequestsLabel")
+      : activeTab === "in-progress"
+      ? t("inProgressRequests")
+      : t("completedRequests");
+
   return (
-    <div className="min-h-screen bg-[#FAF5F2]">
-      <div className="max-w-7xl mx-auto px-6 py-8 space-y-6">
-        {/* Header */}
-        <div className="rounded-3xl border border-[#E8E5DB] p-8 bg-white shadow-sm">
-          <div className="flex items-start justify-between gap-6">
-            <div>
-              <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-[#171414]">
-                {t("myRequestsTitle")}
-              </h1>
-              <p className="mt-2 text-[#6B6560]">
-                {t("manageAllRequests")}
+    <div style={{ padding: "32px 36px 48px" }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 28 }}>
+        <div style={{ borderLeft: "4px solid var(--primary)", paddingLeft: 14 }}>
+          <h1 style={{ fontSize: 22, fontWeight: 650, color: "var(--foreground)", margin: 0, lineHeight: 1.2 }}>
+            {t("myRequestsTitle")}
+          </h1>
+          <p style={{ fontSize: 13, color: "var(--muted-foreground)", marginTop: 4, marginBottom: 0 }}>
+            {t("manageAllRequests")}
+          </p>
+        </div>
+        <button
+          onClick={() => setShowCreateModal(true)}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 7,
+            padding: "9px 18px",
+            borderRadius: 10,
+            border: "none",
+            background: "var(--primary)",
+            color: "var(--primary-foreground)",
+            fontSize: 13,
+            fontWeight: 600,
+            cursor: "pointer",
+          }}
+        >
+          <Plus style={{ width: 16, height: 16 }} />
+          {t("newRequestBtn")}
+        </button>
+      </div>
+
+      {/* Stat filter pills */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 24 }}>
+        <StatCard
+          label={t("allMyRequests")}
+          value={stats.all}
+          active={activeTab === "all"}
+          onClick={() => setActiveTab("all")}
+        />
+        <StatCard
+          label={t("pendingRequestsLabel")}
+          value={stats.pending}
+          active={activeTab === "pending"}
+          onClick={() => setActiveTab("pending")}
+          accentColor="#F59E0B"
+        />
+        <StatCard
+          label={t("inProgressRequests")}
+          value={stats.inProgress}
+          active={activeTab === "in-progress"}
+          onClick={() => setActiveTab("in-progress")}
+          accentColor="var(--primary)"
+        />
+        <StatCard
+          label={t("completedRequests")}
+          value={stats.completed}
+          active={activeTab === "completed"}
+          onClick={() => setActiveTab("completed")}
+          accentColor="#15803D"
+        />
+      </div>
+
+      {/* Requests list card */}
+      <div
+        style={{
+          borderRadius: 14,
+          border: "1px solid var(--border)",
+          background: "var(--card)",
+          padding: 24,
+        }}
+      >
+        <h2 style={{ fontSize: 15, fontWeight: 650, color: "var(--foreground)", margin: 0, marginBottom: 18 }}>
+          {sectionTitle}
+        </h2>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {isLoading ? (
+            <div style={{ textAlign: "center", padding: "48px 0" }}>
+              <Wrench style={{ width: 40, height: 40, margin: "0 auto 12px", color: "var(--border)" }} />
+              <p style={{ fontSize: 13, fontWeight: 500, color: "var(--muted-foreground)", margin: 0 }}>
+                {t("loading")}
               </p>
             </div>
-
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="flex items-center gap-2 px-5 py-3 rounded-2xl font-medium transition-all hover:bg-[#3a4930] bg-[#45553A] text-white"
-            >
-              <Plus className="w-5 h-5" />
-              {t("newRequestBtn")}
-            </button>
-          </div>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard
-            label={t("allMyRequests")}
-            value={stats.all}
-            active={activeTab === "all"}
-            onClick={() => setActiveTab("all")}
-          />
-          <StatCard
-            label={t("pendingRequestsLabel")}
-            value={stats.pending}
-            active={activeTab === "pending"}
-            onClick={() => setActiveTab("pending")}
-            color="text-yellow-600"
-          />
-          <StatCard
-            label={t("inProgressRequests")}
-            value={stats.inProgress}
-            active={activeTab === "in-progress"}
-            onClick={() => setActiveTab("in-progress")}
-            color="text-blue-600"
-          />
-          <StatCard
-            label={t("completedRequests")}
-            value={stats.completed}
-            active={activeTab === "completed"}
-            onClick={() => setActiveTab("completed")}
-            color="text-green-600"
-          />
-        </div>
-
-        {/* Requests List */}
-        <div className="rounded-3xl border border-[#E8E5DB] p-7 bg-white shadow-sm">
-          <h2 className="text-xl font-semibold mb-5 text-[#171414]">
-            {activeTab === "all"
-              ? t("allMyRequests")
-              : activeTab === "pending"
-              ? t("pendingRequestsLabel")
-              : activeTab === "in-progress"
-              ? t("inProgressRequests")
-              : t("completedRequests")}
-          </h2>
-
-          <div className="space-y-4">
-            {isLoading ? (
-              <div className="text-center py-16">
-                <Wrench className="w-16 h-16 mx-auto mb-4 text-[#E8E5DB]" />
-                <p className="text-base font-medium text-[#6B6560]">
-                  {t("loading")}
-                </p>
-              </div>
-            ) : filteredRequests.length === 0 ? (
-              <div className="text-center py-16">
-                <Wrench className="w-16 h-16 mx-auto mb-4 text-[#E8E5DB]" />
-                <p className="text-base font-medium text-[#6B6560]">
-                  {t("noRequests")}
-                </p>
-                <p className="text-sm mt-1 text-[#6B6560]">
-                  {t("noRequestsCreate")}
-                </p>
-              </div>
-            ) : (
-              filteredRequests.map((request) => (
-                <RequestDetailCard key={request.id} request={request} />
-              ))
-            )}
-          </div>
+          ) : filteredRequests.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "48px 0" }}>
+              <Wrench style={{ width: 40, height: 40, margin: "0 auto 12px", color: "var(--border)" }} />
+              <p style={{ fontSize: 13, fontWeight: 500, color: "var(--muted-foreground)", margin: 0 }}>
+                {t("noRequests")}
+              </p>
+              <p style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 4 }}>
+                {t("noRequestsCreate")}
+              </p>
+            </div>
+          ) : (
+            filteredRequests.map((request) => (
+              <RequestDetailCard key={request.id} request={request} />
+            ))
+          )}
         </div>
       </div>
 
       {/* Create Request Modal */}
-      {showCreateModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
-          onClick={() => setShowCreateModal(false)}
-        >
-          <div
-            className="w-full max-w-3xl rounded-3xl border border-[#E8E5DB] p-8 max-h-[90vh] overflow-y-auto bg-white shadow-lg"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Modal Header */}
-            <div className="flex items-start justify-between mb-6">
-              <div>
-                <h2 className="text-2xl font-semibold text-[#171414]">
-                  {t("newRequestBtn")}
-                </h2>
-                <p className="text-sm mt-1 text-[#6B6560]">
-                  Remplissez le formulaire ci-dessous
-                </p>
-              </div>
-              <button
-                onClick={() => setShowCreateModal(false)}
-                className="p-2 rounded-xl transition-colors hover:bg-[#E8E5DB]/50 text-[#6B6560]"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Request Type Selection */}
-            <div className="mb-6">
-              <label className="block text-sm font-semibold mb-3 text-[#171414]">
-                {t("requestType")} *
-              </label>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <RequestTypeButton
-                  type="technical"
-                  icon={Wrench}
-                  label={t("technicalLabel")}
-                  description={t("technicalDesc")}
-                  active={requestType === "technical"}
-                  onClick={() => {
-                    setRequestType("technical");
-                    setFormData({ ...formData, category: "" });
-                  }}
-                />
-                <RequestTypeButton
-                  type="administrative"
-                  icon={FileText}
-                  label={t("administrativeLabel")}
-                  description={t("administrativeDesc")}
-                  active={requestType === "administrative"}
-                  onClick={() => {
-                    setRequestType("administrative");
-                    setFormData({ ...formData, category: "" });
-                  }}
-                />
-                <RequestTypeButton
-                  type="rental"
-                  icon={CircleParking}
-                  label={t("rentalLabel")}
-                  description={t("rentalDesc")}
-                  active={requestType === "rental"}
-                  onClick={() => {
-                    setRequestType("rental");
-                    setFormData({ ...formData, category: "" });
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Category */}
-            <div className="mb-6">
-              <label className="block text-sm font-semibold mb-3 text-[#171414]">
-                {t("categoryLabel")} *
-              </label>
-              <select
-                value={formData.category}
-                onChange={(e) =>
-                  setFormData({ ...formData, category: e.target.value })
-                }
-                className="w-full px-4 py-3 rounded-2xl border text-sm bg-[#FAF5F2] border-[#E8E5DB] text-[#171414]"
-              >
-                <option value="">{t("selectCategory")}</option>
-                {getCategoriesForType().map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Title */}
-            <div className="mb-6">
-              <label className="block text-sm font-semibold mb-3 text-[#171414]">
-                {t("titleLabel")} *
-              </label>
-              <input
-                type="text"
-                value={formData.title}
-                onChange={(e) =>
-                  setFormData({ ...formData, title: e.target.value })
-                }
-                placeholder={t("titlePlaceholder")}
-                className="w-full px-4 py-3 rounded-2xl border text-sm bg-[#FAF5F2] border-[#E8E5DB] text-[#171414]"
-              />
-            </div>
-
-            {/* Description */}
-            <div className="mb-6">
-              <label className="block text-sm font-semibold mb-3 text-[#171414]">
-                {t("detailedDescription")} *
-              </label>
-              <textarea
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData({ ...formData, description: e.target.value })
-                }
-                placeholder={t("descriptionPlaceholder")}
-                rows={4}
-                className="w-full px-4 py-3 rounded-2xl border text-sm resize-none bg-[#FAF5F2] border-[#E8E5DB] text-[#171414]"
-              />
-            </div>
-
-            {/* Urgency & Date */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              <div>
-                <label className="block text-sm font-semibold mb-3 text-[#171414]">
-                  {t("urgencyLevel")}
-                </label>
-                <select
-                  value={formData.urgency}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      urgency: e.target.value as UrgencyLevel,
-                    })
-                  }
-                  className="w-full px-4 py-3 rounded-2xl border text-sm bg-[#FAF5F2] border-[#E8E5DB] text-[#171414]"
-                >
-                  <option value="low">{t("low")}</option>
-                  <option value="medium">{t("medium")}</option>
-                  <option value="high">{t("high")}</option>
-                  <option value="urgent">{t("urgent")}</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold mb-3 text-[#171414]">
-                  {t("dateObserved")}
-                </label>
-                <input
-                  type="date"
-                  value={formData.dateObserved}
-                  onChange={(e) =>
-                    setFormData({ ...formData, dateObserved: e.target.value })
-                  }
-                  className="w-full px-4 py-3 rounded-2xl border text-sm bg-[#FAF5F2] border-[#E8E5DB] text-[#171414]"
-                />
-              </div>
-            </div>
-
-            {/* Photo Upload (UI only) */}
-            <div className="mb-8">
-              <label className="block text-sm font-semibold mb-3 text-[#171414]">
-                {t("photosOptional")}
-              </label>
-              <div className="border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-colors hover:bg-[#FAF5F2] border-[#E8E5DB]">
-                <ImageIcon className="w-12 h-12 mx-auto mb-3 text-[#E8E5DB]" />
-                <p className="text-sm font-medium text-[#6B6560]">
-                  {t("clickToAddPhotos")}
-                </p>
-                <p className="text-xs mt-1 text-[#6B6560]">
-                  {t("photoFormats")}
-                </p>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setShowCreateModal(false)}
-                className="flex-1 px-5 py-3 rounded-2xl border font-medium transition-colors border-[#E8E5DB] bg-[#FAF5F2] text-[#171414] hover:bg-[#E8E5DB]/50"
-              >
-                {t("cancel")}
-              </button>
-              <button
-                onClick={handleCreateRequest}
-                className="flex-1 px-5 py-3 rounded-2xl font-medium transition-all hover:bg-[#3a4930] bg-[#45553A] text-white"
-              >
-                {t("sendRequest")}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {showCreateModal &&
+        createPortal(
+          <CreateRequestModal
+            onClose={() => setShowCreateModal(false)}
+            requestType={requestType}
+            setRequestType={(rt: RequestType) => {
+              setRequestType(rt);
+              setFormData({ ...formData, category: "" });
+            }}
+            formData={formData}
+            setFormData={setFormData}
+            getCategoriesForType={getCategoriesForType}
+            onSubmit={handleCreateRequest}
+            t={t}
+          />,
+          document.body
+        )}
     </div>
   );
 }
 
-// Components
+/* ================================================================
+   STAT CARD (filter pill)
+================================================================ */
+
 function StatCard({
   label,
   value,
   active,
   onClick,
-  color = "text-[#6B6560]",
+  accentColor,
 }: {
   label: string;
   value: number;
   active: boolean;
   onClick: () => void;
-  color?: string;
+  accentColor?: string;
 }) {
+  const [hovered, setHovered] = useState(false);
+
   return (
     <button
       onClick={onClick}
-      className={[
-        "text-left rounded-3xl border p-6 transition-all bg-white shadow-sm",
-        active
-          ? "border-[#45553A] bg-[#45553A]/5"
-          : "border-[#E8E5DB]",
-      ].join(" ")}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        textAlign: "left" as const,
+        padding: "16px 18px",
+        borderRadius: 14,
+        border: active ? "1px solid var(--primary)" : "1px solid var(--border)",
+        background: active ? "rgba(69,85,58,0.07)" : "var(--card)",
+        cursor: "pointer",
+        transition: "all 0.15s",
+        boxShadow: hovered && !active ? "0 2px 8px rgba(0,0,0,0.06)" : "none",
+      }}
     >
-      <div className="text-xs font-semibold uppercase tracking-wider mb-2 text-[#6B6560]">
-        {label}
+      <div style={labelStyle}>{label}</div>
+      <div
+        style={{
+          fontSize: 26,
+          fontWeight: 700,
+          color: accentColor || "var(--foreground)",
+          marginTop: 4,
+        }}
+      >
+        {value}
       </div>
-      <div className={`text-3xl font-bold ${color}`}>{value}</div>
     </button>
   );
 }
 
-function RequestTypeButton({
-  type,
-  icon: Icon,
-  label,
-  description,
-  active,
-  onClick,
-}: {
-  type: string;
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  description: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={[
-        "text-left rounded-2xl border p-4 transition-all",
-        active
-          ? "border-[#45553A] bg-[#45553A]/5"
-          : "border-[#E8E5DB] bg-[#FAF5F2]",
-      ].join(" ")}
-    >
-      <Icon className="w-6 h-6 mb-2 text-[#6B6560]" />
-      <div className="font-semibold text-sm mb-1 text-[#171414]">
-        {label}
-      </div>
-      <div className="text-xs text-[#6B6560]">
-        {description}
-      </div>
-    </button>
-  );
-}
+/* ================================================================
+   REQUEST DETAIL CARD
+================================================================ */
 
 function RequestDetailCard({ request }: { request: any }) {
   const { t } = useLanguage();
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "pending":
-        return {
-          bg: "bg-yellow-100",
-          text: "text-yellow-700",
-          border: "border-yellow-200",
-          icon: Clock,
-        };
-      case "in-progress":
-        return {
-          bg: "bg-blue-100",
-          text: "text-blue-700",
-          border: "border-blue-200",
-          icon: TrendingUp,
-        };
-      case "completed":
-        return {
-          bg: "bg-green-100",
-          text: "text-green-700",
-          border: "border-green-200",
-          icon: CheckCircle,
-        };
-      default:
-        return {
-          bg: "bg-gray-100",
-          text: "text-gray-600",
-          border: "border-gray-200",
-          icon: AlertCircle,
-        };
-    }
-  };
+  const [hovered, setHovered] = useState(false);
+
+  const statusColor = STATUS_COLORS[request.status] || "var(--border)";
+  const badge = STATUS_BG[request.status] || { bg: "rgba(107,114,128,0.08)", fg: "#4B5563", dot: "#9CA3AF" };
 
   const getStatusLabel = (status: string) => {
     switch (status) {
@@ -579,8 +423,18 @@ function RequestDetailCard({ request }: { request: any }) {
     }
   };
 
-  const statusColors = getStatusColor(request.status);
-  const StatusIcon = statusColors.icon;
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case "pending":
+        return Clock;
+      case "in-progress":
+        return TrendingUp;
+      case "completed":
+        return CheckCircle;
+      default:
+        return AlertCircle;
+    }
+  };
 
   const getRequestTypeIcon = (type: string) => {
     switch (type) {
@@ -595,47 +449,485 @@ function RequestDetailCard({ request }: { request: any }) {
     }
   };
 
+  const StatusIcon = getStatusIcon(request.status);
   const TypeIcon = getRequestTypeIcon(request.requestType);
 
   return (
-    <div className="rounded-2xl border border-[#E8E5DB] p-6 transition-colors hover:bg-[#FAF5F2] bg-white">
-      <div className="flex items-start justify-between gap-4 mb-4">
-        <div className="flex items-start gap-3 min-w-0 flex-1">
-          <div className="w-10 h-10 rounded-xl border border-[#E8E5DB] bg-[#FAF5F2] flex items-center justify-center shrink-0">
-            <TypeIcon className="w-5 h-5 text-[#6B6560]" />
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: "flex",
+        borderRadius: 14,
+        border: hovered ? "1px solid var(--primary)" : "1px solid var(--border)",
+        background: "var(--card)",
+        overflow: "hidden",
+        transition: "all 0.15s",
+        boxShadow: hovered ? "0 2px 8px rgba(0,0,0,0.06)" : "none",
+      }}
+    >
+      {/* Left accent bar */}
+      <div style={{ width: 4, flexShrink: 0, background: statusColor }} />
+
+      <div style={{ flex: 1, padding: "16px 18px" }}>
+        {/* Top row */}
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 10 }}>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 10, flex: 1, minWidth: 0 }}>
+            {/* Type icon */}
+            <div
+              style={{
+                width: 26,
+                height: 26,
+                borderRadius: 7,
+                background: "rgba(69,85,58,0.07)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
+              <TypeIcon style={{ width: 14, height: 14, color: "var(--muted-foreground)" }} />
+            </div>
+
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <h3
+                style={{
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: "var(--foreground)",
+                  margin: 0,
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                {request.title}
+              </h3>
+              <p
+                style={{
+                  fontSize: 12,
+                  color: "var(--muted-foreground)",
+                  marginTop: 3,
+                  marginBottom: 0,
+                  display: "-webkit-box",
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: "vertical",
+                  overflow: "hidden",
+                }}
+              >
+                {request.description}
+              </p>
+            </div>
           </div>
 
-          <div className="min-w-0 flex-1">
-            <h3 className="font-semibold text-base truncate text-[#171414]">
-              {request.title}
-            </h3>
-            <p className="text-sm mt-1 line-clamp-2 text-[#6B6560]">
-              {request.description}
-            </p>
-          </div>
-        </div>
-
-        <span
-          className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border shrink-0 ${statusColors.bg} ${statusColors.text} ${statusColors.border}`}
-        >
-          <StatusIcon className="w-3.5 h-3.5" />
-          {getStatusLabel(request.status)}
-        </span>
-      </div>
-
-      <div className="flex items-center gap-4 flex-wrap">
-        <div className="flex items-center gap-2">
-          <Calendar className="w-4 h-4 text-[#6B6560]" />
-          <span className="text-xs text-[#6B6560]">
-            {new Date(request.createdAt).toLocaleDateString("fr-CH")}
+          {/* Status badge */}
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 5,
+              fontSize: 10,
+              fontWeight: 600,
+              padding: "3px 8px",
+              borderRadius: 99,
+              background: badge.bg,
+              color: badge.fg,
+              flexShrink: 0,
+              whiteSpace: "nowrap",
+            }}
+          >
+            <StatusIcon style={{ width: 11, height: 11 }} />
+            {getStatusLabel(request.status)}
           </span>
         </div>
 
-        {request.priority && (
-          <div className="px-2.5 py-1 rounded-full text-xs bg-[#FAF5F2] text-[#6B6560] border border-[#E8E5DB]">
-            {t("priority")}: {request.priority}
+        {/* Bottom meta */}
+        <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <Calendar style={{ width: 12, height: 12, color: "var(--muted-foreground)" }} />
+            <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>
+              {new Date(request.createdAt).toLocaleDateString("fr-CH")}
+            </span>
           </div>
-        )}
+
+          {request.priority && (
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 600,
+                padding: "2px 7px",
+                borderRadius: 6,
+                background: "rgba(69,85,58,0.07)",
+                color: "var(--muted-foreground)",
+              }}
+            >
+              {t("priority")}: {request.priority}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ================================================================
+   REQUEST TYPE BUTTON (in modal)
+================================================================ */
+
+function RequestTypeButton({
+  icon: Icon,
+  label,
+  description,
+  active,
+  onClick,
+}: {
+  icon: React.ComponentType<{ style?: React.CSSProperties }>;
+  label: string;
+  description: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        textAlign: "left" as const,
+        display: "flex",
+        overflow: "hidden",
+        borderRadius: 10,
+        border: active ? "1px solid var(--primary)" : "1px solid var(--border)",
+        background: active ? "rgba(69,85,58,0.07)" : "var(--card)",
+        cursor: "pointer",
+        transition: "all 0.15s",
+        padding: 0,
+        boxShadow: hovered && !active ? "0 1px 4px rgba(0,0,0,0.05)" : "none",
+      }}
+    >
+      {/* Left accent bar when active */}
+      <div style={{ width: active ? 4 : 0, flexShrink: 0, background: "var(--primary)", transition: "width 0.15s" }} />
+
+      <div style={{ padding: "12px 14px", flex: 1 }}>
+        <div
+          style={{
+            width: 26,
+            height: 26,
+            borderRadius: 7,
+            background: "rgba(69,85,58,0.07)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            marginBottom: 8,
+          }}
+        >
+          <Icon style={{ width: 14, height: 14, color: "var(--muted-foreground)" }} />
+        </div>
+        <div style={{ fontWeight: 600, fontSize: 12, color: "var(--foreground)", marginBottom: 3 }}>
+          {label}
+        </div>
+        <div style={{ fontSize: 11, color: "var(--muted-foreground)", lineHeight: 1.35 }}>
+          {description}
+        </div>
+      </div>
+    </button>
+  );
+}
+
+/* ================================================================
+   CREATE REQUEST MODAL
+================================================================ */
+
+function CreateRequestModal({
+  onClose,
+  requestType,
+  setRequestType,
+  formData,
+  setFormData,
+  getCategoriesForType,
+  onSubmit,
+  t,
+}: {
+  onClose: () => void;
+  requestType: RequestType;
+  setRequestType: (rt: RequestType) => void;
+  formData: { category: string; title: string; description: string; urgency: UrgencyLevel; dateObserved: string };
+  setFormData: (fd: any) => void;
+  getCategoriesForType: () => { id: string; label: string }[];
+  onSubmit: () => void;
+  t: (k: string) => string;
+}) {
+  const categoryFocus = useFocusBorder();
+  const titleFocus = useFocusBorder();
+  const descFocus = useFocusBorder();
+  const urgencyFocus = useFocusBorder();
+  const dateFocus = useFocusBorder();
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 9999,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "rgba(0,0,0,0.45)",
+        padding: 16,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "100%",
+          maxWidth: 640,
+          borderRadius: 14,
+          border: "1px solid var(--border)",
+          background: "var(--card)",
+          display: "flex",
+          flexDirection: "column",
+          maxHeight: "90vh",
+          overflow: "hidden",
+        }}
+      >
+        {/* Header */}
+        <div
+          style={{
+            padding: "18px 22px",
+            borderBottom: "1px solid var(--border)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                borderLeft: "3px solid var(--primary)",
+                paddingLeft: 10,
+              }}
+            >
+              <div
+                style={{
+                  width: 26,
+                  height: 26,
+                  borderRadius: 7,
+                  background: "rgba(69,85,58,0.07)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Plus style={{ width: 14, height: 14, color: "var(--primary)" }} />
+              </div>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 650, color: "var(--foreground)" }}>
+                  {t("newRequestBtn")}
+                </div>
+                <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 1 }}>
+                  Remplissez le formulaire ci-dessous
+                </div>
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: 7,
+              border: "1px solid var(--border)",
+              background: "var(--background)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              color: "var(--muted-foreground)",
+            }}
+          >
+            <X style={{ width: 14, height: 14 }} />
+          </button>
+        </div>
+
+        {/* Scrollable body */}
+        <div style={{ flex: 1, overflowY: "auto", padding: "20px 22px" }}>
+          {/* Request Type Selection */}
+          <div style={{ marginBottom: 20 }}>
+            <label style={labelStyle}>{t("requestType")} *</label>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+              <RequestTypeButton
+                icon={Wrench}
+                label={t("technicalLabel")}
+                description={t("technicalDesc")}
+                active={requestType === "technical"}
+                onClick={() => setRequestType("technical")}
+              />
+              <RequestTypeButton
+                icon={FileText}
+                label={t("administrativeLabel")}
+                description={t("administrativeDesc")}
+                active={requestType === "administrative"}
+                onClick={() => setRequestType("administrative")}
+              />
+              <RequestTypeButton
+                icon={CircleParking}
+                label={t("rentalLabel")}
+                description={t("rentalDesc")}
+                active={requestType === "rental"}
+                onClick={() => setRequestType("rental")}
+              />
+            </div>
+          </div>
+
+          {/* Category */}
+          <div style={{ marginBottom: 18 }}>
+            <label style={labelStyle}>{t("categoryLabel")} *</label>
+            <select
+              value={formData.category}
+              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+              onFocus={categoryFocus.onFocus}
+              onBlur={categoryFocus.onBlur}
+              style={{ ...inputStyle, borderColor: categoryFocus.borderColor }}
+            >
+              <option value="">{t("selectCategory")}</option>
+              {getCategoriesForType().map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Title */}
+          <div style={{ marginBottom: 18 }}>
+            <label style={labelStyle}>{t("titleLabel")} *</label>
+            <input
+              type="text"
+              value={formData.title}
+              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              placeholder={t("titlePlaceholder")}
+              onFocus={titleFocus.onFocus}
+              onBlur={titleFocus.onBlur}
+              style={{ ...inputStyle, borderColor: titleFocus.borderColor }}
+            />
+          </div>
+
+          {/* Description */}
+          <div style={{ marginBottom: 18 }}>
+            <label style={labelStyle}>{t("detailedDescription")} *</label>
+            <textarea
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              placeholder={t("descriptionPlaceholder")}
+              rows={4}
+              onFocus={descFocus.onFocus}
+              onBlur={descFocus.onBlur}
+              style={{ ...inputStyle, borderColor: descFocus.borderColor, resize: "none" as const }}
+            />
+          </div>
+
+          {/* Urgency & Date */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 18 }}>
+            <div>
+              <label style={labelStyle}>{t("urgencyLevel")}</label>
+              <select
+                value={formData.urgency}
+                onChange={(e) => setFormData({ ...formData, urgency: e.target.value as UrgencyLevel })}
+                onFocus={urgencyFocus.onFocus}
+                onBlur={urgencyFocus.onBlur}
+                style={{ ...inputStyle, borderColor: urgencyFocus.borderColor }}
+              >
+                <option value="low">{t("low")}</option>
+                <option value="medium">{t("medium")}</option>
+                <option value="high">{t("high")}</option>
+                <option value="urgent">{t("urgent")}</option>
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>{t("dateObserved")}</label>
+              <input
+                type="date"
+                value={formData.dateObserved}
+                onChange={(e) => setFormData({ ...formData, dateObserved: e.target.value })}
+                onFocus={dateFocus.onFocus}
+                onBlur={dateFocus.onBlur}
+                style={{ ...inputStyle, borderColor: dateFocus.borderColor }}
+              />
+            </div>
+          </div>
+
+          {/* Photo Upload (UI only) */}
+          <div style={{ marginBottom: 8 }}>
+            <label style={labelStyle}>{t("photosOptional")}</label>
+            <div
+              style={{
+                border: "2px dashed var(--border)",
+                borderRadius: 10,
+                padding: "28px 16px",
+                textAlign: "center",
+                cursor: "pointer",
+              }}
+            >
+              <ImageIcon style={{ width: 32, height: 32, margin: "0 auto 8px", display: "block", color: "var(--border)" }} />
+              <p style={{ fontSize: 12, fontWeight: 500, color: "var(--muted-foreground)", margin: 0 }}>
+                {t("clickToAddPhotos")}
+              </p>
+              <p style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 3, marginBottom: 0 }}>
+                {t("photoFormats")}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div
+          style={{
+            padding: "16px 22px",
+            borderTop: "1px solid var(--border)",
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+          }}
+        >
+          <button
+            onClick={onClose}
+            style={{
+              flex: 1,
+              padding: "9px 16px",
+              borderRadius: 9,
+              border: "1px solid var(--border)",
+              background: "var(--background)",
+              color: "var(--foreground)",
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            {t("cancel")}
+          </button>
+          <button
+            onClick={onSubmit}
+            style={{
+              flex: 1,
+              padding: "9px 16px",
+              borderRadius: 9,
+              border: "none",
+              background: "var(--primary)",
+              color: "var(--primary-foreground)",
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            {t("sendRequest")}
+          </button>
+        </div>
       </div>
     </div>
   );

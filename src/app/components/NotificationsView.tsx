@@ -932,8 +932,7 @@ function FieldGroup({
   return (
     <div>
       <label
-        className="block text-[12px] font-medium mb-1.5"
-        style={{ color: "var(--muted-foreground)" }}
+        style={{ display: "block", fontSize: 12, fontWeight: 500, marginBottom: 6, color: "var(--muted-foreground)" }}
       >
         {label}
       </label>
@@ -1062,13 +1061,15 @@ function ModalBtn({
     <button
       type={type}
       onClick={onClick}
-      className="flex-1 flex items-center justify-center gap-2 text-[13px] font-medium transition-colors"
       style={{
+        flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+        fontSize: 13, fontWeight: 500,
         padding: "10px 0",
         borderRadius: 12,
         background: primary ? "var(--primary)" : "var(--card)",
         color: primary ? "var(--primary-foreground)" : "var(--foreground)",
         border: primary ? "none" : "1px solid var(--border)",
+        cursor: "pointer", transition: "all 0.15s",
       }}
       onMouseEnter={(e) => {
         if (primary) e.currentTarget.style.opacity = "0.9";
