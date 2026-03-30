@@ -249,6 +249,7 @@ type TranslationSet = {
   inProgressRequests: string;
   completedRequests: string;
   newRequestBtn: string;
+  newRequestSub: string;
   requestType: string;
   technical: string;
   administrative: string;
@@ -771,6 +772,7 @@ export const translations: Record<Language, TranslationSet> = {
     inProgressRequests: "Demandes en cours",
     completedRequests: "Demandes terminées",
     newRequestBtn: "Nouvelle demande",
+    newRequestSub: "Remplissez le formulaire ci-dessous",
     requestType: "Type de demande",
     technical: "Technique",
     administrative: "Administrative",
@@ -1278,6 +1280,7 @@ export const translations: Record<Language, TranslationSet> = {
     inProgressRequests: "In-progress requests",
     completedRequests: "Completed requests",
     newRequestBtn: "New Request",
+    newRequestSub: "Fill in the form below",
     requestType: "Request Type",
     technical: "Technical",
     administrative: "Administrative",
@@ -1785,6 +1788,7 @@ export const translations: Record<Language, TranslationSet> = {
     inProgressRequests: "Anfragen in Bearbeitung",
     completedRequests: "Abgeschlossene Anfragen",
     newRequestBtn: "Neue Anfrage",
+    newRequestSub: "Füllen Sie das untenstehende Formular aus",
     requestType: "Anfragetyp",
     technical: "Technisch",
     administrative: "Administrativ",
@@ -2292,6 +2296,7 @@ export const translations: Record<Language, TranslationSet> = {
     inProgressRequests: "Richieste in corso",
     completedRequests: "Richieste completate",
     newRequestBtn: "Nuova richiesta",
+    newRequestSub: "Compila il modulo sottostante",
     requestType: "Tipo di richiesta",
     technical: "Tecnico",
     administrative: "Amministrativo",

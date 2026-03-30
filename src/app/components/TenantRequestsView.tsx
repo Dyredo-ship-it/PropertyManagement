@@ -740,7 +740,7 @@ function CreateRequestModal({
                   {t("newRequestBtn")}
                 </div>
                 <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 1 }}>
-                  Remplissez le formulaire ci-dessous
+                  {t("newRequestSub")}
                 </div>
               </div>
             </div>
