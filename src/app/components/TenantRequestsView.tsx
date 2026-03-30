@@ -125,6 +125,7 @@ export function TenantRequestsView() {
     urgency: "medium" as UrgencyLevel,
     dateObserved: new Date().toISOString().split("T")[0],
   });
+  const [photos, setPhotos] = useState<string[]>([]);
 
   useEffect(() => {
     try {
@@ -185,6 +186,7 @@ export function TenantRequestsView() {
       category: formData.category,
       requestType: requestType,
       dateObserved: formData.dateObserved,
+      photos: photos.length > 0 ? photos : undefined,
     };
 
     const updatedRequests = [...requests, newRequest];
@@ -199,6 +201,7 @@ export function TenantRequestsView() {
       urgency: "medium",
       dateObserved: new Date().toISOString().split("T")[0],
     });
+    setPhotos([]);
     setShowCreateModal(false);
   };
 
@@ -340,6 +343,8 @@ export function TenantRequestsView() {
             formData={formData}
             setFormData={setFormData}
             getCategoriesForType={getCategoriesForType}
+            photos={photos}
+            setPhotos={setPhotos}
             onSubmit={handleCreateRequest}
             t={t}
           />,
@@ -647,6 +652,8 @@ function CreateRequestModal({
   formData,
   setFormData,
   getCategoriesForType,
+  photos,
+  setPhotos,
   onSubmit,
   t,
 }: {
@@ -656,6 +663,8 @@ function CreateRequestModal({
   formData: { category: string; title: string; description: string; urgency: UrgencyLevel; dateObserved: string };
   setFormData: (fd: any) => void;
   getCategoriesForType: () => { id: string; key: string }[];
+  photos: string[];
+  setPhotos: React.Dispatch<React.SetStateAction<string[]>>;
   onSubmit: () => void;
   t: (k: string) => string;
 }) {
@@ -862,26 +871,78 @@ function CreateRequestModal({
             </div>
           </div>
 
-          {/* Photo Upload (UI only) */}
+          {/* Photo Upload */}
           <div style={{ marginBottom: 8 }}>
             <label style={labelStyle}>{t("photosOptional")}</label>
-            <div
+
+            {/* Previews */}
+            {photos.length > 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+                {photos.map((src, i) => (
+                  <div key={i} style={{ position: "relative", width: 72, height: 72, borderRadius: 8, overflow: "hidden", border: "1px solid var(--border)" }}>
+                    <img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    <button
+                      type="button"
+                      onClick={() => setPhotos(photos.filter((_, j) => j !== i))}
+                      style={{
+                        position: "absolute", top: 3, right: 3,
+                        width: 18, height: 18, borderRadius: 99,
+                        background: "rgba(0,0,0,0.55)", border: "none",
+                        color: "#fff", cursor: "pointer",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontSize: 11, lineHeight: 1,
+                      }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Drop zone / file input */}
+            <label
               style={{
+                display: "block",
                 border: "2px dashed var(--border)",
                 borderRadius: 10,
-                padding: "28px 16px",
+                padding: "22px 16px",
                 textAlign: "center",
                 cursor: "pointer",
+                transition: "border-color 0.15s",
               }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "var(--primary)"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "var(--border)"; }}
             >
-              <ImageIcon style={{ width: 32, height: 32, margin: "0 auto 8px", display: "block", color: "var(--border)" }} />
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                multiple
+                style={{ display: "none" }}
+                onChange={(e) => {
+                  const files = e.target.files;
+                  if (!files) return;
+                  Array.from(files).forEach((file) => {
+                    if (file.size > 10 * 1024 * 1024) return; // skip >10MB
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                      if (typeof reader.result === "string") {
+                        setPhotos((prev: string[]) => [...prev, reader.result as string]);
+                      }
+                    };
+                    reader.readAsDataURL(file);
+                  });
+                  e.target.value = ""; // reset so same file can be re-selected
+                }}
+              />
+              <ImageIcon style={{ width: 28, height: 28, margin: "0 auto 6px", display: "block", color: "var(--border)" }} />
               <p style={{ fontSize: 12, fontWeight: 500, color: "var(--muted-foreground)", margin: 0 }}>
                 {t("clickToAddPhotos")}
               </p>
-              <p style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 3, marginBottom: 0 }}>
+              <p style={{ fontSize: 10, color: "var(--muted-foreground)", marginTop: 3, marginBottom: 0 }}>
                 {t("photoFormats")}
               </p>
-            </div>
+            </label>
           </div>
         </div>
 
