@@ -139,7 +139,7 @@ export function TenantDashboardView() {
       <div
         style={{
           borderRadius: 14,
-          border: "1px solid color-mix(in srgb, var(--border) 50%, transparent)",
+          border: "1px solid var(--border)",
           background: "var(--card)",
           padding: "28px 30px",
           marginBottom: 22,
@@ -174,7 +174,7 @@ export function TenantDashboardView() {
             gap: 8,
             padding: "7px 14px",
             borderRadius: 9,
-            border: "1px solid color-mix(in srgb, var(--border) 50%, transparent)",
+            border: "1px solid var(--border)",
             background: "var(--background)",
           }}
         >
@@ -196,7 +196,7 @@ export function TenantDashboardView() {
       <div
         style={{
           borderRadius: 14,
-          border: "1px solid color-mix(in srgb, var(--border) 50%, transparent)",
+          border: "1px solid var(--border)",
           background: "var(--card)",
           padding: "22px 24px",
           marginBottom: 22,
@@ -219,7 +219,7 @@ export function TenantDashboardView() {
         <div
           style={{
             borderRadius: 14,
-            border: "1px solid color-mix(in srgb, var(--border) 50%, transparent)",
+            border: "1px solid var(--border)",
             background: "var(--card)",
             padding: "22px 24px",
           }}
@@ -251,7 +251,7 @@ export function TenantDashboardView() {
         <div
           style={{
             borderRadius: 14,
-            border: "1px solid color-mix(in srgb, var(--border) 50%, transparent)",
+            border: "1px solid var(--border)",
             background: "var(--card)",
             padding: "22px 24px",
           }}
@@ -281,7 +281,7 @@ export function TenantDashboardView() {
       <div
         style={{
           borderRadius: 14,
-          border: "1px solid color-mix(in srgb, var(--border) 50%, transparent)",
+          border: "1px solid var(--border)",
           background: "var(--card)",
           padding: "22px 24px",
         }}
@@ -309,7 +309,7 @@ export function TenantDashboardView() {
                 style={{
                   padding: "12px 14px",
                   borderRadius: 10,
-                  border: "1px solid color-mix(in srgb, var(--border) 50%, transparent)",
+                  border: "1px solid var(--border)",
                   background: "var(--background)",
                 }}
               >
@@ -360,7 +360,7 @@ function StatCard({
       onMouseLeave={() => setHovered(false)}
       style={{
         borderRadius: 14,
-        border: "1px solid color-mix(in srgb, var(--border) 50%, transparent)",
+        border: "1px solid var(--border)",
         borderLeft: `3px solid ${accent}`,
         background: "var(--card)",
         padding: "18px 18px",
@@ -424,7 +424,7 @@ function ActionCard({
       style={{
         textAlign: "left" as const,
         borderRadius: 14,
-        border: "1px solid color-mix(in srgb, var(--border) 50%, transparent)",
+        border: "1px solid var(--border)",
         borderLeft: `3px solid ${color.accent}`,
         background: hovered ? "var(--background)" : "var(--card)",
         padding: "18px 18px",
@@ -476,7 +476,7 @@ function RequestCard({ request }: { request: MaintenanceRequest }) {
       onMouseLeave={() => setHovered(false)}
       style={{
         borderRadius: 10,
-        border: "1px solid color-mix(in srgb, var(--border) 50%, transparent)",
+        border: "1px solid var(--border)",
         borderLeft: `3px solid ${sc.accent}`,
         background: "var(--card)",
         padding: "14px 16px",
@@ -521,7 +521,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
     <div
       style={{
         borderRadius: 10,
-        border: "1px solid color-mix(in srgb, var(--border) 50%, transparent)",
+        border: "1px solid var(--border)",
         background: "var(--background)",
         padding: "10px 14px",
       }}
@@ -567,7 +567,7 @@ function SmallButton({
         fontWeight: 600,
         padding: "5px 12px",
         borderRadius: 8,
-        border: "1px solid color-mix(in srgb, var(--border) 50%, transparent)",
+        border: "1px solid var(--border)",
         background: hovered ? "var(--background)" : "var(--card)",
         color: "var(--foreground)",
         cursor: "pointer",
@@ -597,7 +597,7 @@ function ContactButton({ label, onClick }: { label: string; onClick: () => void 
         gap: 8,
         padding: "10px 16px",
         borderRadius: 10,
-        border: "1px solid color-mix(in srgb, var(--border) 50%, transparent)",
+        border: "1px solid var(--border)",
         background: hovered ? "var(--background)" : "var(--card)",
         color: "var(--foreground)",
         fontWeight: 600,
@@ -644,7 +644,7 @@ function AbsenceModal({
     padding: "9px 12px",
     borderRadius: 9,
     fontSize: 13,
-    border: "1px solid color-mix(in srgb, var(--border) 50%, transparent)",
+    border: "1px solid var(--border)",
     background: "var(--background)",
     color: "var(--foreground)",
     outline: "none",
@@ -674,7 +674,7 @@ function AbsenceModal({
         style={{
           width: 420,
           borderRadius: 14,
-          border: "1px solid color-mix(in srgb, var(--border) 50%, transparent)",
+          border: "1px solid var(--border)",
           background: "var(--card)",
           overflow: "hidden",
         }}
@@ -712,7 +712,7 @@ function AbsenceModal({
             onClick={onClose}
             style={{
               background: "none",
-              border: "1px solid color-mix(in srgb, var(--border) 50%, transparent)",
+              border: "1px solid var(--border)",
               cursor: "pointer",
               padding: 4,
               color: "var(--muted-foreground)",
@@ -771,7 +771,7 @@ function AbsenceModal({
               flex: 1,
               padding: "9px 0",
               borderRadius: 9,
-              border: "1px solid color-mix(in srgb, var(--border) 50%, transparent)",
+              border: "1px solid var(--border)",
               background: cancelHover ? "var(--background)" : "var(--card)",
               color: "var(--foreground)",
               fontWeight: 600,
@@ -790,7 +790,7 @@ function AbsenceModal({
               flex: 1,
               padding: "9px 0",
               borderRadius: 9,
-              border: "1px solid color-mix(in srgb, var(--border) 50%, transparent)",
+              border: "1px solid var(--border)",
               background: saveHover ? "var(--primary)" : "var(--primary)",
               color: "var(--primary-foreground)",
               fontWeight: 600,
