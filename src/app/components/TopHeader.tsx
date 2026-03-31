@@ -382,9 +382,6 @@ export function TopHeader({ onNavigate }: { onNavigate?: (view: string) => void 
         <div ref={langRef} className="relative">
           <IconBtn onClick={() => { setIsLangOpen((v) => !v); setIsNotifOpen(false); }} title="Changer la langue" active={isLangOpen}>
             <Globe className="w-[17px] h-[17px]" />
-            {currentLang && (
-              <span className="text-[11px] font-semibold ml-0.5">{currentLang.code.toUpperCase()}</span>
-            )}
           </IconBtn>
 
           {isLangOpen && (
@@ -422,7 +419,6 @@ export function TopHeader({ onNavigate }: { onNavigate?: (view: string) => void 
                     onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = "var(--background)"; }}
                     onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.background = "transparent"; }}
                   >
-                    <span className="text-base w-5 text-center">{lang.flag}</span>
                     <span className="flex-1 text-left">{lang.label}</span>
                     {isActive && <Check className="w-3.5 h-3.5" style={{ color: "var(--primary)" }} />}
                   </button>
