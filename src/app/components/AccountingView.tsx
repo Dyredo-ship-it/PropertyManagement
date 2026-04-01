@@ -5,6 +5,7 @@ import {
   Upload, FileSpreadsheet, DollarSign, Users, Building2, Calendar,
   CheckCircle, AlertCircle, X, Plus, Trash2, Mail, Download,
   ChevronDown, Filter, Search, Banknote, TrendingUp, TrendingDown,
+  Edit, ArrowUpDown, Save, Pencil,
 } from "lucide-react";
 import {
   getBuildings, getTenants,
@@ -201,6 +202,28 @@ export function AccountingView() {
   // Year filter
   const [selectedYear, setSelectedYear] = useState<string>(String(new Date().getFullYear()));
 
+  // Sort
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+
+  // Add transaction modal
+  const [showAddTx, setShowAddTx] = useState(false);
+  const [newTx, setNewTx] = useState({
+    dateInvoice: new Date().toISOString().split("T")[0],
+    datePayment: "",
+    unit: "",
+    description: "",
+    category: "",
+    subCategory: "",
+    accountNumber: 101,
+    debit: 0,
+    credit: 0,
+    status: "",
+    buildingId: "",
+  });
+
+  // Editing transaction inline
+  const [editingTxId, setEditingTxId] = useState<string | null>(null);
+
   // Format CHF fallback
   const fmtCHF = useCallback(
     (n: number) => {
@@ -247,8 +270,13 @@ export function AccountingView() {
     if (selectedYear) {
       result = result.filter((tx) => tx.dateInvoice?.startsWith(selectedYear));
     }
+    result.sort((a, b) => {
+      const da = a.dateInvoice || "";
+      const db = b.dateInvoice || "";
+      return sortDir === "asc" ? da.localeCompare(db) : db.localeCompare(da);
+    });
     return result;
-  }, [transactions, selectedBuildingId, searchQuery, selectedYear]);
+  }, [transactions, selectedBuildingId, searchQuery, selectedYear, sortDir]);
 
   // Filtered adjustments by building
   const filteredAdj = useMemo(
@@ -490,6 +518,62 @@ export function AccountingView() {
     URL.revokeObjectURL(url);
   }, [filteredTx, selectedBuildingId, selectedYear]);
 
+  /* ─── Add transaction manually ───────────────────────────── */
+
+  const handleAddTransaction = () => {
+    if (!newTx.description.trim() || !newTx.buildingId) return;
+    const tenantName = extractTenantName(newTx.description);
+    const month = extractMonth(newTx.description);
+    addAccountingTransactions([{
+      buildingId: newTx.buildingId,
+      dateInvoice: newTx.dateInvoice,
+      datePayment: newTx.datePayment || undefined,
+      unit: newTx.unit || undefined,
+      description: newTx.description.trim(),
+      category: newTx.category || (ALL_ACCOUNTS.find(a => a.num === newTx.accountNumber)?.label || ""),
+      subCategory: newTx.subCategory || undefined,
+      accountNumber: newTx.accountNumber,
+      debit: newTx.debit || 0,
+      credit: newTx.credit || 0,
+      status: newTx.status || undefined,
+      tenantName: tenantName || undefined,
+      month: month || undefined,
+    }]);
+    reload();
+    setShowAddTx(false);
+    setNewTx({
+      dateInvoice: new Date().toISOString().split("T")[0],
+      datePayment: "", unit: "", description: "", category: "",
+      subCategory: "", accountNumber: 101, debit: 0, credit: 0,
+      status: "", buildingId: selectedBuildingId,
+    });
+  };
+
+  /* ─── Edit transaction inline ────────────────────────────── */
+
+  const handleUpdateTx = (txId: string, field: string, value: any) => {
+    const all = getAccountingTransactions();
+    const updated = all.map((tx) => {
+      if (tx.id !== txId) return tx;
+      const newTx = { ...tx, [field]: value };
+      // Re-extract metadata if description changed
+      if (field === "description") {
+        newTx.tenantName = extractTenantName(value) || tx.tenantName;
+        newTx.month = extractMonth(value) || tx.month;
+      }
+      return newTx;
+    });
+    saveAccountingTransactions(updated);
+    setTransactions(updated);
+    setEditingTxId(null);
+  };
+
+  const handleDeleteTx = (txId: string) => {
+    const all = getAccountingTransactions();
+    saveAccountingTransactions(all.filter((tx) => tx.id !== txId));
+    reload();
+  };
+
   /* ─── Rent grid data ─────────────────────────────────────── */
 
   const rentGrid = useMemo(() => {
@@ -707,177 +791,302 @@ export function AccountingView() {
   const renderTransactions = () => {
     const totalDebit = filteredTx.reduce((s, tx) => s + (tx.debit || 0), 0);
     const totalCredit = filteredTx.reduce((s, tx) => s + (tx.credit || 0), 0);
+    const isEditing = (id: string) => editingTxId === id;
 
     return (
       <div>
-        {/* Search + Export */}
-        <div style={{ display: "flex", gap: 12, marginBottom: 18, alignItems: "center", flexWrap: "wrap" }}>
+        {/* Toolbar: Search + Sort + Year + Add + Export */}
+        <div style={{ display: "flex", gap: 10, marginBottom: 18, alignItems: "center", flexWrap: "wrap" }}>
           <div style={{ position: "relative", flex: "1 1 260px", maxWidth: 340 }}>
-            <Search
-              size={15}
-              style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: "var(--muted-foreground)" }}
-            />
+            <Search size={15} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: "var(--muted-foreground)" }} />
             <input
               style={{ ...inputStyle, paddingLeft: 32 }}
-              placeholder="Rechercher..."
+              placeholder={t("searchPlaceholder") || "Rechercher..."}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onFocus={handleFocus}
               onBlur={handleBlur}
             />
           </div>
+          <button
+            onClick={() => setSortDir(sortDir === "desc" ? "asc" : "desc")}
+            title={sortDir === "desc" ? "Plus anciennes d'abord" : "Plus récentes d'abord"}
+            style={{
+              ...tabBtnBase, background: "var(--background)", color: "var(--foreground)",
+              border: "1px solid var(--border)", fontSize: 12, padding: "8px 12px",
+            }}
+          >
+            <ArrowUpDown size={14} />
+            {sortDir === "desc" ? "Récent" : "Ancien"}
+          </button>
           <select
-            style={{ ...inputStyle, width: "auto", minWidth: 110 }}
+            style={{ ...inputStyle, width: "auto", minWidth: 100 }}
             value={selectedYear}
             onChange={(e) => setSelectedYear(e.target.value)}
             onFocus={handleFocus as any}
             onBlur={handleBlur as any}
           >
-            {availableYears.map((y) => (
-              <option key={y} value={y}>{y}</option>
-            ))}
+            {availableYears.map((y) => (<option key={y} value={y}>{y}</option>))}
           </select>
+          <div style={{ flex: 1 }} />
+          <button
+            onClick={() => { setNewTx((p) => ({ ...p, buildingId: selectedBuildingId })); setShowAddTx(true); }}
+            style={{
+              ...tabBtnBase, background: "var(--primary)", color: "var(--primary-foreground)",
+              fontSize: 12, padding: "8px 16px",
+            }}
+          >
+            <Plus size={14} />
+            {t("addAdjustment") || "Ajouter"}
+          </button>
           <button
             onClick={handleExportCSV}
             style={{
-              ...tabBtnBase,
-              background: "var(--background)",
-              color: "var(--foreground)",
-              border: "1px solid var(--border)",
-              fontSize: 12,
+              ...tabBtnBase, background: "var(--background)", color: "var(--foreground)",
+              border: "1px solid var(--border)", fontSize: 12, padding: "8px 12px",
             }}
           >
             <Download size={14} />
-            Export CSV
+            CSV
           </button>
         </div>
 
         {filteredTx.length === 0 ? (
-          <div
-            style={{
-              ...cardStyle,
-              padding: "64px 32px",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: 16,
-              color: "var(--muted-foreground)",
-            }}
-          >
+          <div style={{ ...cardStyle, padding: "64px 32px", display: "flex", flexDirection: "column", alignItems: "center", gap: 16, color: "var(--muted-foreground)" }}>
             <Upload size={48} strokeWidth={1.2} />
-            <div style={{ fontSize: 16, fontWeight: 600 }}>Aucune transaction</div>
-            <div style={{ fontSize: 13 }}>
-              Importez vos données comptables via le bouton &quot;Importer&quot; ci-dessus.
-            </div>
+            <div style={{ fontSize: 16, fontWeight: 600 }}>{t("noTransactions")}</div>
+            <div style={{ fontSize: 13 }}>Importez ou ajoutez manuellement vos transactions.</div>
           </div>
         ) : (
           <div style={{ ...cardStyle, overflow: "auto", maxHeight: "calc(100vh - 360px)" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr>
-                  <th style={thStyle}>Date</th>
-                  <th style={thStyle}>Objet</th>
-                  <th style={thStyle}>Description</th>
-                  <th style={thStyle}>Catégorie</th>
-                  <th style={thStyle}>Compte</th>
-                  <th style={{ ...thStyle, textAlign: "right" }}>Débit</th>
-                  <th style={{ ...thStyle, textAlign: "right" }}>Crédit</th>
-                  <th style={thStyle}>Statut</th>
+                  <th style={thStyle}>{t("transactionDate")}</th>
+                  <th style={thStyle}>{t("unitObject")}</th>
+                  <th style={{ ...thStyle, minWidth: 200 }}>{t("descriptionCol")}</th>
+                  <th style={thStyle}>{t("categoryCol")}</th>
+                  <th style={thStyle}>{t("accountNumberCol")}</th>
+                  <th style={thStyle}>Immeuble</th>
+                  <th style={{ ...thStyle, textAlign: "right" }}>{t("debitCol")}</th>
+                  <th style={{ ...thStyle, textAlign: "right" }}>{t("creditCol")}</th>
+                  <th style={thStyle}>{t("statusCol")}</th>
+                  <th style={{ ...thStyle, width: 50 }}></th>
                 </tr>
               </thead>
               <tbody>
-                {filteredTx.map((tx, i) => (
-                  <tr
-                    key={tx.id || i}
-                    className="group"
-                    style={{ transition: "background 0.1s" }}
-                    onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = "var(--background)")}
-                    onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = "transparent")}
-                  >
-                    <td style={{ ...tdStyle, whiteSpace: "nowrap", fontSize: 12 }}>{tx.dateInvoice}</td>
-                    <td style={{ ...tdStyle, fontSize: 12, color: "var(--muted-foreground)" }}>{tx.unit || "-"}</td>
-                    <td style={{ ...tdStyle, maxWidth: 280, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {tx.description}
-                    </td>
-                    <td style={{ ...tdStyle, fontSize: 12 }}>{tx.category}</td>
-                    <td style={{ ...tdStyle, fontSize: 12, color: "var(--muted-foreground)" }}>{tx.accountNumber}</td>
-                    <td
-                      style={{
-                        ...tdStyle,
-                        textAlign: "right",
-                        fontVariantNumeric: "tabular-nums",
-                        color: tx.debit > 0 ? "#ef4444" : "var(--muted-foreground)",
-                        fontWeight: tx.debit > 0 ? 600 : 400,
-                      }}
+                {filteredTx.map((tx, i) => {
+                  const editing = isEditing(tx.id);
+                  const bName = buildings.find((b) => b.id === tx.buildingId)?.name || "-";
+                  return (
+                    <tr
+                      key={tx.id || i}
+                      className="group"
+                      style={{ transition: "background 0.1s" }}
+                      onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = "var(--background)")}
+                      onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = "transparent")}
                     >
-                      {tx.debit > 0 ? fmtCHF(tx.debit) : "-"}
-                    </td>
-                    <td
-                      style={{
-                        ...tdStyle,
-                        textAlign: "right",
-                        fontVariantNumeric: "tabular-nums",
-                        color: tx.credit > 0 ? "#16a34a" : "var(--muted-foreground)",
-                        fontWeight: tx.credit > 0 ? 600 : 400,
-                      }}
-                    >
-                      {tx.credit > 0 ? fmtCHF(tx.credit) : "-"}
-                    </td>
-                    <td style={tdStyle}>
-                      {tx.status ? (
-                        <span
-                          style={{
-                            fontSize: 11,
-                            padding: "3px 8px",
-                            borderRadius: 6,
-                            fontWeight: 600,
-                            background: tx.status === "Payé" ? "#dcfce7" : "#fef3c7",
-                            color: tx.status === "Payé" ? "#166534" : "#92400e",
-                          }}
+                      <td style={{ ...tdStyle, whiteSpace: "nowrap", fontSize: 12 }}>{tx.dateInvoice}</td>
+                      <td style={{ ...tdStyle, fontSize: 12, color: "var(--muted-foreground)" }}>{tx.unit || "-"}</td>
+                      <td style={{ ...tdStyle, maxWidth: 280, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {tx.description}
+                      </td>
+                      <td style={{ ...tdStyle, fontSize: 12 }}>{tx.category}</td>
+                      {/* Editable: Account Number */}
+                      <td style={tdStyle}>
+                        {editing ? (
+                          <select
+                            defaultValue={tx.accountNumber}
+                            onChange={(e) => handleUpdateTx(tx.id, "accountNumber", Number(e.target.value))}
+                            style={{ ...inputStyle, width: 80, padding: "4px 6px", fontSize: 11 }}
+                            autoFocus
+                          >
+                            {ALL_ACCOUNTS.map((a) => (<option key={a.num} value={a.num}>{a.num}</option>))}
+                          </select>
+                        ) : (
+                          <span style={{ fontSize: 12, color: "var(--muted-foreground)" }}>{tx.accountNumber}</span>
+                        )}
+                      </td>
+                      {/* Editable: Building */}
+                      <td style={tdStyle}>
+                        {editing ? (
+                          <select
+                            defaultValue={tx.buildingId}
+                            onChange={(e) => handleUpdateTx(tx.id, "buildingId", e.target.value)}
+                            style={{ ...inputStyle, width: 120, padding: "4px 6px", fontSize: 11 }}
+                          >
+                            {buildings.map((b) => (<option key={b.id} value={b.id}>{b.name}</option>))}
+                          </select>
+                        ) : (
+                          <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>{bName}</span>
+                        )}
+                      </td>
+                      <td style={{ ...tdStyle, textAlign: "right", fontVariantNumeric: "tabular-nums", color: tx.debit > 0 ? "#ef4444" : "var(--muted-foreground)", fontWeight: tx.debit > 0 ? 600 : 400 }}>
+                        {tx.debit > 0 ? fmtCHF(tx.debit) : "-"}
+                      </td>
+                      <td style={{ ...tdStyle, textAlign: "right", fontVariantNumeric: "tabular-nums", color: tx.credit > 0 ? "#16a34a" : "var(--muted-foreground)", fontWeight: tx.credit > 0 ? 600 : 400 }}>
+                        {tx.credit > 0 ? fmtCHF(tx.credit) : "-"}
+                      </td>
+                      <td style={tdStyle}>
+                        {tx.status ? (
+                          <span style={{ fontSize: 11, padding: "3px 8px", borderRadius: 6, fontWeight: 600, background: tx.status === "Payé" ? "#dcfce7" : "#fef3c7", color: tx.status === "Payé" ? "#166534" : "#92400e" }}>
+                            {tx.status}
+                          </span>
+                        ) : <span style={{ color: "var(--muted-foreground)" }}>-</span>}
+                      </td>
+                      {/* Actions: edit / delete */}
+                      <td style={{ ...tdStyle, display: "flex", gap: 4, alignItems: "center" }}>
+                        <button
+                          onClick={() => setEditingTxId(editing ? null : tx.id)}
+                          title={editing ? "Fermer" : "Modifier"}
+                          style={{ width: 24, height: 24, borderRadius: 6, border: "none", background: "transparent", color: editing ? "var(--primary)" : "var(--muted-foreground)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "color 0.15s" }}
+                          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--primary)"; }}
+                          onMouseLeave={(e) => { if (!editing) (e.currentTarget as HTMLElement).style.color = "var(--muted-foreground)"; }}
                         >
-                          {tx.status}
-                        </span>
-                      ) : (
-                        <span style={{ color: "var(--muted-foreground)" }}>-</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                          <Pencil size={12} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteTx(tx.id)}
+                          title="Supprimer"
+                          className="opacity-0 group-hover:opacity-100"
+                          style={{ width: 24, height: 24, borderRadius: 6, border: "none", background: "transparent", color: "var(--muted-foreground)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s" }}
+                          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "#DC2626"; }}
+                          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--muted-foreground)"; }}
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
               <tfoot>
                 <tr style={{ background: "var(--background)" }}>
-                  <td colSpan={5} style={{ ...tdStyle, fontWeight: 700, borderTop: "2px solid var(--border)" }}>
+                  <td colSpan={6} style={{ ...tdStyle, fontWeight: 700, borderTop: "2px solid var(--border)" }}>
                     Totaux ({filteredTx.length} transactions)
                   </td>
-                  <td
-                    style={{
-                      ...tdStyle,
-                      textAlign: "right",
-                      fontWeight: 700,
-                      color: "#ef4444",
-                      borderTop: "2px solid var(--border)",
-                      fontVariantNumeric: "tabular-nums",
-                    }}
-                  >
+                  <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#ef4444", borderTop: "2px solid var(--border)", fontVariantNumeric: "tabular-nums" }}>
                     {fmtCHF(totalDebit)}
                   </td>
-                  <td
-                    style={{
-                      ...tdStyle,
-                      textAlign: "right",
-                      fontWeight: 700,
-                      color: "#16a34a",
-                      borderTop: "2px solid var(--border)",
-                      fontVariantNumeric: "tabular-nums",
-                    }}
-                  >
+                  <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#16a34a", borderTop: "2px solid var(--border)", fontVariantNumeric: "tabular-nums" }}>
                     {fmtCHF(totalCredit)}
                   </td>
-                  <td style={{ ...tdStyle, borderTop: "2px solid var(--border)" }}></td>
+                  <td colSpan={2} style={{ ...tdStyle, borderTop: "2px solid var(--border)" }}></td>
                 </tr>
               </tfoot>
             </table>
           </div>
+        )}
+
+        {/* ── Add Transaction Modal ── */}
+        {showAddTx && createPortal(
+          <div
+            style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.35)", padding: 16 }}
+            onClick={() => setShowAddTx(false)}
+          >
+            <div
+              style={{ width: "100%", maxWidth: 540, borderRadius: 16, overflow: "hidden", border: "1px solid var(--border)", background: "var(--card)", boxShadow: "0 16px 48px rgba(0,0,0,0.14)", display: "flex", flexDirection: "column" }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div style={{ padding: "16px 22px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 9, flexShrink: 0, background: "rgba(69,85,58,0.07)", display: "flex", alignItems: "center", justifyContent: "center", borderLeft: "3px solid var(--primary)" }}>
+                  <Plus style={{ width: 16, height: 16, color: "var(--primary)" }} />
+                </div>
+                <span style={{ fontSize: 15, fontWeight: 650, color: "var(--foreground)", flex: 1 }}>Nouvelle transaction</span>
+                <button onClick={() => setShowAddTx(false)} style={{ width: 28, height: 28, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", background: "transparent", border: "none", color: "var(--muted-foreground)", cursor: "pointer" }}>
+                  <X size={14} />
+                </button>
+              </div>
+              {/* Body */}
+              <div style={{ padding: "18px 22px", display: "flex", flexDirection: "column", gap: 12, maxHeight: "65vh", overflowY: "auto" }}>
+                {/* Building */}
+                <div>
+                  <label style={labelStyle}>Immeuble *</label>
+                  <select value={newTx.buildingId} onChange={(e) => setNewTx({ ...newTx, buildingId: e.target.value })} style={{ ...inputStyle, cursor: "pointer" }} onFocus={handleFocus as any} onBlur={handleBlur as any}>
+                    <option value="">— Sélectionner —</option>
+                    {buildings.map((b) => (<option key={b.id} value={b.id}>{b.name}</option>))}
+                  </select>
+                </div>
+                {/* Date + Payment date */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <div>
+                    <label style={labelStyle}>{t("transactionDate")} *</label>
+                    <input type="date" value={newTx.dateInvoice} onChange={(e) => setNewTx({ ...newTx, dateInvoice: e.target.value })} style={inputStyle} onFocus={handleFocus} onBlur={handleBlur} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>{t("paymentDate")}</label>
+                    <input type="date" value={newTx.datePayment} onChange={(e) => setNewTx({ ...newTx, datePayment: e.target.value })} style={inputStyle} onFocus={handleFocus} onBlur={handleBlur} />
+                  </div>
+                </div>
+                {/* Unit + Account */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <div>
+                    <label style={labelStyle}>{t("unitObject")}</label>
+                    <input type="text" value={newTx.unit} onChange={(e) => setNewTx({ ...newTx, unit: e.target.value })} placeholder="Ex: 2ème / 4.5p" style={inputStyle} onFocus={handleFocus} onBlur={handleBlur} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>{t("accountNumberCol")} *</label>
+                    <select value={newTx.accountNumber} onChange={(e) => setNewTx({ ...newTx, accountNumber: Number(e.target.value) })} style={{ ...inputStyle, cursor: "pointer" }} onFocus={handleFocus as any} onBlur={handleBlur as any}>
+                      {ALL_ACCOUNTS.map((a) => (<option key={a.num} value={a.num}>{a.num} — {a.label}</option>))}
+                    </select>
+                  </div>
+                </div>
+                {/* Description */}
+                <div>
+                  <label style={labelStyle}>{t("descriptionCol")} *</label>
+                  <input type="text" value={newTx.description} onChange={(e) => setNewTx({ ...newTx, description: e.target.value })} placeholder="Ex: Loyer de Mars 2026 - Dupont Jean" style={inputStyle} onFocus={handleFocus} onBlur={handleBlur} />
+                </div>
+                {/* Category + Sub-category */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <div>
+                    <label style={labelStyle}>{t("categoryCol")}</label>
+                    <input type="text" value={newTx.category} onChange={(e) => setNewTx({ ...newTx, category: e.target.value })} placeholder="Auto si vide" style={inputStyle} onFocus={handleFocus} onBlur={handleBlur} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>{t("subCategoryCol")}</label>
+                    <input type="text" value={newTx.subCategory} onChange={(e) => setNewTx({ ...newTx, subCategory: e.target.value })} style={inputStyle} onFocus={handleFocus} onBlur={handleBlur} />
+                  </div>
+                </div>
+                {/* Debit + Credit + Status */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                  <div>
+                    <label style={labelStyle}>{t("debitCol")}</label>
+                    <input type="number" step="0.01" value={newTx.debit || ""} onChange={(e) => setNewTx({ ...newTx, debit: parseFloat(e.target.value) || 0 })} style={inputStyle} onFocus={handleFocus} onBlur={handleBlur} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>{t("creditCol")}</label>
+                    <input type="number" step="0.01" value={newTx.credit || ""} onChange={(e) => setNewTx({ ...newTx, credit: parseFloat(e.target.value) || 0 })} style={inputStyle} onFocus={handleFocus} onBlur={handleBlur} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>{t("statusCol")}</label>
+                    <select value={newTx.status} onChange={(e) => setNewTx({ ...newTx, status: e.target.value })} style={{ ...inputStyle, cursor: "pointer" }} onFocus={handleFocus as any} onBlur={handleBlur as any}>
+                      <option value="">—</option>
+                      <option value="Payé">{t("paid")}</option>
+                      <option value="En attente">{t("unpaid")}</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              {/* Footer */}
+              <div style={{ padding: "14px 22px", borderTop: "1px solid var(--border)", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <button
+                  onClick={handleAddTransaction}
+                  disabled={!newTx.description.trim() || !newTx.buildingId}
+                  style={{ padding: "9px 0", borderRadius: 10, fontSize: 12, fontWeight: 600, border: "none", cursor: newTx.description.trim() && newTx.buildingId ? "pointer" : "default", background: newTx.description.trim() && newTx.buildingId ? "var(--primary)" : "var(--border)", color: newTx.description.trim() && newTx.buildingId ? "var(--primary-foreground)" : "var(--muted-foreground)", transition: "opacity 0.15s" }}
+                >
+                  {t("create") || "Créer"}
+                </button>
+                <button
+                  onClick={() => setShowAddTx(false)}
+                  style={{ padding: "9px 0", borderRadius: 10, fontSize: 12, fontWeight: 550, border: "1px solid var(--border)", background: "var(--card)", color: "var(--foreground)", cursor: "pointer" }}
+                >
+                  {t("cancel")}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
         )}
       </div>
     );
