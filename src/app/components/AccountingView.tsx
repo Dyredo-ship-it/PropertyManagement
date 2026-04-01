@@ -1071,11 +1071,17 @@ export function AccountingView() {
               {/* Footer */}
               <div style={{ padding: "14px 22px", borderTop: "1px solid var(--border)", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                 <button
-                  onClick={handleAddTransaction}
-                  disabled={!newTx.description.trim() || !newTx.buildingId}
-                  style={{ padding: "9px 0", borderRadius: 10, fontSize: 12, fontWeight: 600, border: "none", cursor: newTx.description.trim() && newTx.buildingId ? "pointer" : "default", background: newTx.description.trim() && newTx.buildingId ? "var(--primary)" : "var(--border)", color: newTx.description.trim() && newTx.buildingId ? "var(--primary-foreground)" : "var(--muted-foreground)", transition: "opacity 0.15s" }}
+                  type="button"
+                  onClick={() => {
+                    if (!newTx.description.trim()) { alert("Description requise"); return; }
+                    if (!newTx.buildingId) { alert("Sélectionnez un immeuble"); return; }
+                    handleAddTransaction();
+                  }}
+                  style={{ padding: "9px 0", borderRadius: 10, fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer", background: "var(--primary)", color: "var(--primary-foreground)", transition: "opacity 0.15s" }}
+                  onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.9"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
                 >
-                  {t("create") || "Créer"}
+                  Ajouter
                 </button>
                 <button
                   onClick={() => setShowAddTx(false)}
