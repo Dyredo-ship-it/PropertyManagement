@@ -175,6 +175,12 @@ export interface AccountingTransaction {
   month?: string;           // "2026-01" for rent tracking
 }
 
+export interface AccountingSettings {
+  units: string[];          // "1er / 4.5p", "2ème / 3.5p", "Garage N*1", etc.
+  categories: string[];     // "Loyers", "Acompte de charges", "Entretien", etc.
+  subCategories: string[];  // "Robinetterie", "Peinture", "Vitres", etc.
+}
+
 export interface ManualAdjustment {
   id: string;
   buildingId: string;
@@ -223,6 +229,7 @@ const LS_KEYS = {
   rentalApplications: "rentalApplications",
   accountingTransactions: "immostore_accountingTx",
   manualAdjustments: "immostore_manualAdj",
+  accountingSettings: "immostore_accountingSettings",
   calendarEvents: "immostore_calendarEvents",
   baseCurrency: "immostore_baseCurrency",
   exchangeRates: "immostore_exchangeRates",
@@ -855,4 +862,23 @@ export const addManualAdjustment = (adj: Omit<ManualAdjustment, "id" | "createdA
 export const deleteManualAdjustment = (id: string) => {
   const all = getManualAdjustments();
   saveManualAdjustments(all.filter((a) => a.id !== id));
+};
+
+// ─── Accounting Settings ──────────────────────────────────────
+
+const DEFAULT_ACCOUNTING_SETTINGS: Record<string, AccountingSettings> = {};
+
+export const getAccountingSettings = (buildingId: string): AccountingSettings => {
+  const all = safeParse<Record<string, AccountingSettings>>(
+    localStorage.getItem(LS_KEYS.accountingSettings), {}
+  );
+  return all[buildingId] || { units: [], categories: [], subCategories: [] };
+};
+
+export const saveAccountingSettings = (buildingId: string, settings: AccountingSettings) => {
+  const all = safeParse<Record<string, AccountingSettings>>(
+    localStorage.getItem(LS_KEYS.accountingSettings), {}
+  );
+  all[buildingId] = settings;
+  localStorage.setItem(LS_KEYS.accountingSettings, JSON.stringify(all));
 };

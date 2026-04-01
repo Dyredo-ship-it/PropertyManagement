@@ -5,14 +5,16 @@ import {
   Upload, FileSpreadsheet, DollarSign, Users, Building2, Calendar,
   CheckCircle, AlertCircle, X, Plus, Trash2, Mail, Download,
   ChevronDown, Filter, Search, Banknote, TrendingUp, TrendingDown,
-  Edit, ArrowUpDown, Save, Pencil,
+  Edit, ArrowUpDown, Save, Pencil, Settings,
 } from "lucide-react";
 import {
   getBuildings, getTenants,
   getAccountingTransactions, addAccountingTransactions, saveAccountingTransactions,
   getManualAdjustments, addManualAdjustment, deleteManualAdjustment,
   getNotifications, saveNotifications,
+  getAccountingSettings, saveAccountingSettings,
   type AccountingTransaction, type ManualAdjustment, type Building, type Notification,
+  type AccountingSettings,
 } from "../utils/storage";
 import { useLanguage } from "../i18n/LanguageContext";
 import { useCurrency } from "../context/CurrencyContext";
@@ -224,6 +226,12 @@ export function AccountingView() {
   // Editing transaction inline
   const [editingTxId, setEditingTxId] = useState<string | null>(null);
 
+  // Accounting settings modal
+  const [showSettings, setShowSettings] = useState(false);
+  const [acctSettings, setAcctSettings] = useState<AccountingSettings>({ units: [], categories: [], subCategories: [] });
+  const [settingsNewItem, setSettingsNewItem] = useState("");
+  const [settingsTab, setSettingsTab] = useState<"units" | "categories" | "subCategories">("units");
+
   // Format CHF fallback
   const fmtCHF = useCallback(
     (n: number) => {
@@ -241,6 +249,13 @@ export function AccountingView() {
     reload();
   }, []);
 
+  // Reload settings when building changes
+  useEffect(() => {
+    if (selectedBuildingId) {
+      setAcctSettings(getAccountingSettings(selectedBuildingId));
+    }
+  }, [selectedBuildingId]);
+
   const reload = useCallback(() => {
     const b = getBuildings();
     setBuildings(b);
@@ -249,6 +264,9 @@ export function AccountingView() {
     setAdjustments(getManualAdjustments());
     if (!selectedBuildingId && b.length > 0) {
       setSelectedBuildingId(b[0].id);
+    }
+    if (selectedBuildingId) {
+      setAcctSettings(getAccountingSettings(selectedBuildingId));
     }
   }, [selectedBuildingId]);
 
@@ -1023,7 +1041,11 @@ export function AccountingView() {
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                   <div>
                     <label style={labelStyle}>{t("unitObject")}</label>
-                    <input type="text" value={newTx.unit} onChange={(e) => setNewTx({ ...newTx, unit: e.target.value })} placeholder="Ex: 2ème / 4.5p" style={inputStyle} onFocus={handleFocus} onBlur={handleBlur} />
+                    <select value={newTx.unit} onChange={(e) => setNewTx({ ...newTx, unit: e.target.value })} style={{ ...inputStyle, cursor: "pointer" }} onFocus={handleFocus as any} onBlur={handleBlur as any}>
+                      <option value="">—</option>
+                      <option value="Immeuble">Immeuble</option>
+                      {acctSettings.units.map((u) => (<option key={u} value={u}>{u}</option>))}
+                    </select>
                   </div>
                   <div>
                     <label style={labelStyle}>{t("accountNumberCol")} *</label>
@@ -1041,11 +1063,17 @@ export function AccountingView() {
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                   <div>
                     <label style={labelStyle}>{t("categoryCol")}</label>
-                    <input type="text" value={newTx.category} onChange={(e) => setNewTx({ ...newTx, category: e.target.value })} placeholder="Auto si vide" style={inputStyle} onFocus={handleFocus} onBlur={handleBlur} />
+                    <select value={newTx.category} onChange={(e) => setNewTx({ ...newTx, category: e.target.value })} style={{ ...inputStyle, cursor: "pointer" }} onFocus={handleFocus as any} onBlur={handleBlur as any}>
+                      <option value="">— Auto —</option>
+                      {acctSettings.categories.map((c) => (<option key={c} value={c}>{c}</option>))}
+                    </select>
                   </div>
                   <div>
                     <label style={labelStyle}>{t("subCategoryCol")}</label>
-                    <input type="text" value={newTx.subCategory} onChange={(e) => setNewTx({ ...newTx, subCategory: e.target.value })} style={inputStyle} onFocus={handleFocus} onBlur={handleBlur} />
+                    <select value={newTx.subCategory} onChange={(e) => setNewTx({ ...newTx, subCategory: e.target.value })} style={{ ...inputStyle, cursor: "pointer" }} onFocus={handleFocus as any} onBlur={handleBlur as any}>
+                      <option value="">—</option>
+                      {acctSettings.subCategories.map((s) => (<option key={s} value={s}>{s}</option>))}
+                    </select>
                   </div>
                 </div>
                 {/* Debit + Credit + Status */}
@@ -2220,6 +2248,17 @@ export function AccountingView() {
             <Upload size={15} />
             Importer
           </button>
+          <button
+            onClick={() => { if (selectedBuildingId) setShowSettings(true); else alert("Sélectionnez un immeuble d'abord"); }}
+            style={{
+              ...tabBtnBase,
+              background: "var(--background)",
+              color: "var(--foreground)",
+              border: "1px solid var(--border)",
+            }}
+          >
+            <Settings size={15} />
+          </button>
         </div>
       </div>
 
@@ -2266,6 +2305,135 @@ export function AccountingView() {
       {/* Modals */}
       {renderImportModal()}
       {renderAdjustmentModal()}
+
+      {/* Settings Modal */}
+      {showSettings && createPortal(
+        <div
+          style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.35)", padding: 16 }}
+          onClick={() => setShowSettings(false)}
+        >
+          <div
+            style={{ width: "100%", maxWidth: 480, borderRadius: 16, overflow: "hidden", border: "1px solid var(--border)", background: "var(--card)", boxShadow: "0 16px 48px rgba(0,0,0,0.14)", display: "flex", flexDirection: "column", maxHeight: "80vh" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div style={{ padding: "16px 22px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 9, flexShrink: 0, background: "rgba(69,85,58,0.07)", display: "flex", alignItems: "center", justifyContent: "center", borderLeft: "3px solid var(--primary)" }}>
+                <Settings style={{ width: 16, height: 16, color: "var(--primary)" }} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <span style={{ fontSize: 15, fontWeight: 650, color: "var(--foreground)" }}>Settings comptables</span>
+                <span style={{ fontSize: 11, color: "var(--muted-foreground)", display: "block" }}>
+                  {buildings.find((b) => b.id === selectedBuildingId)?.name || ""}
+                </span>
+              </div>
+              <button onClick={() => setShowSettings(false)} style={{ width: 28, height: 28, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", background: "transparent", border: "none", color: "var(--muted-foreground)", cursor: "pointer" }}>
+                <X size={14} />
+              </button>
+            </div>
+
+            {/* Tabs */}
+            <div style={{ display: "flex", borderBottom: "1px solid var(--border)" }}>
+              {([
+                { key: "units" as const, label: "Appartements" },
+                { key: "categories" as const, label: "Catégories" },
+                { key: "subCategories" as const, label: "Sous-catégories" },
+              ]).map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => { setSettingsTab(tab.key); setSettingsNewItem(""); }}
+                  style={{
+                    flex: 1, padding: "10px 0", fontSize: 12, fontWeight: 600,
+                    border: "none", cursor: "pointer",
+                    background: settingsTab === tab.key ? "var(--background)" : "transparent",
+                    color: settingsTab === tab.key ? "var(--primary)" : "var(--muted-foreground)",
+                    borderBottom: settingsTab === tab.key ? "2px solid var(--primary)" : "2px solid transparent",
+                    transition: "all 0.15s",
+                  }}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* List + Add */}
+            <div style={{ padding: "16px 22px", overflowY: "auto", flex: 1 }}>
+              {/* Add new */}
+              <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+                <input
+                  type="text"
+                  value={settingsNewItem}
+                  onChange={(e) => setSettingsNewItem(e.target.value)}
+                  placeholder={settingsTab === "units" ? "Ex: 1er / 4.5p" : settingsTab === "categories" ? "Ex: Loyers" : "Ex: Robinetterie"}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && settingsNewItem.trim()) {
+                      const updated = { ...acctSettings, [settingsTab]: [...acctSettings[settingsTab], settingsNewItem.trim()] };
+                      setAcctSettings(updated);
+                      saveAccountingSettings(selectedBuildingId, updated);
+                      setSettingsNewItem("");
+                    }
+                  }}
+                  style={{ ...inputStyle, flex: 1 }}
+                  onFocus={handleFocus}
+                  onBlur={handleBlur}
+                />
+                <button
+                  onClick={() => {
+                    if (!settingsNewItem.trim()) return;
+                    const updated = { ...acctSettings, [settingsTab]: [...acctSettings[settingsTab], settingsNewItem.trim()] };
+                    setAcctSettings(updated);
+                    saveAccountingSettings(selectedBuildingId, updated);
+                    setSettingsNewItem("");
+                  }}
+                  style={{ ...tabBtnBase, background: "var(--primary)", color: "var(--primary-foreground)", fontSize: 12, padding: "0 14px", flexShrink: 0 }}
+                >
+                  <Plus size={14} />
+                </button>
+              </div>
+
+              {/* Items */}
+              {acctSettings[settingsTab].length === 0 ? (
+                <p style={{ fontSize: 12, color: "var(--muted-foreground)", textAlign: "center", padding: "20px 0" }}>
+                  Aucun élément. Ajoutez-en ci-dessus.
+                </p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  {acctSettings[settingsTab].map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="group"
+                      style={{
+                        display: "flex", alignItems: "center", gap: 10,
+                        padding: "8px 10px", borderRadius: 8,
+                        border: "1px solid var(--border)", background: "var(--card)",
+                        transition: "background 0.1s",
+                      }}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--background)"; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--card)"; }}
+                    >
+                      <span style={{ flex: 1, fontSize: 13, color: "var(--foreground)" }}>{item}</span>
+                      <button
+                        onClick={() => {
+                          const updated = { ...acctSettings, [settingsTab]: acctSettings[settingsTab].filter((_, i) => i !== idx) };
+                          setAcctSettings(updated);
+                          saveAccountingSettings(selectedBuildingId, updated);
+                        }}
+                        className="opacity-0 group-hover:opacity-100"
+                        style={{ width: 24, height: 24, borderRadius: 6, border: "none", background: "transparent", color: "var(--muted-foreground)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s" }}
+                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "#DC2626"; }}
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--muted-foreground)"; }}
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
