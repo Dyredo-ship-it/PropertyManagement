@@ -152,6 +152,39 @@ export interface CalendarEvent {
   createdAt: string;
 }
 
+// ✅ Accounting Transactions
+export type AccountCategory =
+  | 101 | 102 | 103 | 104 | 105 | 106
+  | 201 | 202 | 203 | 204 | 205 | 206 | 207 | 208 | 209 | 210 | 211 | 212 | 213 | 214 | 215 | 216 | 217 | 218
+  | 301 | 302 | 401;
+
+export interface AccountingTransaction {
+  id: string;
+  buildingId: string;
+  dateInvoice: string;      // yyyy-mm-dd
+  datePayment?: string;     // yyyy-mm-dd
+  unit?: string;            // "2ème / 4.5p", "Garage N*6", "Immeuble"
+  description: string;
+  category: string;         // "Loyers", "Acompte de charges", "Entretien", etc.
+  subCategory?: string;
+  accountNumber: number;    // 101, 202, etc.
+  debit: number;            // CHF spent
+  credit: number;           // CHF received
+  status?: string;          // "Payé", "", etc.
+  tenantName?: string;      // extracted or manual
+  month?: string;           // "2026-01" for rent tracking
+}
+
+export interface ManualAdjustment {
+  id: string;
+  buildingId: string;
+  accountNumber: number;
+  label: string;
+  amount: number;           // positive = add to debit/credit as appropriate
+  type: "debit" | "credit";
+  createdAt: string;
+}
+
 // ✅ Rental Applications (Demandes de location)
 export type RentalApplicationStatus = "received" | "under-review" | "accepted" | "rejected";
 
@@ -188,6 +221,8 @@ const LS_KEYS = {
   buildingActions: "buildingActions",
   tenantAbsences: "tenantAbsences",
   rentalApplications: "rentalApplications",
+  accountingTransactions: "immostore_accountingTx",
+  manualAdjustments: "immostore_manualAdj",
   calendarEvents: "immostore_calendarEvents",
   baseCurrency: "immostore_baseCurrency",
   exchangeRates: "immostore_exchangeRates",
@@ -773,4 +808,51 @@ export const addCalendarEvent = (event: Omit<CalendarEvent, "id" | "createdAt">)
 export const deleteCalendarEvent = (id: string) => {
   const events = getCalendarEvents();
   saveCalendarEvents(events.filter((e) => e.id !== id));
+};
+
+// ─── Accounting Transactions ──────────────────────────────────
+
+export const getAccountingTransactions = (buildingId?: string): AccountingTransaction[] => {
+  const all = safeParse<AccountingTransaction[]>(localStorage.getItem(LS_KEYS.accountingTransactions), []);
+  return buildingId ? all.filter((t) => t.buildingId === buildingId) : all;
+};
+
+export const saveAccountingTransactions = (txs: AccountingTransaction[]) =>
+  localStorage.setItem(LS_KEYS.accountingTransactions, JSON.stringify(txs));
+
+export const addAccountingTransactions = (txs: Omit<AccountingTransaction, "id">[]): AccountingTransaction[] => {
+  const existing = getAccountingTransactions();
+  const newTxs = txs.map((tx, i) => ({
+    id: `tx-${Date.now()}-${i}-${Math.random().toString(16).slice(2, 6)}`,
+    ...tx,
+  }));
+  saveAccountingTransactions([...existing, ...newTxs]);
+  return newTxs;
+};
+
+export const deleteAccountingTransactions = (buildingId: string) => {
+  const all = getAccountingTransactions();
+  saveAccountingTransactions(all.filter((t) => t.buildingId !== buildingId));
+};
+
+// ─── Manual Adjustments ───────────────────────────────────────
+
+export const getManualAdjustments = (buildingId?: string): ManualAdjustment[] => {
+  const all = safeParse<ManualAdjustment[]>(localStorage.getItem(LS_KEYS.manualAdjustments), []);
+  return buildingId ? all.filter((a) => a.buildingId === buildingId) : all;
+};
+
+export const saveManualAdjustments = (adjs: ManualAdjustment[]) =>
+  localStorage.setItem(LS_KEYS.manualAdjustments, JSON.stringify(adjs));
+
+export const addManualAdjustment = (adj: Omit<ManualAdjustment, "id" | "createdAt">): ManualAdjustment => {
+  const all = getManualAdjustments();
+  const newAdj: ManualAdjustment = { id: `adj-${Date.now()}`, createdAt: nowISO(), ...adj };
+  saveManualAdjustments([...all, newAdj]);
+  return newAdj;
+};
+
+export const deleteManualAdjustment = (id: string) => {
+  const all = getManualAdjustments();
+  saveManualAdjustments(all.filter((a) => a.id !== id));
 };

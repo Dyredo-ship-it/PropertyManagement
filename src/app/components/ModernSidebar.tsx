@@ -16,6 +16,7 @@ import {
   BarChart3,
   Search,
   MoreVertical,
+  Receipt,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../i18n/LanguageContext";
@@ -79,6 +80,7 @@ export function ModernSidebar({ activeView, onViewChange }: ModernSidebarProps) 
           },
           { id: "services", labelKey: "navServices", icon: Briefcase },
           { id: "calendar", labelKey: "navCalendar", icon: CalendarDays },
+          { id: "accounting", labelKey: "navAccounting", icon: Receipt },
         ],
       },
       {

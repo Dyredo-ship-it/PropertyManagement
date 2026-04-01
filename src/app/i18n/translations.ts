@@ -402,6 +402,60 @@ type TranslationSet = {
   catParking: string;
   catStorage: string;
   catOtherRental: string;
+  // Accounting
+  navAccounting: string;
+  accountingTitle: string;
+  accountingSub: string;
+  tabTransactions: string;
+  tabRentTracking: string;
+  tabIncomeStatement: string;
+  tabCharges: string;
+  importFile: string;
+  importSub: string;
+  mapColumns: string;
+  columnMapping: string;
+  sourceColumn: string;
+  targetField: string;
+  skipColumn: string;
+  importRows: string;
+  transactionDate: string;
+  paymentDate: string;
+  unitObject: string;
+  descriptionCol: string;
+  categoryCol: string;
+  subCategoryCol: string;
+  accountNumberCol: string;
+  debitCol: string;
+  creditCol: string;
+  statusCol: string;
+  totalDebit: string;
+  totalCredit: string;
+  balance: string;
+  paid: string;
+  unpaid: string;
+  late: string;
+  onTime: string;
+  rentOf: string;
+  reminderSent: string;
+  sendReminder: string;
+  noTransactions: string;
+  revenue: string;
+  expenses: string;
+  netBalance: string;
+  compteDeGerance: string;
+  decompteCharges: string;
+  recettes: string;
+  depensesGestion: string;
+  depensesTravaux: string;
+  totalRecettes: string;
+  totalDepenses: string;
+  soldeCompte: string;
+  versementProprio: string;
+  soldeApresVersement: string;
+  addAdjustment: string;
+  manualAdjustment: string;
+  verification: string;
+  selectBuilding: string;
   today: string;
   yesterday: string;
   daysAgo: string;
@@ -919,6 +973,59 @@ export const translations: Record<Language, TranslationSet> = {
     catParking: "Place de parc extérieure",
     catStorage: "Cave / Local de stockage",
     catOtherRental: "Autre location",
+    navAccounting: "Comptabilité",
+    accountingTitle: "Comptabilité",
+    accountingSub: "Gérez vos transactions, loyers et états financiers",
+    tabTransactions: "Transactions",
+    tabRentTracking: "Suivi loyers",
+    tabIncomeStatement: "Compte de gérance",
+    tabCharges: "Décompte de charges",
+    importFile: "Importer un fichier",
+    importSub: "CSV ou Excel (.xlsx)",
+    mapColumns: "Mapper les colonnes",
+    columnMapping: "Correspondance des colonnes",
+    sourceColumn: "Colonne source",
+    targetField: "Champ cible",
+    skipColumn: "Ignorer",
+    importRows: "Importer les lignes",
+    transactionDate: "Date facture",
+    paymentDate: "Date paiement",
+    unitObject: "Appartement / Objet",
+    descriptionCol: "Description",
+    categoryCol: "Catégorie",
+    subCategoryCol: "Sous-catégorie",
+    accountNumberCol: "N° Compte",
+    debitCol: "Débit (CHF)",
+    creditCol: "Crédit (CHF)",
+    statusCol: "Statut",
+    totalDebit: "Total débits",
+    totalCredit: "Total crédits",
+    balance: "Solde",
+    paid: "Payé",
+    unpaid: "Impayé",
+    late: "En retard",
+    onTime: "À jour",
+    rentOf: "Loyer de",
+    reminderSent: "Rappel envoyé",
+    sendReminder: "Envoyer un rappel",
+    noTransactions: "Aucune transaction importée",
+    revenue: "Recettes",
+    expenses: "Dépenses",
+    netBalance: "Solde net",
+    compteDeGerance: "Compte de gérance",
+    decompteCharges: "Décompte de charges",
+    recettes: "Recettes",
+    depensesGestion: "Dépenses – Gestion courante",
+    depensesTravaux: "Dépenses – Travaux & Investissements",
+    totalRecettes: "Total recettes",
+    totalDepenses: "Total dépenses",
+    soldeCompte: "Solde du compte de gérance en votre faveur",
+    versementProprio: "Versement au propriétaire",
+    soldeApresVersement: "Solde après déductions des versements",
+    addAdjustment: "Ajouter un ajustement",
+    manualAdjustment: "Ajustement manuel",
+    verification: "Vérification",
+    selectBuilding: "Sélectionner un bâtiment",
     today: "Aujourd'hui",
     yesterday: "Hier",
     daysAgo: "Il y a {n} jours",
@@ -1427,6 +1534,59 @@ export const translations: Record<Language, TranslationSet> = {
     catParking: "Outdoor parking",
     catStorage: "Storage / Cellar",
     catOtherRental: "Other rental",
+    navAccounting: "Accounting",
+    accountingTitle: "Accounting",
+    accountingSub: "Manage your transactions, rents and financial statements",
+    tabTransactions: "Transactions",
+    tabRentTracking: "Rent Tracking",
+    tabIncomeStatement: "Management Account",
+    tabCharges: "Charges Statement",
+    importFile: "Import file",
+    importSub: "CSV or Excel (.xlsx)",
+    mapColumns: "Map columns",
+    columnMapping: "Column mapping",
+    sourceColumn: "Source column",
+    targetField: "Target field",
+    skipColumn: "Skip",
+    importRows: "Import rows",
+    transactionDate: "Invoice date",
+    paymentDate: "Payment date",
+    unitObject: "Unit / Object",
+    descriptionCol: "Description",
+    categoryCol: "Category",
+    subCategoryCol: "Sub-category",
+    accountNumberCol: "Account No.",
+    debitCol: "Debit (CHF)",
+    creditCol: "Credit (CHF)",
+    statusCol: "Status",
+    totalDebit: "Total debits",
+    totalCredit: "Total credits",
+    balance: "Balance",
+    paid: "Paid",
+    unpaid: "Unpaid",
+    late: "Late",
+    onTime: "On time",
+    rentOf: "Rent for",
+    reminderSent: "Reminder sent",
+    sendReminder: "Send reminder",
+    noTransactions: "No transactions imported",
+    revenue: "Revenue",
+    expenses: "Expenses",
+    netBalance: "Net balance",
+    compteDeGerance: "Management Account",
+    decompteCharges: "Charges Statement",
+    recettes: "Revenue",
+    depensesGestion: "Expenses – Current Management",
+    depensesTravaux: "Expenses – Works & Investments",
+    totalRecettes: "Total revenue",
+    totalDepenses: "Total expenses",
+    soldeCompte: "Management account balance in your favor",
+    versementProprio: "Payment to owner",
+    soldeApresVersement: "Balance after deductions",
+    addAdjustment: "Add adjustment",
+    manualAdjustment: "Manual adjustment",
+    verification: "Verification",
+    selectBuilding: "Select a building",
     today: "Today",
     yesterday: "Yesterday",
     daysAgo: "{n} days ago",
@@ -1935,6 +2095,59 @@ export const translations: Record<Language, TranslationSet> = {
     catParking: "Außenparkplatz",
     catStorage: "Keller / Lagerraum",
     catOtherRental: "Andere Miete",
+    navAccounting: "Buchhaltung",
+    accountingTitle: "Buchhaltung",
+    accountingSub: "Verwalten Sie Ihre Transaktionen, Mieten und Finanzberichte",
+    tabTransactions: "Transaktionen",
+    tabRentTracking: "Mietverfolgung",
+    tabIncomeStatement: "Verwaltungskonto",
+    tabCharges: "Nebenkostenabrechnung",
+    importFile: "Datei importieren",
+    importSub: "CSV oder Excel (.xlsx)",
+    mapColumns: "Spalten zuordnen",
+    columnMapping: "Spaltenzuordnung",
+    sourceColumn: "Quellspalte",
+    targetField: "Zielfeld",
+    skipColumn: "Überspringen",
+    importRows: "Zeilen importieren",
+    transactionDate: "Rechnungsdatum",
+    paymentDate: "Zahlungsdatum",
+    unitObject: "Wohnung / Objekt",
+    descriptionCol: "Beschreibung",
+    categoryCol: "Kategorie",
+    subCategoryCol: "Unterkategorie",
+    accountNumberCol: "Konto-Nr.",
+    debitCol: "Soll (CHF)",
+    creditCol: "Haben (CHF)",
+    statusCol: "Status",
+    totalDebit: "Gesamtsoll",
+    totalCredit: "Gesamthaben",
+    balance: "Saldo",
+    paid: "Bezahlt",
+    unpaid: "Unbezahlt",
+    late: "Verspätet",
+    onTime: "Aktuell",
+    rentOf: "Miete für",
+    reminderSent: "Erinnerung gesendet",
+    sendReminder: "Erinnerung senden",
+    noTransactions: "Keine Transaktionen importiert",
+    revenue: "Einnahmen",
+    expenses: "Ausgaben",
+    netBalance: "Nettosaldo",
+    compteDeGerance: "Verwaltungskonto",
+    decompteCharges: "Nebenkostenabrechnung",
+    recettes: "Einnahmen",
+    depensesGestion: "Ausgaben – Laufende Verwaltung",
+    depensesTravaux: "Ausgaben – Arbeiten & Investitionen",
+    totalRecettes: "Gesamteinnahmen",
+    totalDepenses: "Gesamtausgaben",
+    soldeCompte: "Verwaltungskontosaldo zu Ihren Gunsten",
+    versementProprio: "Auszahlung an Eigentümer",
+    soldeApresVersement: "Saldo nach Abzügen",
+    addAdjustment: "Anpassung hinzufügen",
+    manualAdjustment: "Manuelle Anpassung",
+    verification: "Überprüfung",
+    selectBuilding: "Gebäude auswählen",
     today: "Heute",
     yesterday: "Gestern",
     daysAgo: "Vor {n} Tagen",
@@ -2443,6 +2656,59 @@ export const translations: Record<Language, TranslationSet> = {
     catParking: "Parcheggio esterno",
     catStorage: "Cantina / Deposito",
     catOtherRental: "Altro affitto",
+    navAccounting: "Contabilità",
+    accountingTitle: "Contabilità",
+    accountingSub: "Gestisci le transazioni, gli affitti e i rapporti finanziari",
+    tabTransactions: "Transazioni",
+    tabRentTracking: "Monitoraggio affitti",
+    tabIncomeStatement: "Conto di gestione",
+    tabCharges: "Rendiconto spese",
+    importFile: "Importa file",
+    importSub: "CSV o Excel (.xlsx)",
+    mapColumns: "Mappa colonne",
+    columnMapping: "Corrispondenza colonne",
+    sourceColumn: "Colonna sorgente",
+    targetField: "Campo destinazione",
+    skipColumn: "Salta",
+    importRows: "Importa righe",
+    transactionDate: "Data fattura",
+    paymentDate: "Data pagamento",
+    unitObject: "Appartamento / Oggetto",
+    descriptionCol: "Descrizione",
+    categoryCol: "Categoria",
+    subCategoryCol: "Sotto-categoria",
+    accountNumberCol: "N° Conto",
+    debitCol: "Dare (CHF)",
+    creditCol: "Avere (CHF)",
+    statusCol: "Stato",
+    totalDebit: "Totale dare",
+    totalCredit: "Totale avere",
+    balance: "Saldo",
+    paid: "Pagato",
+    unpaid: "Non pagato",
+    late: "In ritardo",
+    onTime: "In regola",
+    rentOf: "Affitto di",
+    reminderSent: "Promemoria inviato",
+    sendReminder: "Invia promemoria",
+    noTransactions: "Nessuna transazione importata",
+    revenue: "Entrate",
+    expenses: "Spese",
+    netBalance: "Saldo netto",
+    compteDeGerance: "Conto di gestione",
+    decompteCharges: "Rendiconto spese",
+    recettes: "Entrate",
+    depensesGestion: "Spese – Gestione corrente",
+    depensesTravaux: "Spese – Lavori & Investimenti",
+    totalRecettes: "Totale entrate",
+    totalDepenses: "Totale spese",
+    soldeCompte: "Saldo del conto di gestione a vostro favore",
+    versementProprio: "Versamento al proprietario",
+    soldeApresVersement: "Saldo dopo deduzioni",
+    addAdjustment: "Aggiungi aggiustamento",
+    manualAdjustment: "Aggiustamento manuale",
+    verification: "Verifica",
+    selectBuilding: "Seleziona un edificio",
     today: "Oggi",
     yesterday: "Ieri",
     daysAgo: "{n} giorni fa",

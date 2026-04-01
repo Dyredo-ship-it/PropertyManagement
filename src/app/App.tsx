@@ -20,6 +20,7 @@ import { InterventionsView } from "./components/InterventionsView";
 import { AnalyticsDashboard } from "./components/AnalyticsDashboard";
 import { SettingsView } from "./components/SettingsView";
 import { CalendarView } from "./components/CalendarView";
+import { AccountingView } from "./components/AccountingView";
 
 function AppContent() {
   const { isAuthenticated, user } = useAuth();
@@ -67,6 +68,7 @@ function AppContent() {
           {activeView === "services" && <ServicesView />}
           {activeView === "analytics" && user?.role === "admin" && <AnalyticsDashboard />}
           {activeView === "calendar" && user?.role === "admin" && <CalendarView />}
+          {activeView === "accounting" && user?.role === "admin" && <AccountingView />}
           {activeView === "settings" && <SettingsView />}
           {activeView === "notifications" && <NotificationsView />}
           {(activeView === "info" || activeView === "informations") && <InformationsView />}
