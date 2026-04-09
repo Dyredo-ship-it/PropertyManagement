@@ -21,8 +21,9 @@ import {
   AlertCircle,
   Mail,
   Phone,
+  Settings,
 } from "lucide-react";
-import { getBuildings, saveBuildings, getTenants, getMaintenanceRequests, type Building, type Currency, type Tenant, type MaintenanceRequest } from "../utils/storage";
+import { getBuildings, saveBuildings, getTenants, getMaintenanceRequests, getAccountingSettings, saveAccountingSettings, type Building, type Currency, type Tenant, type MaintenanceRequest, type AccountingSettings } from "../utils/storage";
 import { useLanguage } from "../i18n/LanguageContext";
 import { useCurrency } from "../context/CurrencyContext";
 
@@ -405,6 +406,7 @@ const TAB_LIST = [
   { key: "tenants", label: "Locataires", icon: Users },
   { key: "renovations", label: "Rénovations", icon: Wrench },
   { key: "maintenance", label: "Maintenance", icon: AlertCircle },
+  { key: "settings", label: "Paramètres", icon: Settings },
 ] as const;
 
 type TabKey = typeof TAB_LIST[number]["key"];
@@ -416,10 +418,13 @@ function BuildingTabs({ building, t, occPct, occColor, formattedRevenue }: {
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
   const [bTenants, setBTenants] = useState<Tenant[]>([]);
   const [bRequests, setBRequests] = useState<MaintenanceRequest[]>([]);
+  const [acctSettings, setAcctSettings] = useState<AccountingSettings>({ units: [], categories: [], subCategories: [] });
+  const [settingsNewUnit, setSettingsNewUnit] = useState("");
 
   useEffect(() => {
     setBTenants(getTenants().filter((tn: any) => tn.buildingId === building.id));
     setBRequests(getMaintenanceRequests().filter((r) => r.buildingId === building.id));
+    setAcctSettings(getAccountingSettings(building.id));
   }, [building.id]);
 
   return (
@@ -619,6 +624,121 @@ function BuildingTabs({ building, t, occPct, occColor, formattedRevenue }: {
               );
             })
           )}
+        </div>
+      )}
+
+      {activeTab === "settings" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          {/* Appartements / Unités */}
+          <div style={{ borderRadius: 14, border: "1px solid var(--border)", background: "var(--card)", overflow: "hidden" }}>
+            <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ width: 30, height: 30, borderRadius: 8, flexShrink: 0, background: "rgba(69,85,58,0.07)", display: "flex", alignItems: "center", justifyContent: "center", borderLeft: "3px solid var(--primary)" }}>
+                <Home style={{ width: 14, height: 14, color: "var(--primary)" }} />
+              </div>
+              <span style={{ fontSize: 14, fontWeight: 650, color: "var(--foreground)", flex: 1 }}>
+                Appartements & Locaux
+              </span>
+              <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>
+                {acctSettings.units.length} élément{acctSettings.units.length !== 1 ? "s" : ""}
+              </span>
+            </div>
+            <div style={{ padding: "14px 18px" }}>
+              <p style={{ fontSize: 12, color: "var(--muted-foreground)", margin: "0 0 12px" }}>
+                Ajoutez les appartements, garages, places de parc et autres locaux de cet immeuble. Ils seront disponibles dans les rénovations, la comptabilité et les attributions.
+              </p>
+              {/* Add new */}
+              <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+                <input
+                  type="text"
+                  value={settingsNewUnit}
+                  onChange={(e) => setSettingsNewUnit(e.target.value)}
+                  placeholder="Ex: 1er / 4.5p, Garage N°1, Place de parc N°2..."
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && settingsNewUnit.trim()) {
+                      const updated = { ...acctSettings, units: [...acctSettings.units, settingsNewUnit.trim()] };
+                      setAcctSettings(updated);
+                      saveAccountingSettings(building.id, updated);
+                      setSettingsNewUnit("");
+                    }
+                  }}
+                  style={{
+                    flex: 1, padding: "9px 12px", borderRadius: 9, fontSize: 13,
+                    border: "1px solid var(--border)", background: "var(--background)",
+                    color: "var(--foreground)", outline: "none", boxSizing: "border-box" as const,
+                    transition: "border-color 0.15s",
+                  }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = "var(--primary)"; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
+                />
+                <button
+                  onClick={() => {
+                    if (!settingsNewUnit.trim()) return;
+                    const updated = { ...acctSettings, units: [...acctSettings.units, settingsNewUnit.trim()] };
+                    setAcctSettings(updated);
+                    saveAccountingSettings(building.id, updated);
+                    setSettingsNewUnit("");
+                  }}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 5,
+                    padding: "0 16px", borderRadius: 9, fontSize: 12, fontWeight: 600,
+                    border: "none", cursor: "pointer",
+                    background: "var(--primary)", color: "var(--primary-foreground)",
+                    transition: "opacity 0.15s", flexShrink: 0,
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.9"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
+                >
+                  <Plus style={{ width: 13, height: 13 }} />
+                  Ajouter
+                </button>
+              </div>
+
+              {/* List */}
+              {acctSettings.units.length === 0 ? (
+                <p style={{ fontSize: 12, color: "var(--muted-foreground)", textAlign: "center", padding: "16px 0" }}>
+                  Aucun appartement configuré. Ajoutez-en ci-dessus.
+                </p>
+              ) : (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 8 }}>
+                  {acctSettings.units.map((unit, idx) => (
+                    <div
+                      key={idx}
+                      className="group"
+                      style={{
+                        display: "flex", alignItems: "center", gap: 10,
+                        padding: "9px 12px", borderRadius: 9,
+                        border: "1px solid var(--border)", background: "var(--background)",
+                        transition: "background 0.1s",
+                      }}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--card)"; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--background)"; }}
+                    >
+                      <Home style={{ width: 12, height: 12, color: "var(--muted-foreground)", flexShrink: 0 }} />
+                      <span style={{ flex: 1, fontSize: 13, color: "var(--foreground)" }}>{unit}</span>
+                      <button
+                        onClick={() => {
+                          const updated = { ...acctSettings, units: acctSettings.units.filter((_, i) => i !== idx) };
+                          setAcctSettings(updated);
+                          saveAccountingSettings(building.id, updated);
+                        }}
+                        className="opacity-0 group-hover:opacity-100"
+                        style={{
+                          width: 22, height: 22, borderRadius: 6, border: "none",
+                          background: "transparent", color: "var(--muted-foreground)",
+                          cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                          transition: "all 0.15s",
+                        }}
+                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "#DC2626"; }}
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--muted-foreground)"; }}
+                      >
+                        <Trash2 style={{ width: 11, height: 11 }} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </>
