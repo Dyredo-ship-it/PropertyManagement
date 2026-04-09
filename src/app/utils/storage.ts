@@ -212,6 +212,7 @@ export interface RentalApplication {
   status: RentalApplicationStatus;
   createdAt: string; // ISO
   updatedAt: string; // ISO
+  documents?: { name: string; type: string; data: string }[]; // uploaded PDFs/images as base64
 }
 
 // ------------------------

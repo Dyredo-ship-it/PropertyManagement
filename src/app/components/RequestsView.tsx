@@ -24,6 +24,7 @@ import {
   ArrowRight,
   CheckCheck,
   Eye,
+  Upload,
 } from "lucide-react";
 import {
   getMaintenanceRequests,
@@ -154,7 +155,14 @@ function ApplicationDrawer({
   t: (k: string) => string;
   formatCHF: (v: number) => string;
 }) {
-  if (!app) return null;
+  const [docs, setDocs] = React.useState<{ name: string; type: string; data: string }[]>([]);
+
+  React.useEffect(() => {
+    if (app?.documents) setDocs(app.documents);
+    else setDocs([]);
+  }, [app]);
+
+  if (!app || !open) return null;
 
   const actions: { key: RentalApplication["status"]; label: string; bg: string; fg: string }[] = [
     { key: "under-review", label: t("markUnderReview"), bg: "rgba(245,158,11,0.12)", fg: "#B45309" },
@@ -162,135 +170,263 @@ function ApplicationDrawer({
     { key: "rejected",     label: t("reject"),          bg: "rgba(239,68,68,0.10)",  fg: "#DC2626" },
   ];
 
-  return (
-    <>
+  const handleUploadDoc = (files: FileList | null) => {
+    if (!files) return;
+    Array.from(files).forEach((file) => {
+      if (file.size > 15 * 1024 * 1024) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === "string") {
+          const newDoc = { name: file.name, type: file.type, data: reader.result };
+          setDocs((prev) => [...prev, newDoc]);
+          // Persist to application
+          const apps = getRentalApplications();
+          const updated = apps.map((a) =>
+            a.id === app.id ? { ...a, documents: [...(a.documents || []), newDoc] } : a
+          );
+          saveRentalApplications(updated);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleDeleteDoc = (idx: number) => {
+    const updated = docs.filter((_, i) => i !== idx);
+    setDocs(updated);
+    const apps = getRentalApplications();
+    const updatedApps = apps.map((a) =>
+      a.id === app.id ? { ...a, documents: updated } : a
+    );
+    saveRentalApplications(updatedApps);
+  };
+
+  const getInitials = (name: string) =>
+    name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
+
+  return createPortal(
+    <div
+      style={{
+        position: "fixed", inset: 0, zIndex: 50,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        background: "rgba(0,0,0,0.35)", padding: 16,
+      }}
+      onClick={onClose}
+    >
       <div
-        className="fixed inset-0 z-40 transition-opacity duration-300"
         style={{
-          background: "rgba(0,0,0,0.20)",
-          backdropFilter: "blur(2px)",
-          opacity: open ? 1 : 0,
-          pointerEvents: open ? "auto" : "none",
-        }}
-        onClick={onClose}
-      />
-      <div
-        className="fixed right-0 top-0 h-full z-50 flex flex-col transition-transform duration-300 ease-out"
-        style={{
-          width: "min(480px, 100vw)",
+          width: "100%", maxWidth: 600, maxHeight: "88vh",
+          borderRadius: 16, overflow: "hidden",
+          border: "1px solid var(--border)",
           background: "var(--card)",
-          borderLeft: "1px solid var(--border)",
-          boxShadow: "-8px 0 32px rgba(0,0,0,0.10)",
-          transform: open ? "translateX(0)" : "translateX(100%)",
+          boxShadow: "0 16px 48px rgba(0,0,0,0.14)",
+          display: "flex", flexDirection: "column",
         }}
+        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="shrink-0 px-6 py-5" style={{ borderBottom: "1px solid var(--border)" }}>
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              <h2 className="text-base font-bold" style={{ color: "var(--foreground)" }}>
-                {t("reviewApplication")}
-              </h2>
-              <p className="text-[12px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>
-                {app.buildingName} · {t("unit")} {app.desiredUnit}
-              </p>
+        <div style={{ padding: "18px 22px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 14 }}>
+          <div style={{
+            width: 44, height: 44, borderRadius: 12, flexShrink: 0,
+            background: "color-mix(in srgb, var(--primary) 10%, transparent)",
+            color: "var(--primary)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 15, fontWeight: 700,
+            borderLeft: "3px solid var(--primary)",
+          }}>
+            {getInitials(app.applicantName)}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 16, fontWeight: 650, color: "var(--foreground)" }}>{app.applicantName}</span>
+              <AppBadge status={app.status} />
             </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors shrink-0"
-              style={{ color: "var(--muted-foreground)", border: "none", background: "transparent", cursor: "pointer" }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = "var(--background)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
-            >
-              <X className="w-4 h-4" />
-            </button>
+            <span style={{ fontSize: 12, color: "var(--muted-foreground)" }}>
+              {app.occupation} · {app.employer}
+            </span>
           </div>
-
-          {/* Current status + actions */}
-          <div className="flex items-center gap-2 mt-4 flex-wrap">
-            <AppBadge status={app.status} />
-            <div className="flex-1" />
-            {actions
-              .filter((a) => a.key !== app.status)
-              .map((a) => (
-                <button
-                  key={a.key}
-                  type="button"
-                  onClick={() => onStatusChange(app.id, a.key)}
-                  className="rounded-lg text-[12px] font-semibold transition-colors"
-                  style={{ padding: "5px 12px", background: a.bg, color: a.fg, border: "none", cursor: "pointer" }}
-                >
-                  {a.label}
-                </button>
-              ))}
-          </div>
+          <button
+            onClick={onClose}
+            style={{ width: 28, height: 28, borderRadius: 8, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "transparent", border: "none", color: "var(--muted-foreground)", cursor: "pointer", transition: "background 0.15s" }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "var(--background)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+          >
+            <X style={{ width: 14, height: 14 }} />
+          </button>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-5">
-          {/* Identity */}
-          <Section title={t("applicantInfo")}>
-            <div className="flex items-center gap-3 mb-3">
-              <div
-                className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
-                style={{ background: "var(--sidebar-accent)" }}
-              >
-                <User className="w-5 h-5" style={{ color: "var(--primary)" }} />
+        {/* Scrollable body */}
+        <div style={{ flex: 1, overflowY: "auto", padding: "18px 22px", display: "flex", flexDirection: "column", gap: 18 }}>
+
+          {/* Contact info */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            {[
+              { icon: Mail, label: t("email"), value: app.applicantEmail },
+              { icon: Phone, label: t("phone"), value: app.applicantPhone },
+            ].map((item) => (
+              <div key={item.label} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 8, background: "var(--background)", border: "1px solid var(--border)" }}>
+                <item.icon style={{ width: 13, height: 13, color: "var(--muted-foreground)", flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ fontSize: 9, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--muted-foreground)", display: "block" }}>{item.label}</span>
+                  <span style={{ fontSize: 12, color: "var(--foreground)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}>{item.value}</span>
+                </div>
               </div>
+            ))}
+            <div style={{ gridColumn: "1 / -1", display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 8, background: "var(--background)", border: "1px solid var(--border)" }}>
+              <MapPin style={{ width: 13, height: 13, color: "var(--muted-foreground)", flexShrink: 0 }} />
               <div>
-                <p className="text-[14px] font-semibold" style={{ color: "var(--foreground)" }}>
-                  {app.applicantName}
-                </p>
-                <p className="text-[12px]" style={{ color: "var(--muted-foreground)" }}>
-                  {app.occupation} · {app.employer}
-                </p>
+                <span style={{ fontSize: 9, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--muted-foreground)", display: "block" }}>{t("currentAddress")}</span>
+                <span style={{ fontSize: 12, color: "var(--foreground)" }}>{app.currentAddress}</span>
               </div>
             </div>
-            <DrawerGrid>
-              <DrawerItem icon={<Mail className="w-3.5 h-3.5" />} label={t("email")} value={app.applicantEmail} />
-              <DrawerItem icon={<Phone className="w-3.5 h-3.5" />} label={t("phone")} value={app.applicantPhone} />
-              <DrawerItem icon={<MapPin className="w-3.5 h-3.5" />} label={t("currentAddress")} value={app.currentAddress} full />
-            </DrawerGrid>
-          </Section>
+          </div>
 
           {/* Application details */}
-          <Section title={t("applicationDetails")}>
-            <DrawerGrid>
-              <DrawerItem icon={<Calendar className="w-3.5 h-3.5" />} label={t("desiredMoveIn")} value={new Date(app.desiredMoveIn).toLocaleDateString("fr-CH")} />
-              <DrawerItem icon={<Banknote className="w-3.5 h-3.5" />} label={t("monthlyIncome")} value={formatCHF(app.monthlyIncome)} />
-              <DrawerItem icon={<Users className="w-3.5 h-3.5" />} label={t("householdSize")} value={`${app.householdSize} ${t("numberOfPersons")}`} />
-              <DrawerItem icon={<Calendar className="w-3.5 h-3.5" />} label={t("applicationDate")} value={new Date(app.createdAt).toLocaleDateString("fr-CH")} />
-            </DrawerGrid>
-          </Section>
+          <div>
+            <h4 style={{ fontSize: 10, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted-foreground)", margin: "0 0 8px" }}>
+              {t("applicationDetails")}
+            </h4>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
+              {[
+                { label: t("desiredMoveIn"), value: new Date(app.desiredMoveIn).toLocaleDateString("fr-CH") },
+                { label: t("monthlyIncome"), value: formatCHF(app.monthlyIncome) },
+                { label: t("householdSize"), value: `${app.householdSize} pers.` },
+                { label: t("applicationDate"), value: new Date(app.createdAt).toLocaleDateString("fr-CH") },
+              ].map((item) => (
+                <div key={item.label} style={{ padding: "10px 12px", borderRadius: 8, background: "var(--background)", border: "1px solid var(--border)" }}>
+                  <span style={{ fontSize: 9, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--muted-foreground)", display: "block", marginBottom: 3 }}>{item.label}</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)" }}>{item.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
 
           {/* Message */}
           {app.message && (
-            <Section title={t("applicationMessage")}>
-              <div
-                className="rounded-xl p-4 text-[13px] leading-relaxed"
-                style={{ background: "var(--background)", border: "1px solid var(--border)", color: "var(--foreground)" }}
-              >
+            <div>
+              <h4 style={{ fontSize: 10, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted-foreground)", margin: "0 0 8px" }}>
+                {t("applicationMessage")}
+              </h4>
+              <div style={{ padding: "12px 14px", borderRadius: 10, background: "var(--background)", border: "1px solid var(--border)", fontSize: 13, lineHeight: 1.6, color: "var(--foreground)", whiteSpace: "pre-wrap" }}>
                 {app.message}
               </div>
-            </Section>
+            </div>
           )}
+
+          {/* Documents */}
+          <div>
+            <h4 style={{ fontSize: 10, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted-foreground)", margin: "0 0 8px" }}>
+              Documents
+            </h4>
+
+            {/* Uploaded documents */}
+            {docs.length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
+                {docs.map((doc, idx) => (
+                  <div key={idx} style={{
+                    display: "flex", alignItems: "center", gap: 10,
+                    padding: "8px 12px", borderRadius: 8,
+                    background: "var(--background)", border: "1px solid var(--border)",
+                  }}>
+                    <FileText style={{ width: 16, height: 16, color: "var(--primary)", flexShrink: 0 }} />
+                    <span style={{ flex: 1, fontSize: 12, color: "var(--foreground)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {doc.name}
+                    </span>
+                    <span style={{ fontSize: 10, color: "var(--muted-foreground)", flexShrink: 0 }}>
+                      {doc.type.includes("pdf") ? "PDF" : doc.type.includes("image") ? "Image" : "Fichier"}
+                    </span>
+                    {doc.type.includes("pdf") || doc.type.includes("image") ? (
+                      <a
+                        href={doc.data}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        download={doc.name}
+                        style={{ fontSize: 11, fontWeight: 600, color: "var(--primary)", textDecoration: "none", flexShrink: 0 }}
+                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.textDecoration = "underline"; }}
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.textDecoration = "none"; }}
+                      >
+                        Ouvrir
+                      </a>
+                    ) : null}
+                    <button
+                      onClick={() => handleDeleteDoc(idx)}
+                      style={{ width: 22, height: 22, borderRadius: 6, border: "none", background: "transparent", color: "var(--muted-foreground)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "color 0.15s" }}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "#DC2626"; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--muted-foreground)"; }}
+                    >
+                      <Trash2 style={{ width: 11, height: 11 }} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Upload zone */}
+            <label style={{
+              display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
+              padding: "18px 16px", borderRadius: 10,
+              border: "2px dashed var(--border)", cursor: "pointer",
+              textAlign: "center", transition: "border-color 0.15s",
+            }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "var(--primary)"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "var(--border)"; }}
+            >
+              <input
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png,.webp"
+                multiple
+                style={{ display: "none" }}
+                onChange={(e) => { handleUploadDoc(e.target.files); e.target.value = ""; }}
+              />
+              <Upload style={{ width: 22, height: 22, color: "var(--border)" }} />
+              <span style={{ fontSize: 12, fontWeight: 500, color: "var(--muted-foreground)" }}>
+                Carte d'identité, extrait casier judiciaire, attestation de poursuite...
+              </span>
+              <span style={{ fontSize: 10, color: "var(--muted-foreground)" }}>
+                PDF, JPG, PNG — max 15 MB
+              </span>
+            </label>
+          </div>
+        </div>
+
+        {/* Footer actions */}
+        <div style={{ padding: "14px 22px", borderTop: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          {actions
+            .filter((a) => a.key !== app.status)
+            .map((a) => (
+              <button
+                key={a.key}
+                onClick={() => onStatusChange(app.id, a.key)}
+                style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 14px", borderRadius: 9, fontSize: 12, fontWeight: 600, background: a.bg, color: a.fg, border: "none", cursor: "pointer", transition: "opacity 0.15s" }}
+                onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.85"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
+              >
+                {a.label}
+              </button>
+            ))}
+          <div style={{ flex: 1 }} />
+          <button
+            onClick={onClose}
+            style={{ padding: "7px 18px", borderRadius: 9, fontSize: 12, fontWeight: 550, border: "1px solid var(--border)", background: "var(--card)", color: "var(--foreground)", cursor: "pointer", transition: "background 0.15s" }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "var(--background)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "var(--card)"; }}
+          >
+            {t("close") || "Fermer"}
+          </button>
         </div>
       </div>
-    </>
+    </div>,
+    document.body
   );
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <p className="text-[10px] font-semibold uppercase mb-3" style={{ color: "var(--muted-foreground)", letterSpacing: "0.1em" }}>
+      <p style={{ fontSize: 10, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--muted-foreground)", margin: "0 0 8px" }}>
         {title}
       </p>
-      <div
-        className="rounded-xl overflow-hidden"
-        style={{ border: "1px solid var(--border)", background: "var(--card)" }}
-      >
+      <div style={{ borderRadius: 12, overflow: "hidden", border: "1px solid var(--border)", background: "var(--card)" }}>
         {children}
       </div>
     </div>
@@ -298,7 +434,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 function DrawerGrid({ children }: { children: React.ReactNode }) {
-  return <div className="divide-y" style={{ borderColor: "var(--border)" }}>{children}</div>;
+  return <div style={{ display: "flex", flexDirection: "column" }}>{children}</div>;
 }
 
 function DrawerItem({
@@ -313,10 +449,10 @@ function DrawerItem({
   full?: boolean;
 }) {
   return (
-    <div className="px-4 py-3">
-      <div className="flex items-center gap-1.5 mb-0.5">
+    <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 2 }}>
         <span style={{ color: "var(--muted-foreground)" }}>{icon}</span>
-        <p className="text-[10px] font-semibold uppercase" style={{ color: "var(--muted-foreground)", letterSpacing: "0.06em" }}>
+        <p style={{ fontSize: 10, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted-foreground)", margin: 0 }}>
           {label}
         </p>
       </div>
