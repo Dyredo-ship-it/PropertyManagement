@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { RenovationTracker } from "./RenovationTracker";
 import {
   Building2,
   Plus,
@@ -409,6 +410,11 @@ function BuildingDetail({
             transition: "width 0.4s ease",
           }} />
         </div>
+      </div>
+
+      {/* ── Renovation Tracker ──────────────────────────────── */}
+      <div style={{ marginTop: 22 }}>
+        <RenovationTracker buildingId={building.id} />
       </div>
     </div>
   );
