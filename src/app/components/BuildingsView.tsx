@@ -22,6 +22,8 @@ import {
   Mail,
   Phone,
   Settings,
+  Car,
+  Warehouse,
 } from "lucide-react";
 import { getBuildings, saveBuildings, getTenants, getMaintenanceRequests, getAccountingSettings, saveAccountingSettings, type Building, type Currency, type Tenant, type MaintenanceRequest, type AccountingSettings } from "../utils/storage";
 import { useLanguage } from "../i18n/LanguageContext";
@@ -713,7 +715,13 @@ function BuildingTabs({ building, t, occPct, occColor, formattedRevenue }: {
                       onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--card)"; }}
                       onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--background)"; }}
                     >
-                      <Home style={{ width: 12, height: 12, color: "var(--muted-foreground)", flexShrink: 0 }} />
+                      {(() => {
+                        const lower = unit.toLowerCase();
+                        const IconUnit = lower.includes("garage") ? Warehouse
+                          : (lower.includes("parc") || lower.includes("parking")) ? Car
+                          : Home;
+                        return <IconUnit style={{ width: 12, height: 12, color: "var(--muted-foreground)", flexShrink: 0 }} />;
+                      })()}
                       <span style={{ flex: 1, fontSize: 13, color: "var(--foreground)" }}>{unit}</span>
                       <button
                         onClick={() => {
