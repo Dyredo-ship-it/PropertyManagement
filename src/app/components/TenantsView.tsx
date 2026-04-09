@@ -27,6 +27,8 @@ import {
   ExternalLink,
   Home,
   Upload,
+  Car,
+  Warehouse,
 } from "lucide-react";
 // UI component imports removed — using inline-styled elements for full control
 import {
@@ -36,6 +38,7 @@ import {
   getMaintenanceRequests,
   getNotifications,
   saveNotifications,
+  getAccountingSettings,
   type Tenant,
   type Building,
   type MaintenanceRequest,
@@ -379,7 +382,15 @@ function TenantDetailDrawer({
   const [sendDocMessage, setSendDocMessage] = useState("");
   const sendDocFileRef = useRef<HTMLInputElement | null>(null);
 
-  // (tabs and notes managed by agent-rewritten code below)
+  /* Assigned units from building settings */
+  const assignedUnits = React.useMemo(() => {
+    if (!tenant?.buildingId) return [];
+    const settings = getAccountingSettings(tenant.buildingId);
+    const assignments = settings.unitAssignments || {};
+    return Object.entries(assignments)
+      .filter(([_, tenantId]) => tenantId === tenant.id)
+      .map(([unitName]) => unitName);
+  }, [tenant?.buildingId, tenant?.id]);
 
   /* Upload doc state (Documents tab) */
   const [uploadCategory, setUploadCategory] = useState<TenantDocument["category"]>("Contrat de bail");
@@ -596,6 +607,33 @@ function TenantDetailDrawer({
                   </div>
                 </div>
               </div>
+
+              {/* Assigned units */}
+              {assignedUnits.length > 0 && (
+                <div>
+                  <p style={{ fontSize: 10, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--muted-foreground)", margin: "0 0 8px" }}>
+                    Locaux attribués
+                  </p>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    {assignedUnits.map((unit) => {
+                      const lower = unit.toLowerCase();
+                      const IconUnit = lower.includes("garage") ? Warehouse
+                        : (lower.includes("parc") || lower.includes("parking")) ? Car
+                        : Home;
+                      return (
+                        <div key={unit} style={{
+                          display: "flex", alignItems: "center", gap: 7,
+                          padding: "7px 12px", borderRadius: 8,
+                          background: "rgba(69,85,58,0.06)", border: "1px solid rgba(69,85,58,0.12)",
+                        }}>
+                          <IconUnit style={{ width: 13, height: 13, color: "var(--primary)" }} />
+                          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--primary)" }}>{unit}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Lease dates & financials — 4 columns */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10 }}>

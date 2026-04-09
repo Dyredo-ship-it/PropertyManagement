@@ -701,48 +701,84 @@ function BuildingTabs({ building, t, occPct, occColor, formattedRevenue }: {
                   Aucun appartement configuré. Ajoutez-en ci-dessus.
                 </p>
               ) : (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 8 }}>
-                  {acctSettings.units.map((unit, idx) => (
-                    <div
-                      key={idx}
-                      className="group"
-                      style={{
-                        display: "flex", alignItems: "center", gap: 10,
-                        padding: "9px 12px", borderRadius: 9,
-                        border: "1px solid var(--border)", background: "var(--background)",
-                        transition: "background 0.1s",
-                      }}
-                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--card)"; }}
-                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--background)"; }}
-                    >
-                      {(() => {
-                        const lower = unit.toLowerCase();
-                        const IconUnit = lower.includes("garage") ? Warehouse
-                          : (lower.includes("parc") || lower.includes("parking")) ? Car
-                          : Home;
-                        return <IconUnit style={{ width: 12, height: 12, color: "var(--muted-foreground)", flexShrink: 0 }} />;
-                      })()}
-                      <span style={{ flex: 1, fontSize: 13, color: "var(--foreground)" }}>{unit}</span>
-                      <button
-                        onClick={() => {
-                          const updated = { ...acctSettings, units: acctSettings.units.filter((_, i) => i !== idx) };
-                          setAcctSettings(updated);
-                          saveAccountingSettings(building.id, updated);
-                        }}
-                        className="opacity-0 group-hover:opacity-100"
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {acctSettings.units.map((unit, idx) => {
+                    const lower = unit.toLowerCase();
+                    const IconUnit = lower.includes("garage") ? Warehouse
+                      : (lower.includes("parc") || lower.includes("parking")) ? Car
+                      : Home;
+                    const assignedTenantId = acctSettings.unitAssignments?.[unit] || "";
+                    const assignedTenant = bTenants.find((tn: any) => tn.id === assignedTenantId);
+                    return (
+                      <div
+                        key={idx}
+                        className="group"
                         style={{
-                          width: 22, height: 22, borderRadius: 6, border: "none",
-                          background: "transparent", color: "var(--muted-foreground)",
-                          cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-                          transition: "all 0.15s",
+                          display: "flex", alignItems: "center", gap: 10,
+                          padding: "10px 14px", borderRadius: 10,
+                          border: "1px solid var(--border)", background: "var(--background)",
+                          transition: "background 0.1s",
                         }}
-                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "#DC2626"; }}
-                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--muted-foreground)"; }}
+                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--card)"; }}
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--background)"; }}
                       >
-                        <Trash2 style={{ width: 11, height: 11 }} />
-                      </button>
-                    </div>
-                  ))}
+                        <IconUnit style={{ width: 14, height: 14, color: "var(--muted-foreground)", flexShrink: 0 }} />
+                        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)", minWidth: 120 }}>{unit}</span>
+                        {/* Tenant assignment dropdown */}
+                        <select
+                          value={assignedTenantId}
+                          onChange={(e) => {
+                            const newAssignments = { ...(acctSettings.unitAssignments || {}), [unit]: e.target.value };
+                            if (!e.target.value) delete newAssignments[unit];
+                            const updated = { ...acctSettings, unitAssignments: newAssignments };
+                            setAcctSettings(updated);
+                            saveAccountingSettings(building.id, updated);
+                          }}
+                          style={{
+                            flex: 1, padding: "5px 8px", borderRadius: 7, fontSize: 11,
+                            border: "1px solid var(--border)", background: "var(--card)",
+                            color: assignedTenantId ? "var(--foreground)" : "var(--muted-foreground)",
+                            outline: "none", cursor: "pointer", boxSizing: "border-box" as const,
+                          }}
+                          onFocus={(e) => { e.currentTarget.style.borderColor = "var(--primary)"; }}
+                          onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
+                        >
+                          <option value="">— Non attribué —</option>
+                          {bTenants.map((tn: any) => (
+                            <option key={tn.id} value={tn.id}>{tn.name}</option>
+                          ))}
+                        </select>
+                        {assignedTenant && (
+                          <span style={{
+                            fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 99,
+                            background: "rgba(34,197,94,0.08)", color: "#16a34a", flexShrink: 0,
+                          }}>
+                            Attribué
+                          </span>
+                        )}
+                        <button
+                          onClick={() => {
+                            const newAssignments = { ...(acctSettings.unitAssignments || {}) };
+                            delete newAssignments[unit];
+                            const updated = { ...acctSettings, units: acctSettings.units.filter((_, i) => i !== idx), unitAssignments: newAssignments };
+                            setAcctSettings(updated);
+                            saveAccountingSettings(building.id, updated);
+                          }}
+                          className="opacity-0 group-hover:opacity-100"
+                          style={{
+                            width: 24, height: 24, borderRadius: 6, border: "none",
+                            background: "transparent", color: "var(--muted-foreground)",
+                            cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                            transition: "all 0.15s", flexShrink: 0,
+                          }}
+                          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "#DC2626"; }}
+                          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--muted-foreground)"; }}
+                        >
+                          <Trash2 style={{ width: 12, height: 12 }} />
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>

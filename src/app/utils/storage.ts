@@ -193,6 +193,7 @@ export interface AccountingSettings {
   units: string[];          // "1er / 4.5p", "2ème / 3.5p", "Garage N*1", etc.
   categories: string[];     // "Loyers", "Acompte de charges", "Entretien", etc.
   subCategories: string[];  // "Robinetterie", "Peinture", "Vitres", etc.
+  unitAssignments?: Record<string, string>; // unit name → tenant id
 }
 
 export interface ManualAdjustment {
