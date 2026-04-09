@@ -34,7 +34,7 @@ function AppContent() {
 
   const handleSelectBuilding = (buildingId: string) => {
     setSelectedBuildingId(buildingId);
-    setActiveView("building-details");
+    setActiveView("buildings");
   };
 
   const handleBackFromBuilding = () => {
@@ -44,16 +44,16 @@ function AppContent() {
 
   return (
     <div className="flex h-screen bg-background">
-      <ModernSidebar activeView={activeView} onViewChange={setActiveView} />
+      <ModernSidebar activeView={activeView} onViewChange={(v) => { setActiveView(v); if (v !== "buildings") setSelectedBuildingId(null); }} />
 
       <div className="flex-1 flex flex-col overflow-hidden">
         <TopHeader onNavigate={setActiveView} />
 
         <div className="flex-1 overflow-auto bg-background">
-          {activeView === "dashboard" && user?.role === "admin" && <DashboardView />}
+          {activeView === "dashboard" && user?.role === "admin" && <DashboardView onSelectBuilding={handleSelectBuilding} />}
           {activeView === "dashboard" && user?.role === "tenant" && <TenantDashboardView />}
           {activeView === "buildings" && user?.role === "admin" && (
-            <BuildingsView onSelectBuilding={handleSelectBuilding} />
+            <BuildingsView onSelectBuilding={handleSelectBuilding} initialSelectedId={selectedBuildingId} />
           )}
           {activeView === "building-details" && selectedBuildingId && (
             <BuildingDetailsView

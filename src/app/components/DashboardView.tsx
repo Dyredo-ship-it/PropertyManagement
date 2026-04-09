@@ -1105,29 +1105,17 @@ function TenantDashboard({
    MAIN EXPORT
 ═══════════════════════════════════════════════════════════════ */
 
-export function DashboardView() {
+export function DashboardView({ onSelectBuilding }: { onSelectBuilding?: (id: string) => void }) {
   const { user } = useAuth();
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [requests, setRequests] = useState<MaintenanceRequest[]>([]);
-  const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(null);
 
   useEffect(() => {
     setBuildings(getBuildings());
     setTenants(getTenants());
     setRequests(getMaintenanceRequests());
   }, []);
-
-  if (selectedBuildingId) {
-    return (
-      <div className="max-w-6xl mx-auto px-6 py-8">
-        <BuildingDetailsView
-          buildingId={selectedBuildingId}
-          onBack={() => setSelectedBuildingId(null)}
-        />
-      </div>
-    );
-  }
 
   if (user?.role === "tenant") {
     return (
@@ -1154,7 +1142,7 @@ export function DashboardView() {
       buildings={buildings}
       tenants={tenants}
       requests={requests}
-      onSelectBuilding={setSelectedBuildingId}
+      onSelectBuilding={onSelectBuilding || (() => {})}
       onStatusChange={handleRequestStatusChange}
     />
   );

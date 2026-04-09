@@ -40,6 +40,7 @@ const BUILDING_PHOTOS = [
 
 type BuildingsViewProps = {
   onSelectBuilding?: (buildingId: string) => void;
+  initialSelectedId?: string | null;
 };
 
 /* ─── Building Card (image overlay) ─────────────────────────── */
@@ -626,12 +627,12 @@ function BuildingTabs({ building, t, occPct, occColor, formattedRevenue }: {
 
 /* ─── Main view ──────────────────────────────────────────────── */
 
-export function BuildingsView({ onSelectBuilding }: BuildingsViewProps) {
+export function BuildingsView({ onSelectBuilding, initialSelectedId }: BuildingsViewProps) {
   const { t } = useLanguage();
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingBuilding, setEditingBuilding] = useState<Building | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId ?? null);
   const { formatAmount, getBuildingCurrency, convertToBase, baseCurrency } = useCurrency();
   const [formData, setFormData] = useState({
     name: "",
