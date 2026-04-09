@@ -175,6 +175,20 @@ export interface AccountingTransaction {
   month?: string;           // "2026-01" for rent tracking
 }
 
+// ✅ Renovation Tracking
+export interface Renovation {
+  id: string;
+  buildingId: string;
+  unit?: string;             // specific apartment or empty = whole building
+  category: string;          // "Revêtements de sols", "Cuisine", etc.
+  item: string;              // "Parquet collé, bois massif", "Peinture mur", etc.
+  amortizationYears: number; // from tabelle FRI/ASLOCA
+  dateCompleted: string;     // yyyy-mm-dd
+  cost: number;              // CHF
+  notes?: string;
+  createdAt: string;
+}
+
 export interface AccountingSettings {
   units: string[];          // "1er / 4.5p", "2ème / 3.5p", "Garage N*1", etc.
   categories: string[];     // "Loyers", "Acompte de charges", "Entretien", etc.
@@ -230,6 +244,7 @@ const LS_KEYS = {
   rentalApplications: "rentalApplications",
   accountingTransactions: "immostore_accountingTx",
   manualAdjustments: "immostore_manualAdj",
+  renovations: "immostore_renovations",
   accountingSettings: "immostore_accountingSettings",
   calendarEvents: "immostore_calendarEvents",
   baseCurrency: "immostore_baseCurrency",
@@ -868,6 +883,27 @@ export const deleteManualAdjustment = (id: string) => {
 // ─── Accounting Settings ──────────────────────────────────────
 
 const DEFAULT_ACCOUNTING_SETTINGS: Record<string, AccountingSettings> = {};
+
+// ─── Renovations ──────────────────────────────────────────────
+
+export const getRenovations = (buildingId?: string): Renovation[] => {
+  const all = safeParse<Renovation[]>(localStorage.getItem(LS_KEYS.renovations), []);
+  return buildingId ? all.filter((r) => r.buildingId === buildingId) : all;
+};
+
+export const saveRenovations = (renovations: Renovation[]) =>
+  localStorage.setItem(LS_KEYS.renovations, JSON.stringify(renovations));
+
+export const addRenovation = (reno: Omit<Renovation, "id" | "createdAt">): Renovation => {
+  const all = getRenovations();
+  const newReno: Renovation = { id: `reno-${Date.now()}-${Math.random().toString(16).slice(2,6)}`, createdAt: nowISO(), ...reno };
+  saveRenovations([newReno, ...all]);
+  return newReno;
+};
+
+export const deleteRenovation = (id: string) => {
+  saveRenovations(getRenovations().filter((r) => r.id !== id));
+};
 
 export const getAccountingSettings = (buildingId: string): AccountingSettings => {
   const all = safeParse<Record<string, AccountingSettings>>(

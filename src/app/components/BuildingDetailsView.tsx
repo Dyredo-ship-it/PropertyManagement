@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { ArrowLeft, Building2, Users, Wrench, AlertCircle } from "lucide-react";
+import { RenovationTracker } from "./RenovationTracker";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import {
@@ -153,6 +154,7 @@ export function BuildingDetailsView({ buildingId, onBack }: BuildingDetailsViewP
           <TabsTrigger value="tenants">{t("tenantsTitle")}</TabsTrigger>
           <TabsTrigger value="finance">Finance</TabsTrigger>
           <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
+          <TabsTrigger value="renovations">Rénovations</TabsTrigger>
         </TabsList>
 
         {/* Overview */}
@@ -312,6 +314,13 @@ export function BuildingDetailsView({ buildingId, onBack }: BuildingDetailsViewP
               )}
             </div>
           </Card>
+        </TabsContent>
+
+        {/* Renovations */}
+        <TabsContent value="renovations">
+          <div className="mt-6">
+            <RenovationTracker buildingId={buildingId} />
+          </div>
         </TabsContent>
       </Tabs>
     </div>
