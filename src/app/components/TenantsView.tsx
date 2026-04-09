@@ -348,6 +348,10 @@ function TenantDetailDrawer({
   ficheDocs,
   requests,
   formatAmount,
+  onAddNote,
+  onDeleteNote,
+  onUploadDoc,
+  onDeleteDoc,
 }: {
   tenant: any;
   open: boolean;
@@ -359,18 +363,32 @@ function TenantDetailDrawer({
   ficheDocs: TenantDocument[];
   requests: MaintenanceRequest[];
   formatAmount: (amount: number) => string;
+  onAddNote: (note: { date: string; text: string }) => void;
+  onDeleteNote: (noteId: string) => void;
+  onUploadDoc: (file: File, category: TenantDocument["category"]) => void;
+  onDeleteDoc: (docId: string) => void;
 }) {
+  const [activeTab, setActiveTab] = useState<"profil" | "notes" | "demandes" | "documents">("profil");
+  const [noteDate, setNoteDate] = useState(todayISO());
+  const [noteText, setNoteText] = useState("");
+
+  /* Send-document modal state */
   const [showSendDoc, setShowSendDoc] = useState(false);
   const [sendDocFile, setSendDocFile] = useState<File | null>(null);
   const [sendDocCategory, setSendDocCategory] = useState<TenantDocument["category"]>("Communication");
   const [sendDocMessage, setSendDocMessage] = useState("");
   const sendDocFileRef = useRef<HTMLInputElement | null>(null);
 
+  // (tabs and notes managed by agent-rewritten code below)
+
+  /* Upload doc state (Documents tab) */
+  const [uploadCategory, setUploadCategory] = useState<TenantDocument["category"]>("Contrat de bail");
+  const uploadFileRef = useRef<HTMLInputElement | null>(null);
+
   const handleSendDocument = async () => {
     if (!tenant || !sendDocFile) return;
     const dataUrl = await fileToDataUrl(sendDocFile);
 
-    // Store the document in the tenant's documents
     const docEntry: TenantDocument = {
       id: `${Date.now()}`,
       category: sendDocCategory,
@@ -381,7 +399,6 @@ function TenantDetailDrawer({
     };
     const currentDocs = (tenant.documents ?? []) as TenantDocument[];
 
-    // Also create a notification for the tenant
     const allNotifications = getNotifications();
     const newNotification: Notification = {
       id: `doc-${Date.now()}`,
@@ -396,15 +413,12 @@ function TenantDetailDrawer({
     };
     saveNotifications([...allNotifications, newNotification]);
 
-    // Update tenant documents via the parent's update mechanism
-    // We use uploadDoc indirectly by dispatching through the existing pattern
     const updatedTenants = getTenants() as any[];
     const updated = updatedTenants.map((tn: any) =>
       tn.id === tenant.id ? { ...tn, documents: [docEntry, ...currentDocs] } : tn
     );
     saveTenants(updated as any);
 
-    // Reset and close
     setSendDocFile(null);
     setSendDocMessage("");
     setSendDocCategory("Communication");
@@ -418,271 +432,665 @@ function TenantDetailDrawer({
   const charges = Number(tenant.charges ?? 0) || 0;
   const total = rentNet + charges;
   const tenantRequests = requests.filter((r) => r.tenantId === tenant.id);
-  const openReqs = tenantRequests.filter((r) => r.status === "pending" || r.status === "in-progress");
-  const closedReqs = tenantRequests.filter((r) => r.status === "completed");
+  const notes: TenantNote[] = Array.isArray(tenant.notes) ? tenant.notes : [];
+
+  /* ─── Label style constant ─── */
+  const labelStyle: React.CSSProperties = {
+    fontSize: 10, fontWeight: 650, textTransform: "uppercase" as const, letterSpacing: "0.04em",
+    color: "var(--muted-foreground)", margin: 0,
+  };
+
+  /* ─── Tab definitions ─── */
+  const tabs: { key: typeof activeTab; label: string }[] = [
+    { key: "profil", label: "Profil" },
+    { key: "notes", label: "Notes" },
+    { key: "demandes", label: "Demandes" },
+    { key: "documents", label: "Documents" },
+  ];
+
+  /* ─── Status color helpers for requests ─── */
+  const statusAccent = (status: string) => {
+    if (status === "pending") return "#F59E0B";
+    if (status === "in-progress") return "var(--primary)";
+    if (status === "completed") return "#15803D";
+    return "var(--border)";
+  };
+  const statusLabel = (status: string) => {
+    if (status === "pending") return t("pending");
+    if (status === "in-progress") return t("inProgress") || "En cours";
+    if (status === "completed") return t("completed") || "Terminé";
+    return status;
+  };
+  const priorityLabel = (p: string) => {
+    if (p === "high" || p === "urgent") return { text: t("high") || "Haute", color: "#DC2626" };
+    if (p === "medium") return { text: t("medium") || "Moyenne", color: "#F59E0B" };
+    return { text: t("low") || "Basse", color: "#6b7280" };
+  };
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{ background: "rgba(0,0,0,0.4)", padding: 24 }}
+      style={{
+        position: "fixed", inset: 0, zIndex: 50,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        background: "rgba(0,0,0,0.4)", padding: 24,
+      }}
       onClick={onClose}
     >
-
       <div
-        className="w-full max-w-2xl relative max-h-[85vh] overflow-y-auto"
         style={{
-          borderRadius: 24,
-          background: "var(--card)",
+          width: "100%", maxWidth: 680, position: "relative",
+          maxHeight: "85vh", display: "flex", flexDirection: "column",
+          borderRadius: 16, background: "var(--card)",
           boxShadow: "0 24px 64px rgba(0,0,0,0.18)",
+          overflow: "hidden",
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* ─── Header banner ─── */}
-        <div className="relative h-32 bg-gradient-to-br from-[#45553A] via-[#5A6B4F] to-[#3D4A33] overflow-hidden"
-          style={{ borderRadius: "24px 24px 0 0" }}
-        >
-          <div className="absolute inset-0 flex items-end p-6">
-            <div className="flex items-center gap-4 flex-1">
-              <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-lg font-bold shadow-lg"
-                style={{
-                  background: "rgba(255,255,255,0.2)",
-                  backdropFilter: "blur(12px)",
-                  color: "white",
-                }}
-              >
-                {getInitials(tenant.name)}
-              </div>
-              <div className="min-w-0 flex-1">
-                <h2 className="text-xl font-bold text-white drop-shadow-sm truncate">{tenant.name}</h2>
-                <p className="text-sm text-white/70 mt-0.5">
-                  {tenant.buildingName} &middot; {t("unit")} {tenant.unit}
-                </p>
-              </div>
+        {/* ═══ HEADER ═══ */}
+        <div style={{
+          display: "flex", alignItems: "center", gap: 14,
+          padding: "20px 24px", borderBottom: "1px solid var(--border)",
+          flexShrink: 0,
+        }}>
+          {/* Avatar initials */}
+          <div style={{
+            width: 48, height: 48, borderRadius: 10,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 16, fontWeight: 700,
+            background: "color-mix(in srgb, var(--primary) 10%, transparent)",
+            color: "var(--primary)",
+            borderLeft: "3px solid var(--primary)",
+            flexShrink: 0,
+          }}>
+            {getInitials(tenant.name)}
+          </div>
+          {/* Name + meta */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <h2 style={{
+                fontSize: 17, fontWeight: 650, color: "var(--foreground)",
+                margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+              }}>
+                {tenant.name}
+              </h2>
               <StatusDotLight status={tenant.status} t={t} />
             </div>
-            <button onClick={onClose} className="p-2 rounded-xl hover:bg-white/10 transition-colors self-start ml-3">
-              <X className="w-5 h-5 text-white/70" />
-            </button>
+            <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: "2px 0 0" }}>
+              {tenant.buildingName} &middot; {t("unit")} {tenant.unit}
+            </p>
           </div>
+          {/* Close button */}
+          <button
+            onClick={onClose}
+            style={{
+              width: 32, height: 32, borderRadius: 8, border: "none",
+              background: "transparent", cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              color: "var(--muted-foreground)", flexShrink: 0,
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "var(--background)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+          >
+            <X style={{ width: 18, height: 18 }} />
+          </button>
         </div>
 
-        {/* ─── Content ─── */}
-        <div className="p-6 space-y-6">
+        {/* ═══ TAB BAR ═══ */}
+        <div style={{
+          display: "flex", gap: 6, padding: "12px 24px 0",
+          borderBottom: "1px solid var(--border)", flexShrink: 0,
+        }}>
+          {tabs.map((tab) => {
+            const isActive = activeTab === tab.key;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                style={{
+                  padding: "8px 16px", fontSize: 12, fontWeight: 600,
+                  borderRadius: "8px 8px 0 0", border: "none", cursor: "pointer",
+                  background: isActive ? "var(--primary)" : "var(--card)",
+                  color: isActive ? "var(--primary-foreground)" : "var(--muted-foreground)",
+                  marginBottom: -1,
+                  borderBottom: isActive ? "1px solid var(--primary)" : "1px solid transparent",
+                  letterSpacing: "0.02em",
+                }}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
 
-          {/* Contact info */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex items-center gap-3 p-3.5 rounded-xl" style={{ background: "var(--background)" }}>
-              <Mail className="w-4 h-4 shrink-0" style={{ color: "var(--primary)" }} />
-              <div className="min-w-0">
-                <p className="text-[10px] uppercase tracking-wider font-medium" style={{ color: "var(--muted-foreground)" }}>{t("email")}</p>
-                <p className="text-sm truncate" style={{ color: "var(--foreground)" }}>{tenant.email}</p>
+        {/* ═══ SCROLLABLE BODY ═══ */}
+        <div style={{ overflowY: "auto", flex: 1, padding: 24 }}>
+
+          {/* ──────── TAB: Profil ──────── */}
+          {activeTab === "profil" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+
+              {/* Contact info grid */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div style={{
+                  display: "flex", alignItems: "center", gap: 12, padding: 14,
+                  borderRadius: 10, background: "var(--background)",
+                }}>
+                  <Mail style={{ width: 16, height: 16, color: "var(--primary)", flexShrink: 0 }} />
+                  <div style={{ minWidth: 0 }}>
+                    <p style={labelStyle}>{t("email")}</p>
+                    <p style={{ fontSize: 13, color: "var(--foreground)", margin: "2px 0 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {tenant.email}
+                    </p>
+                  </div>
+                </div>
+                <div style={{
+                  display: "flex", alignItems: "center", gap: 12, padding: 14,
+                  borderRadius: 10, background: "var(--background)",
+                }}>
+                  <Phone style={{ width: 16, height: 16, color: "var(--primary)", flexShrink: 0 }} />
+                  <div style={{ minWidth: 0 }}>
+                    <p style={labelStyle}>{t("phone")}</p>
+                    <p style={{ fontSize: 13, color: "var(--foreground)", margin: "2px 0 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {tenant.phone}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Lease dates & financials — 4 columns */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10 }}>
+                <div style={{ padding: 12, borderRadius: 10, background: "var(--background)", textAlign: "center" }}>
+                  <p style={{ ...labelStyle, marginBottom: 4 }}>{t("leaseStart")}</p>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)", margin: 0 }}>
+                    {tenant.leaseStart ? new Date(tenant.leaseStart).toLocaleDateString("fr-CH") : "—"}
+                  </p>
+                </div>
+                <div style={{ padding: 12, borderRadius: 10, background: "var(--background)", textAlign: "center" }}>
+                  <p style={{ ...labelStyle, marginBottom: 4 }}>{t("leaseEnd")}</p>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)", margin: 0 }}>
+                    {tenant.leaseEnd ? new Date(tenant.leaseEnd).toLocaleDateString("fr-CH") : "—"}
+                  </p>
+                </div>
+                <div style={{ padding: 12, borderRadius: 10, background: "var(--background)", textAlign: "center" }}>
+                  <p style={{ ...labelStyle, marginBottom: 4 }}>{t("netRentLabel")}</p>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)", margin: 0 }}>{formatAmount(rentNet)}</p>
+                </div>
+                <div style={{ padding: 12, borderRadius: 10, background: "color-mix(in srgb, var(--primary) 8%, transparent)", textAlign: "center" }}>
+                  <p style={{ ...labelStyle, marginBottom: 4, color: "var(--primary)" }}>{t("totalMonthly")}</p>
+                  <p style={{ fontSize: 17, fontWeight: 700, color: "var(--primary)", margin: 0 }}>{formatAmount(total)}</p>
+                </div>
+              </div>
+
+              {/* Action buttons */}
+              <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 4 }}>
+                <button
+                  onClick={onEmail}
+                  style={{
+                    flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                    fontSize: 13, fontWeight: 500, padding: "10px 0", borderRadius: 10,
+                    border: "none", cursor: "pointer",
+                    background: "var(--primary)", color: "var(--primary-foreground)",
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.9"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
+                >
+                  <Mail style={{ width: 15, height: 15 }} />
+                  {t("sendEmail")}
+                </button>
+                <button
+                  onClick={() => { window.location.href = `tel:${tenant.phone}`; }}
+                  style={{
+                    flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                    fontSize: 13, fontWeight: 500, padding: "10px 0", borderRadius: 10,
+                    border: "none", cursor: "pointer",
+                    background: "var(--background)", color: "var(--foreground)",
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = "color-mix(in srgb, var(--primary) 8%, transparent)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = "var(--background)"; }}
+                >
+                  <Phone style={{ width: 15, height: 15 }} />
+                  {t("call")}
+                </button>
+                <button
+                  onClick={() => setShowSendDoc(true)}
+                  style={{
+                    flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                    fontSize: 13, fontWeight: 500, padding: "10px 0", borderRadius: 10,
+                    border: "none", cursor: "pointer",
+                    background: "var(--background)", color: "var(--foreground)",
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = "color-mix(in srgb, var(--primary) 8%, transparent)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = "var(--background)"; }}
+                >
+                  <Send style={{ width: 15, height: 15 }} />
+                  {t("sendDocument")}
+                </button>
+                <button
+                  onClick={onEdit}
+                  style={{
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    padding: "10px 16px", borderRadius: 10,
+                    border: "none", cursor: "pointer",
+                    background: "var(--background)", color: "var(--foreground)",
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = "color-mix(in srgb, var(--primary) 8%, transparent)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = "var(--background)"; }}
+                >
+                  <Edit style={{ width: 15, height: 15 }} />
+                </button>
+                <button
+                  onClick={onDelete}
+                  style={{
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    padding: "10px 16px", borderRadius: 10,
+                    border: "none", cursor: "pointer",
+                    background: "transparent", color: "#DC2626",
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(220,38,38,0.06)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                >
+                  <Trash2 style={{ width: 15, height: 15 }} />
+                </button>
               </div>
             </div>
-            <div className="flex items-center gap-3 p-3.5 rounded-xl" style={{ background: "var(--background)" }}>
-              <Phone className="w-4 h-4 shrink-0" style={{ color: "var(--primary)" }} />
-              <div className="min-w-0">
-                <p className="text-[10px] uppercase tracking-wider font-medium" style={{ color: "var(--muted-foreground)" }}>{t("phone")}</p>
-                <p className="text-sm truncate" style={{ color: "var(--foreground)" }}>{tenant.phone}</p>
+          )}
+
+          {/* ──────── TAB: Notes ──────── */}
+          {activeTab === "notes" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+              {/* Add note form */}
+              <div style={{
+                padding: 16, borderRadius: 10, background: "var(--background)",
+                display: "flex", flexDirection: "column", gap: 10,
+              }}>
+                <p style={{ ...labelStyle, marginBottom: 2 }}>Ajouter une note</p>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <input
+                    type="date"
+                    value={noteDate}
+                    onChange={(e) => setNoteDate(e.target.value)}
+                    style={{
+                      padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border)",
+                      background: "var(--card)", color: "var(--foreground)", fontSize: 13,
+                      outline: "none", width: 160,
+                    }}
+                  />
+                  <textarea
+                    value={noteText}
+                    onChange={(e) => setNoteText(e.target.value)}
+                    placeholder="Contenu de la note..."
+                    rows={2}
+                    style={{
+                      flex: 1, padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border)",
+                      background: "var(--card)", color: "var(--foreground)", fontSize: 13,
+                      outline: "none", resize: "none", fontFamily: "inherit",
+                    }}
+                  />
+                </div>
+                <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                  <button
+                    onClick={() => {
+                      if (!noteText.trim()) return;
+                      onAddNote({ date: noteDate || todayISO(), text: noteText.trim() });
+                      setNoteText("");
+                      setNoteDate(todayISO());
+                    }}
+                    disabled={!noteText.trim()}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 6,
+                      padding: "8px 16px", borderRadius: 8, border: "none", cursor: "pointer",
+                      fontSize: 12, fontWeight: 600,
+                      background: "var(--primary)", color: "var(--primary-foreground)",
+                      opacity: noteText.trim() ? 1 : 0.4,
+                    }}
+                  >
+                    <Plus style={{ width: 14, height: 14 }} />
+                    Ajouter
+                  </button>
+                </div>
               </div>
-            </div>
-          </div>
 
-          {/* Lease & financials */}
-          <div className="grid grid-cols-4 gap-3">
-            <div className="p-3 rounded-xl text-center" style={{ background: "var(--background)" }}>
-              <p className="text-[10px] uppercase tracking-wider font-medium mb-1" style={{ color: "var(--muted-foreground)" }}>{t("leaseStart")}</p>
-              <p className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
-                {tenant.leaseStart ? new Date(tenant.leaseStart).toLocaleDateString("fr-CH") : "—"}
-              </p>
+              {/* Notes list */}
+              {notes.length === 0 ? (
+                <p style={{ fontSize: 13, color: "var(--muted-foreground)", textAlign: "center", padding: 24 }}>
+                  Aucune note pour ce locataire.
+                </p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {notes.map((note) => (
+                    <div key={note.id} style={{
+                      padding: "12px 14px", borderRadius: 10,
+                      background: "var(--background)", display: "flex", gap: 12, alignItems: "flex-start",
+                    }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: 11, color: "var(--muted-foreground)", margin: "0 0 4px", fontWeight: 500 }}>
+                          {note.date ? new Date(note.date).toLocaleDateString("fr-CH") : "—"}
+                        </p>
+                        <p style={{ fontSize: 13, color: "var(--foreground)", margin: 0, whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
+                          {note.text}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => onDeleteNote(note.id)}
+                        style={{
+                          width: 28, height: 28, borderRadius: 6, border: "none",
+                          background: "transparent", cursor: "pointer",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          color: "#DC2626", flexShrink: 0,
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(220,38,38,0.06)"; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                      >
+                        <Trash2 style={{ width: 13, height: 13 }} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-            <div className="p-3 rounded-xl text-center" style={{ background: "var(--background)" }}>
-              <p className="text-[10px] uppercase tracking-wider font-medium mb-1" style={{ color: "var(--muted-foreground)" }}>{t("leaseEnd")}</p>
-              <p className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
-                {tenant.leaseEnd ? new Date(tenant.leaseEnd).toLocaleDateString("fr-CH") : "—"}
-              </p>
-            </div>
-            <div className="p-3 rounded-xl text-center" style={{ background: "var(--background)" }}>
-              <p className="text-[10px] uppercase tracking-wider font-medium mb-1" style={{ color: "var(--muted-foreground)" }}>{t("netRentLabel")}</p>
-              <p className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>{formatAmount(rentNet)}</p>
-            </div>
-            <div className="p-3 rounded-xl text-center" style={{ background: "color-mix(in srgb, var(--primary) 8%, transparent)" }}>
-              <p className="text-[10px] uppercase tracking-wider font-medium mb-1" style={{ color: "var(--primary)" }}>{t("totalMonthly")}</p>
-              <p className="text-lg font-bold" style={{ color: "var(--primary)" }}>{formatAmount(total)}</p>
-            </div>
-          </div>
+          )}
 
-          {/* Requests summary */}
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-amber-500" />
-              <span className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{openReqs.length}</span>
-              <span className="text-xs" style={{ color: "var(--muted-foreground)" }}>{t("openRequests")}</span>
+          {/* ──────── TAB: Demandes ──────── */}
+          {activeTab === "demandes" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {tenantRequests.length === 0 ? (
+                <p style={{ fontSize: 13, color: "var(--muted-foreground)", textAlign: "center", padding: 24 }}>
+                  Aucune demande pour ce locataire.
+                </p>
+              ) : (
+                tenantRequests.map((req) => {
+                  const prio = priorityLabel(req.priority || "low");
+                  return (
+                    <div key={req.id} style={{
+                      display: "flex", borderRadius: 10, background: "var(--background)",
+                      overflow: "hidden",
+                    }}>
+                      {/* Left accent bar */}
+                      <div style={{ width: 4, flexShrink: 0, background: statusAccent(req.status) }} />
+                      <div style={{ flex: 1, padding: "12px 14px" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 4 }}>
+                          <p style={{ fontSize: 14, fontWeight: 600, color: "var(--foreground)", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {req.title}
+                          </p>
+                          {/* Status badge */}
+                          <span style={{
+                            fontSize: 10, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.04em",
+                            padding: "3px 8px", borderRadius: 6, flexShrink: 0,
+                            background: `color-mix(in srgb, ${statusAccent(req.status)} 12%, transparent)`,
+                            color: statusAccent(req.status),
+                          }}>
+                            {statusLabel(req.status)}
+                          </span>
+                        </div>
+                        {req.description && (
+                          <p style={{ fontSize: 12, color: "var(--muted-foreground)", margin: "0 0 6px", lineHeight: 1.4 }}>
+                            {req.description}
+                          </p>
+                        )}
+                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                          <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>
+                            {req.date ? new Date(req.date).toLocaleDateString("fr-CH") : "—"}
+                          </span>
+                          <span style={{
+                            fontSize: 10, fontWeight: 600, color: prio.color,
+                          }}>
+                            {prio.text}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
-            <div className="w-px h-4" style={{ background: "var(--border)" }} />
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-              <span className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{closedReqs.length}</span>
-              <span className="text-xs" style={{ color: "var(--muted-foreground)" }}>{t("closedRequests")}</span>
-            </div>
-            <div className="w-px h-4" style={{ background: "var(--border)" }} />
-            <div className="flex items-center gap-2">
-              <FileText className="w-4 h-4" style={{ color: "var(--primary)" }} />
-              <span className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{ficheDocs.length}</span>
-              <span className="text-xs" style={{ color: "var(--muted-foreground)" }}>{t("documents")}</span>
-            </div>
-          </div>
+          )}
 
-          {/* ─── Action buttons ─── */}
-          <div className="flex items-center gap-3 pt-2">
-            <button
-              onClick={onEmail}
-              className="flex-1 flex items-center justify-center gap-2 text-[13px] font-medium py-2.5 rounded-xl transition-colors"
-              style={{ background: "var(--primary)", color: "var(--primary-foreground)" }}
-              onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.9"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
-            >
-              <Mail className="w-4 h-4" />
-              {t("sendEmail")}
-            </button>
-            <button
-              onClick={() => { window.location.href = `tel:${tenant.phone}`; }}
-              className="flex-1 flex items-center justify-center gap-2 text-[13px] font-medium py-2.5 rounded-xl transition-colors"
-              style={{ background: "var(--background)", color: "var(--foreground)" }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = "color-mix(in srgb, var(--primary) 8%, transparent)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = "var(--background)"; }}
-            >
-              <Phone className="w-4 h-4" />
-              {t("call")}
-            </button>
-            <button
-              onClick={() => setShowSendDoc(true)}
-              className="flex-1 flex items-center justify-center gap-2 text-[13px] font-medium py-2.5 rounded-xl transition-colors"
-              style={{ background: "var(--background)", color: "var(--foreground)" }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = "color-mix(in srgb, var(--primary) 8%, transparent)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = "var(--background)"; }}
-            >
-              <Send className="w-4 h-4" />
-              {t("sendDocument")}
-            </button>
-            <button
-              onClick={onEdit}
-              className="flex items-center justify-center gap-2 text-[13px] font-medium py-2.5 px-4 rounded-xl transition-colors"
-              style={{ background: "var(--background)", color: "var(--foreground)" }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = "color-mix(in srgb, var(--primary) 8%, transparent)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = "var(--background)"; }}
-            >
-              <Edit className="w-4 h-4" />
-            </button>
-            <button
-              onClick={onDelete}
-              className="flex items-center justify-center py-2.5 px-4 rounded-xl transition-colors hover:bg-red-50 dark:hover:bg-red-500/10"
-            >
-              <Trash2 className="w-4 h-4 text-red-500" />
-            </button>
-          </div>
+          {/* ──────── TAB: Documents ──────── */}
+          {activeTab === "documents" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              {/* Upload area */}
+              <div style={{
+                padding: 16, borderRadius: 10, background: "var(--background)",
+                display: "flex", flexDirection: "column", gap: 10,
+              }}>
+                <p style={{ ...labelStyle, marginBottom: 2 }}>Ajouter un document</p>
+                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                  <select
+                    value={uploadCategory}
+                    onChange={(e) => setUploadCategory(e.target.value as TenantDocument["category"])}
+                    style={{
+                      padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border)",
+                      background: "var(--card)", color: "var(--foreground)", fontSize: 13, outline: "none",
+                    }}
+                  >
+                    {DOC_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                  <input
+                    ref={uploadFileRef}
+                    type="file"
+                    style={{ display: "none" }}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) { onUploadDoc(file, uploadCategory); if (uploadFileRef.current) uploadFileRef.current.value = ""; }
+                    }}
+                  />
+                  <button
+                    onClick={() => uploadFileRef.current?.click()}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 6,
+                      padding: "8px 16px", borderRadius: 8, border: "none", cursor: "pointer",
+                      fontSize: 12, fontWeight: 600,
+                      background: "var(--primary)", color: "var(--primary-foreground)",
+                    }}
+                  >
+                    <Upload style={{ width: 14, height: 14 }} />
+                    Choisir un fichier
+                  </button>
+                </div>
+              </div>
+
+              {/* Send document to tenant button */}
+              <button
+                onClick={() => setShowSendDoc(true)}
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                  padding: "10px 0", borderRadius: 10, border: "1px solid var(--border)",
+                  background: "var(--card)", color: "var(--foreground)",
+                  fontSize: 13, fontWeight: 500, cursor: "pointer", width: "100%",
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = "color-mix(in srgb, var(--primary) 6%, transparent)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = "var(--card)"; }}
+              >
+                <Send style={{ width: 14, height: 14 }} />
+                {t("sendDocument")}
+              </button>
+
+              {/* Document list */}
+              {ficheDocs.length === 0 ? (
+                <p style={{ fontSize: 13, color: "var(--muted-foreground)", textAlign: "center", padding: 24 }}>
+                  Aucun document.
+                </p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {ficheDocs.map((doc) => (
+                    <div key={doc.id} style={{
+                      display: "flex", alignItems: "center", gap: 12, padding: "10px 14px",
+                      borderRadius: 10, background: "var(--background)",
+                    }}>
+                      <FileText style={{ width: 16, height: 16, color: "var(--primary)", flexShrink: 0 }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: 13, fontWeight: 500, color: "var(--foreground)", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {doc.filename}
+                        </p>
+                        <p style={{ fontSize: 11, color: "var(--muted-foreground)", margin: "2px 0 0" }}>
+                          {doc.category} &middot; {new Date(doc.uploadedAt).toLocaleDateString("fr-CH")}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          if (doc.dataUrl) {
+                            const a = document.createElement("a");
+                            a.href = doc.dataUrl; a.download = doc.filename; a.click();
+                          }
+                        }}
+                        style={{
+                          width: 28, height: 28, borderRadius: 6, border: "none",
+                          background: "transparent", cursor: "pointer",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          color: "var(--primary)", flexShrink: 0,
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = "color-mix(in srgb, var(--primary) 8%, transparent)"; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                      >
+                        <Download style={{ width: 13, height: 13 }} />
+                      </button>
+                      <button
+                        onClick={() => onDeleteDoc(doc.id)}
+                        style={{
+                          width: 28, height: 28, borderRadius: 6, border: "none",
+                          background: "transparent", cursor: "pointer",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          color: "#DC2626", flexShrink: 0,
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(220,38,38,0.06)"; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                      >
+                        <Trash2 style={{ width: 13, height: 13 }} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* ─── Send Document Modal ─── */}
+      {/* ═══ Send Document Modal ═══ */}
       {showSendDoc && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center"
-          style={{ background: "rgba(0,0,0,0.35)", padding: 16 }}
+          style={{
+            position: "fixed", inset: 0, zIndex: 60,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            background: "rgba(0,0,0,0.35)", padding: 16,
+          }}
           onClick={() => setShowSendDoc(false)}
         >
           <div
-            className="w-full max-w-lg relative"
             style={{
-              borderRadius: 20,
-              background: "var(--card)",
-              padding: 28,
+              width: "100%", maxWidth: 520, position: "relative",
+              borderRadius: 16, background: "var(--card)", padding: 28,
               boxShadow: "0 16px 48px rgba(0,0,0,0.14)",
             }}
             onClick={(e) => e.stopPropagation()}
           >
             <button
               onClick={() => setShowSendDoc(false)}
-              className="absolute top-4 right-4 w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
-              style={{ color: "var(--muted-foreground)" }}
+              style={{
+                position: "absolute", top: 16, right: 16,
+                width: 32, height: 32, borderRadius: 8, border: "none",
+                background: "transparent", cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                color: "var(--muted-foreground)",
+              }}
               onMouseEnter={(e) => { e.currentTarget.style.background = "var(--background)"; }}
               onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
             >
-              <X className="w-4 h-4" />
+              <X style={{ width: 16, height: 16 }} />
             </button>
 
-            <h2 className="text-[17px] font-semibold mb-1" style={{ color: "var(--foreground)" }}>
+            <h2 style={{ fontSize: 17, fontWeight: 600, color: "var(--foreground)", margin: "0 0 4px" }}>
               {t("sendDocumentTitle")}
             </h2>
-            <p className="text-[13px] mb-6" style={{ color: "var(--muted-foreground)" }}>
-              {t("sendDocumentSub")} <span className="font-medium" style={{ color: "var(--foreground)" }}>{tenant.name}</span>
+            <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: "0 0 24px" }}>
+              {t("sendDocumentSub")} <span style={{ fontWeight: 500, color: "var(--foreground)" }}>{tenant.name}</span>
             </p>
 
-            <div className="space-y-5">
+            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
               <div>
-                <label className="block text-[12px] font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>{t("docType")}</label>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 500, color: "var(--muted-foreground)", marginBottom: 6 }}>{t("docType")}</label>
                 <select value={sendDocCategory} onChange={(e) => setSendDocCategory(e.target.value as TenantDocument["category"])}
-                  className="w-full text-[13px] outline-none"
-                  style={{ padding: "10px 14px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--background)", color: "var(--foreground)" }}
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--background)", color: "var(--foreground)", fontSize: 13, outline: "none" }}
                 >
                   {DOC_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
 
               <div>
-                <label className="block text-[12px] font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>{t("selectFile")}</label>
-                <div className="relative rounded-xl border-2 border-dashed p-6 text-center transition-colors cursor-pointer hover:border-[var(--primary)]"
-                  style={{ borderColor: "var(--border)", background: "var(--background)" }}
+                <label style={{ display: "block", fontSize: 12, fontWeight: 500, color: "var(--muted-foreground)", marginBottom: 6 }}>{t("selectFile")}</label>
+                <div
+                  style={{
+                    borderRadius: 10, border: "2px dashed var(--border)", padding: 24,
+                    textAlign: "center", cursor: "pointer", background: "var(--background)",
+                  }}
                   onClick={() => sendDocFileRef.current?.click()}
                 >
-                  <input ref={sendDocFileRef} type="file" className="hidden"
+                  <input ref={sendDocFileRef} type="file" style={{ display: "none" }}
                     onChange={(e) => { const file = e.target.files?.[0]; if (file) setSendDocFile(file); }}
                   />
                   {sendDocFile ? (
-                    <div className="flex items-center justify-center gap-3">
-                      <Paperclip className="w-5 h-5" style={{ color: "var(--primary)" }} />
-                      <div className="text-left">
-                        <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{sendDocFile.name}</p>
-                        <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>{(sendDocFile.size / 1024).toFixed(1)} KB</p>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12 }}>
+                      <Paperclip style={{ width: 20, height: 20, color: "var(--primary)" }} />
+                      <div style={{ textAlign: "left" }}>
+                        <p style={{ fontSize: 13, fontWeight: 500, color: "var(--foreground)", margin: 0 }}>{sendDocFile.name}</p>
+                        <p style={{ fontSize: 11, color: "var(--muted-foreground)", margin: "2px 0 0" }}>{(sendDocFile.size / 1024).toFixed(1)} KB</p>
                       </div>
                       <button type="button"
                         onClick={(e) => { e.stopPropagation(); setSendDocFile(null); if (sendDocFileRef.current) sendDocFileRef.current.value = ""; }}
-                        className="ml-2 p-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10"
+                        style={{
+                          marginLeft: 8, padding: 4, borderRadius: 6, border: "none",
+                          background: "transparent", cursor: "pointer", color: "#DC2626",
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(220,38,38,0.06)"; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
                       >
-                        <X className="w-4 h-4 text-red-400" />
+                        <X style={{ width: 14, height: 14 }} />
                       </button>
                     </div>
                   ) : (
                     <>
-                      <Upload className="w-8 h-8 mx-auto mb-2" style={{ color: "var(--muted-foreground)" }} />
-                      <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>{t("clickToSelectFile")}</p>
-                      <p className="text-xs mt-1" style={{ color: "var(--muted-foreground)", opacity: 0.6 }}>PDF, DOCX, JPG, PNG...</p>
+                      <Upload style={{ width: 32, height: 32, margin: "0 auto 8px", display: "block", color: "var(--muted-foreground)" }} />
+                      <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: 0 }}>{t("clickToSelectFile")}</p>
+                      <p style={{ fontSize: 11, color: "var(--muted-foreground)", margin: "4px 0 0", opacity: 0.6 }}>PDF, DOCX, JPG, PNG...</p>
                     </>
                   )}
                 </div>
               </div>
 
               <div>
-                <label className="block text-[12px] font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>{t("optionalMessage")}</label>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 500, color: "var(--muted-foreground)", marginBottom: 6 }}>{t("optionalMessage")}</label>
                 <textarea value={sendDocMessage} onChange={(e) => setSendDocMessage(e.target.value)}
                   placeholder={t("sendDocMessagePlaceholder")} rows={3}
-                  className="w-full text-[13px] outline-none resize-none"
-                  style={{ padding: "10px 14px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--background)", color: "var(--foreground)" }}
+                  style={{
+                    width: "100%", padding: "10px 14px", borderRadius: 10, border: "1px solid var(--border)",
+                    background: "var(--background)", color: "var(--foreground)", fontSize: 13,
+                    outline: "none", resize: "none", fontFamily: "inherit", boxSizing: "border-box",
+                  }}
                 />
               </div>
 
-              <div className="flex gap-3 pt-2">
+              <div style={{ display: "flex", gap: 12, paddingTop: 8 }}>
                 <button type="button" onClick={handleSendDocument} disabled={!sendDocFile}
-                  className="flex-1 flex items-center justify-center gap-2 text-[13px] font-medium transition-colors disabled:opacity-40"
-                  style={{ padding: "10px 0", borderRadius: 12, background: "var(--primary)", color: "var(--primary-foreground)" }}
+                  style={{
+                    flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                    padding: "10px 0", borderRadius: 10, border: "none", cursor: "pointer",
+                    fontSize: 13, fontWeight: 500,
+                    background: "var(--primary)", color: "var(--primary-foreground)",
+                    opacity: sendDocFile ? 1 : 0.4,
+                  }}
                   onMouseEnter={(e) => { if (sendDocFile) e.currentTarget.style.opacity = "0.9"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.opacity = sendDocFile ? "1" : "0.4"; }}
                 >
-                  <Send className="w-3.5 h-3.5" />
+                  <Send style={{ width: 14, height: 14 }} />
                   {t("sendToTenant")}
                 </button>
                 <button type="button" onClick={() => setShowSendDoc(false)}
-                  className="flex-1 flex items-center justify-center gap-2 text-[13px] font-medium transition-colors"
-                  style={{ padding: "10px 0", borderRadius: 12, background: "var(--card)", color: "var(--foreground)", border: "1px solid var(--border)" }}
+                  style={{
+                    flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
+                    padding: "10px 0", borderRadius: 10, border: "1px solid var(--border)",
+                    background: "var(--card)", color: "var(--foreground)",
+                    fontSize: 13, fontWeight: 500, cursor: "pointer",
+                  }}
                   onMouseEnter={(e) => { e.currentTarget.style.background = "var(--background)"; }}
                   onMouseLeave={(e) => { e.currentTarget.style.background = "var(--card)"; }}
                 >
@@ -698,14 +1106,17 @@ function TenantDetailDrawer({
   );
 }
 
-/* ─── Small helper components ─── */
+/* ─── Small helper components (inline styles only) ─── */
 
 function Section({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
   return (
-    <section className="space-y-3">
+    <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <div>
-        <h3 className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: "var(--muted-foreground)" }}>{title}</h3>
-        {subtitle && <p className="text-xs mt-0.5" style={{ color: "var(--muted-foreground)", opacity: 0.7 }}>{subtitle}</p>}
+        <h3 style={{
+          fontSize: 10, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.04em",
+          color: "var(--muted-foreground)", margin: 0,
+        }}>{title}</h3>
+        {subtitle && <p style={{ fontSize: 12, marginTop: 2, color: "var(--muted-foreground)", opacity: 0.7, margin: "2px 0 0" }}>{subtitle}</p>}
       </div>
       {children}
     </section>
@@ -714,14 +1125,23 @@ function Section({ title, subtitle, children }: { title: string; subtitle?: stri
 
 function InfoCard({ icon: Icon, label, value }: { icon: any; label: string; value: string }) {
   return (
-    <div className="flex items-center gap-3 p-3 rounded-xl border" style={{ borderColor: "var(--border)" }}>
-      <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
-        style={{ background: "color-mix(in srgb, var(--primary) 8%, transparent)" }}>
-        <Icon className="w-4 h-4" style={{ color: "var(--primary)" }} />
+    <div style={{
+      display: "flex", alignItems: "center", gap: 12, padding: 12,
+      borderRadius: 10, border: "1px solid var(--border)",
+    }}>
+      <div style={{
+        width: 36, height: 36, borderRadius: 8,
+        display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+        background: "color-mix(in srgb, var(--primary) 8%, transparent)",
+      }}>
+        <Icon style={{ width: 16, height: 16, color: "var(--primary)" }} />
       </div>
-      <div className="min-w-0">
-        <p className="text-[10px] uppercase tracking-wider font-medium" style={{ color: "var(--muted-foreground)" }}>{label}</p>
-        <p className="text-sm truncate" style={{ color: "var(--foreground)" }}>{value}</p>
+      <div style={{ minWidth: 0 }}>
+        <p style={{
+          fontSize: 10, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.04em",
+          color: "var(--muted-foreground)", margin: 0,
+        }}>{label}</p>
+        <p style={{ fontSize: 13, color: "var(--foreground)", margin: "2px 0 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{value}</p>
       </div>
     </div>
   );
@@ -729,9 +1149,12 @@ function InfoCard({ icon: Icon, label, value }: { icon: any; label: string; valu
 
 function LabelValue({ label, value }: { label: string; value: string }) {
   return (
-    <div className="p-3.5">
-      <p className="text-[10px] uppercase tracking-wider font-medium mb-1" style={{ color: "var(--muted-foreground)" }}>{label}</p>
-      <p className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>{value}</p>
+    <div style={{ padding: 14 }}>
+      <p style={{
+        fontSize: 10, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.04em",
+        color: "var(--muted-foreground)", margin: "0 0 4px",
+      }}>{label}</p>
+      <p style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)", margin: 0 }}>{value}</p>
     </div>
   );
 }
@@ -1722,6 +2145,29 @@ export function TenantsView() {
         ficheDocs={ficheDocs}
         requests={requests}
         formatAmount={formatAmount}
+        onAddNote={(note) => {
+          if (!drawerTenantId) return;
+          const next: TenantNote = { id: `${Date.now()}`, date: note.date, text: note.text, createdAt: new Date().toISOString() };
+          const current = ((drawerTenant as any)?.notes ?? []) as TenantNote[];
+          updateTenantById(drawerTenantId, { notes: [next, ...current] });
+        }}
+        onDeleteNote={(noteId) => {
+          if (!drawerTenantId) return;
+          const current = ((drawerTenant as any)?.notes ?? []) as TenantNote[];
+          updateTenantById(drawerTenantId, { notes: current.filter((n) => n.id !== noteId) });
+        }}
+        onUploadDoc={async (file, category) => {
+          if (!drawerTenantId) return;
+          const dataUrl = await fileToDataUrl(file);
+          const next: TenantDocument = { id: `${Date.now()}`, category, filename: file.name, mimeType: file.type || "application/octet-stream", uploadedAt: new Date().toISOString(), dataUrl };
+          const current = ((drawerTenant as any)?.documents ?? []) as TenantDocument[];
+          updateTenantById(drawerTenantId, { documents: [next, ...current] });
+        }}
+        onDeleteDoc={(docId) => {
+          if (!drawerTenantId) return;
+          const current = ((drawerTenant as any)?.documents ?? []) as TenantDocument[];
+          updateTenantById(drawerTenantId, { documents: current.filter((d) => d.id !== docId) });
+        }}
       />
     </div>
   );

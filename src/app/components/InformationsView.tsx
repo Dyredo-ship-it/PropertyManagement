@@ -141,8 +141,8 @@ export function InformationsView() {
           </div>
           {/* Contact list */}
           <div style={{ padding: "10px 14px", display: "flex", flexDirection: "column", gap: 6 }}>
-            <ContactItem icon={Phone} label={t("managementEmergency")} value="022 123 45 67" />
-            <ContactItem icon={Shield} label={t("concierge")} value="M. Dupont - 079 123 45 67" sub="Présent lu-ve 8h-12h" />
+            <ContactItem icon={Phone} label={t("managementEmergency")} value="032 722 45 67" />
+            <ContactItem icon={Shield} label={t("concierge")} value="M. Dupont - 079 456 78 12" sub="Présent lu-ve 8h-12h" />
             <ContactItem icon={Heart} label={t("medicalEmergency")} value="144" accent="#DC2626" />
             <ContactItem icon={Shield} label={t("police")} value="117" accent="#2563EB" />
           </div>
