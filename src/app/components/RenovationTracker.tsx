@@ -487,7 +487,7 @@ export function RenovationTracker({ buildingId }: { buildingId: string }) {
           </div>
         </div>
         <div style={{ ...cardStyle, padding: "14px 18px" }}>
-          <div style={labelStyle}>Fin de vie prochaine</div>
+          <div style={labelStyle}>À renouveler bientôt</div>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <span style={{ fontSize: 20, fontWeight: 700, color: summary.nearEndOfLife > 0 ? "#f59e0b" : "var(--foreground)" }}>
               {summary.nearEndOfLife}
@@ -495,7 +495,7 @@ export function RenovationTracker({ buildingId }: { buildingId: string }) {
             {summary.nearEndOfLife > 0 && <AlertTriangle size={16} style={{ color: "#f59e0b" }} />}
           </div>
           <div style={{ fontSize: 11, color: "var(--muted-foreground)" }}>
-            {"< 2 ans restants"}
+            éléments à moins de 2 ans
           </div>
         </div>
       </div>
@@ -696,7 +696,7 @@ export function RenovationTracker({ buildingId }: { buildingId: string }) {
                   {a.yearsRemaining > 0 && a.yearsRemaining < 2 && (
                     <span style={{ display: "flex", alignItems: "center", gap: 3, color: "#f59e0b", fontWeight: 600 }}>
                       <AlertTriangle size={12} />
-                      Fin de vie proche
+                      À renouveler bientôt
                     </span>
                   )}
                 </div>
