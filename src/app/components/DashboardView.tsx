@@ -751,7 +751,7 @@ function KanbanColumn({
       </div>
 
       {/* Cards */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         {requests.length === 0 ? (
           <div style={{
             padding: "40px 16px", borderRadius: 14,
