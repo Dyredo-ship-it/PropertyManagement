@@ -28,6 +28,7 @@ import {
   getBuildings,
   getTenants,
   getMaintenanceRequests,
+  saveMaintenanceRequests,
   getBuildingActions,
   addBuildingAction,
   updateBuildingAction,
@@ -71,11 +72,13 @@ function AdminDashboard({
   tenants,
   requests,
   onSelectBuilding,
+  onStatusChange,
 }: {
   buildings: Building[];
   tenants: Tenant[];
   requests: MaintenanceRequest[];
   onSelectBuilding: (id: string) => void;
+  onStatusChange: (id: string, status: MaintenanceRequest["status"]) => void;
 }) {
   const { t } = useLanguage();
   const { formatAmount, convertToBase, getBuildingCurrency } = useCurrency();
@@ -311,9 +314,9 @@ function AdminDashboard({
 
           {/* Kanban columns */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
-            <KanbanColumn icon={Circle} title={t("pending")} count={cols.pending.length} color="#F59E0B" requests={cols.pending} />
-            <KanbanColumn icon={Clock} title={t("inProgress")} count={cols.inProgress.length} color="var(--primary)" requests={cols.inProgress} />
-            <KanbanColumn icon={CheckCircle2} title={t("completed")} count={cols.completed.length} color="#22C55E" requests={cols.completed} />
+            <KanbanColumn icon={Circle} title={t("pending")} count={cols.pending.length} color="#F59E0B" requests={cols.pending} status="pending" onStatusChange={onStatusChange} />
+            <KanbanColumn icon={Clock} title={t("inProgress")} count={cols.inProgress.length} color="var(--primary)" requests={cols.inProgress} status="in-progress" onStatusChange={onStatusChange} />
+            <KanbanColumn icon={CheckCircle2} title={t("completed")} count={cols.completed.length} color="#22C55E" requests={cols.completed} status="completed" onStatusChange={onStatusChange} />
           </div>
         </div>
 
@@ -700,52 +703,67 @@ function KanbanColumn({
   count,
   color,
   requests,
+  status,
+  onStatusChange,
 }: {
   icon: React.ElementType;
   title: string;
   count: number;
   color: string;
   requests: MaintenanceRequest[];
+  status: string;
+  onStatusChange: (id: string, status: MaintenanceRequest["status"]) => void;
 }) {
+  const [dragOver, setDragOver] = useState(false);
+
+  const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); setDragOver(true); };
+  const handleDragLeave = () => setDragOver(false);
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const reqId = e.dataTransfer.getData("text/plain");
+    if (reqId) onStatusChange(reqId, status as MaintenanceRequest["status"]);
+  };
+
   return (
-    <div>
+    <div
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      style={{
+        borderRadius: 14, padding: 4,
+        border: dragOver ? `2px dashed ${color}` : "2px dashed transparent",
+        background: dragOver ? `${color}08` : "transparent",
+        transition: "all 0.15s",
+      }}
+    >
       {/* Column header */}
-      <div
-        className="flex items-center justify-between"
-        style={{ marginBottom: 14, padding: "0 2px" }}
-      >
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, padding: "0 2px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <Icon style={{ width: 16, height: 16, color, flexShrink: 0 }} />
           <h3 style={{ fontSize: 14, fontWeight: 600, color: "var(--foreground)", margin: 0 }}>
             {title}
           </h3>
         </div>
-        <span
-          className="text-[12px] font-medium"
-          style={{ color: "var(--muted-foreground)" }}
-        >
+        <span style={{ fontSize: 12, fontWeight: 500, color: "var(--muted-foreground)" }}>
           {count}
         </span>
       </div>
 
       {/* Cards */}
-      <div className="space-y-3">
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {requests.length === 0 ? (
-          <div
-            className="flex flex-col items-center justify-center text-center"
-            style={{
-              padding: "40px 16px",
-              borderRadius: 14,
-              border: "1px dashed var(--border)",
-              background: "var(--card)",
-            }}
-          >
-            <p className="text-[12px]" style={{ color: "var(--muted-foreground)" }}>
-              Aucune demande
-            </p>
+          <div style={{
+            padding: "40px 16px", borderRadius: 14,
+            border: "1px dashed var(--border)", background: "var(--card)",
+            textAlign: "center",
+          }}>
+            <p style={{ fontSize: 12, color: "var(--muted-foreground)", margin: 0 }}>Aucune demande</p>
           </div>
         ) : (
-          requests.map((req) => <TaskCard key={req.id} request={req} />)
+          requests.map((req) => (
+            <TaskCard key={req.id} request={req} onStatusChange={onStatusChange} />
+          ))
         )}
       </div>
     </div>
@@ -754,35 +772,43 @@ function KanbanColumn({
 
 /* ─── Task Card (kanban card) ─────────────────────────────────── */
 
-function TaskCard({ request }: { request: MaintenanceRequest }) {
+const STATUS_OPTIONS: { key: MaintenanceRequest["status"]; label: string; color: string }[] = [
+  { key: "pending", label: "En attente", color: "#F59E0B" },
+  { key: "in-progress", label: "En cours", color: "var(--primary)" },
+  { key: "completed", label: "Terminé", color: "#22C55E" },
+];
+
+function TaskCard({
+  request,
+  onStatusChange,
+}: {
+  request: MaintenanceRequest;
+  onStatusChange: (id: string, status: MaintenanceRequest["status"]) => void;
+}) {
   const priority = PRIORITY_STYLES[request.priority] || PRIORITY_STYLES.medium;
   const dateStr = request.createdAt
-    ? new Date(request.createdAt).toLocaleDateString("fr-CH", {
-        month: "short",
-        day: "numeric",
-      })
+    ? new Date(request.createdAt).toLocaleDateString("fr-CH", { month: "short", day: "numeric" })
     : "";
-
-  /* progress bar (visual only — estimate based on status) */
-  const progressPct =
-    request.status === "completed"
-      ? 100
-      : request.status === "in-progress"
-      ? Math.floor(Math.random() * 40 + 30) // 30-70%
-      : 0;
 
   return (
     <div
-      className="transition-all cursor-pointer"
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData("text/plain", request.id);
+        e.dataTransfer.effectAllowed = "move";
+      }}
+      className="group"
       style={{
-        padding: "16px 18px",
+        padding: "14px 16px",
         borderRadius: 14,
         border: "1px solid var(--border)",
         background: "var(--card)",
+        cursor: "grab",
+        transition: "box-shadow 0.15s, border-color 0.15s",
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.06)";
-        e.currentTarget.style.borderColor = "var(--primary)";
+        e.currentTarget.style.borderColor = "rgba(69,85,58,0.25)";
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.boxShadow = "none";
@@ -790,70 +816,58 @@ function TaskCard({ request }: { request: MaintenanceRequest }) {
       }}
     >
       {/* Title */}
-      <h4
-        className="text-[14px] font-semibold leading-snug"
-        style={{ color: "var(--foreground)" }}
-      >
+      <h4 style={{ fontSize: 14, fontWeight: 600, color: "var(--foreground)", margin: 0, lineHeight: 1.3 }}>
         {request.title}
       </h4>
 
       {/* Description */}
-      <p
-        className="text-[12px] leading-relaxed mt-1 line-clamp-2"
-        style={{ color: "var(--muted-foreground)" }}
-      >
+      <p style={{
+        fontSize: 12, color: "var(--muted-foreground)", margin: "4px 0 0", lineHeight: 1.4,
+        display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
+      }}>
         {request.description || `${request.buildingName} · Apt ${request.unit}`}
       </p>
 
       {/* Meta row: date + priority */}
-      <div className="flex items-center justify-between mt-3.5">
-        <div className="flex items-center gap-2.5">
-          {/* Date */}
-          <span
-            className="flex items-center gap-1 text-[11px]"
-            style={{ color: "var(--muted-foreground)" }}
-          >
-            <Calendar className="w-3 h-3" />
-            {dateStr}
-          </span>
-        </div>
-
-        {/* Priority badge */}
-        <span
-          className="flex items-center gap-1.5 text-[11px] font-medium px-2 py-0.5 rounded-full"
-          style={{ background: priority.bg, color: priority.fg }}
-        >
-          <span
-            className="w-1.5 h-1.5 rounded-full"
-            style={{ background: priority.dot }}
-          />
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 12 }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--muted-foreground)" }}>
+          <Calendar style={{ width: 12, height: 12 }} />
+          {dateStr}
+        </span>
+        <span style={{
+          display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 500,
+          padding: "2px 8px", borderRadius: 99, background: priority.bg, color: priority.fg,
+        }}>
+          <span style={{ width: 5, height: 5, borderRadius: 99, background: priority.dot }} />
           {priority.label}
         </span>
       </div>
 
-      {/* Progress bar (in-progress only) */}
-      {request.status === "in-progress" && (
-        <div className="mt-3 flex items-center gap-2">
-          <div
-            className="flex-1 h-1.5 rounded-full overflow-hidden"
-            style={{ background: "var(--border)" }}
-          >
-            <div
-              className="h-full rounded-full"
+      {/* Status change buttons — visible on hover */}
+      <div
+        className="opacity-0 group-hover:opacity-100"
+        style={{ display: "flex", gap: 4, marginTop: 10, transition: "opacity 0.15s" }}
+      >
+        {STATUS_OPTIONS
+          .filter((s) => s.key !== request.status)
+          .map((s) => (
+            <button
+              key={s.key}
+              onClick={() => onStatusChange(request.id, s.key)}
               style={{
-                width: `${progressPct}%`,
-                background: "var(--primary)",
+                flex: 1, padding: "5px 0", borderRadius: 7,
+                fontSize: 10, fontWeight: 600,
+                border: "none", cursor: "pointer",
+                background: `${s.color}12`, color: s.color,
+                transition: "opacity 0.15s",
               }}
-            />
-          </div>
-          <span
-            className="text-[10px] font-medium shrink-0"
-            style={{ color: "var(--muted-foreground)" }}
-          >
-            {progressPct}%
-          </span>
-        </div>
-      )}
+              onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.8"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
+            >
+              {s.label}
+            </button>
+          ))}
+      </div>
     </div>
   );
 }
@@ -1128,12 +1142,20 @@ export function DashboardView() {
     );
   }
 
+  const handleRequestStatusChange = (id: string, newStatus: MaintenanceRequest["status"]) => {
+    const all = getMaintenanceRequests();
+    const updated = all.map((r) => r.id === id ? { ...r, status: newStatus, updatedAt: new Date().toISOString() } : r);
+    saveMaintenanceRequests(updated);
+    setRequests(updated);
+  };
+
   return (
     <AdminDashboard
       buildings={buildings}
       tenants={tenants}
       requests={requests}
       onSelectBuilding={setSelectedBuildingId}
+      onStatusChange={handleRequestStatusChange}
     />
   );
 }
