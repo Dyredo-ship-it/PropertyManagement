@@ -194,6 +194,7 @@ export interface AccountingSettings {
   categories: string[];     // "Loyers", "Acompte de charges", "Entretien", etc.
   subCategories: string[];  // "Robinetterie", "Peinture", "Vitres", etc.
   unitAssignments?: Record<string, string>; // unit name → tenant id
+  unitTypes?: Record<string, "appartement" | "garage" | "place_de_parc" | "autre">; // unit name → type
 }
 
 export interface ManualAdjustment {

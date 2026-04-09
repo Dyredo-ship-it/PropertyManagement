@@ -387,9 +387,10 @@ function TenantDetailDrawer({
     if (!tenant?.buildingId) return [];
     const settings = getAccountingSettings(tenant.buildingId);
     const assignments = settings.unitAssignments || {};
+    const types = settings.unitTypes || {};
     return Object.entries(assignments)
       .filter(([_, tenantId]) => tenantId === tenant.id)
-      .map(([unitName]) => unitName);
+      .map(([unitName]) => ({ name: unitName, type: types[unitName] || "appartement" }));
   }, [tenant?.buildingId, tenant?.id]);
 
   /* Upload doc state (Documents tab) */
@@ -615,19 +616,18 @@ function TenantDetailDrawer({
                     Locaux attribués
                   </p>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                    {assignedUnits.map((unit) => {
-                      const lower = unit.toLowerCase();
-                      const IconUnit = lower.includes("garage") ? Warehouse
-                        : (lower.includes("parc") || lower.includes("parking")) ? Car
-                        : Home;
+                    {assignedUnits.map((u) => {
+                      const IconUnit = u.type === "garage" ? Warehouse : u.type === "place_de_parc" ? Car : Home;
+                      const typeLabel = u.type === "garage" ? "Garage" : u.type === "place_de_parc" ? "Place de parc" : u.type === "autre" ? "Autre" : "Appartement";
                       return (
-                        <div key={unit} style={{
+                        <div key={u.name} style={{
                           display: "flex", alignItems: "center", gap: 7,
                           padding: "7px 12px", borderRadius: 8,
                           background: "rgba(69,85,58,0.06)", border: "1px solid rgba(69,85,58,0.12)",
                         }}>
                           <IconUnit style={{ width: 13, height: 13, color: "var(--primary)" }} />
-                          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--primary)" }}>{unit}</span>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--primary)" }}>{u.name}</span>
+                          <span style={{ fontSize: 9, color: "var(--muted-foreground)", fontWeight: 500 }}>({typeLabel})</span>
                         </div>
                       );
                     })}

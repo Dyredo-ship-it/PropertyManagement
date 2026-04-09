@@ -422,6 +422,7 @@ function BuildingTabs({ building, t, occPct, occColor, formattedRevenue }: {
   const [bRequests, setBRequests] = useState<MaintenanceRequest[]>([]);
   const [acctSettings, setAcctSettings] = useState<AccountingSettings>({ units: [], categories: [], subCategories: [] });
   const [settingsNewUnit, setSettingsNewUnit] = useState("");
+  const [settingsNewUnitType, setSettingsNewUnitType] = useState<"appartement" | "garage" | "place_de_parc" | "autre">("appartement");
 
   useEffect(() => {
     setBTenants(getTenants().filter((tn: any) => tn.buildingId === building.id));
@@ -654,10 +655,11 @@ function BuildingTabs({ building, t, occPct, occColor, formattedRevenue }: {
                   type="text"
                   value={settingsNewUnit}
                   onChange={(e) => setSettingsNewUnit(e.target.value)}
-                  placeholder="Ex: 1er / 4.5p, Garage N°1, Place de parc N°2..."
+                  placeholder="Ex: 1er / 4.5p, N°1, N°2..."
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && settingsNewUnit.trim()) {
-                      const updated = { ...acctSettings, units: [...acctSettings.units, settingsNewUnit.trim()] };
+                      const newTypes = { ...(acctSettings.unitTypes || {}), [settingsNewUnit.trim()]: settingsNewUnitType };
+                      const updated = { ...acctSettings, units: [...acctSettings.units, settingsNewUnit.trim()], unitTypes: newTypes };
                       setAcctSettings(updated);
                       saveAccountingSettings(building.id, updated);
                       setSettingsNewUnit("");
@@ -672,10 +674,28 @@ function BuildingTabs({ building, t, occPct, occColor, formattedRevenue }: {
                   onFocus={(e) => { e.currentTarget.style.borderColor = "var(--primary)"; }}
                   onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
                 />
+                <select
+                  value={settingsNewUnitType}
+                  onChange={(e) => setSettingsNewUnitType(e.target.value as any)}
+                  style={{
+                    padding: "9px 10px", borderRadius: 9, fontSize: 12,
+                    border: "1px solid var(--border)", background: "var(--background)",
+                    color: "var(--foreground)", outline: "none", cursor: "pointer",
+                    boxSizing: "border-box" as const, flexShrink: 0, minWidth: 140,
+                  }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = "var(--primary)"; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
+                >
+                  <option value="appartement">Appartement</option>
+                  <option value="garage">Garage</option>
+                  <option value="place_de_parc">Place de parc</option>
+                  <option value="autre">Autre</option>
+                </select>
                 <button
                   onClick={() => {
                     if (!settingsNewUnit.trim()) return;
-                    const updated = { ...acctSettings, units: [...acctSettings.units, settingsNewUnit.trim()] };
+                    const newTypes = { ...(acctSettings.unitTypes || {}), [settingsNewUnit.trim()]: settingsNewUnitType };
+                    const updated = { ...acctSettings, units: [...acctSettings.units, settingsNewUnit.trim()], unitTypes: newTypes };
                     setAcctSettings(updated);
                     saveAccountingSettings(building.id, updated);
                     setSettingsNewUnit("");
@@ -703,10 +723,12 @@ function BuildingTabs({ building, t, occPct, occColor, formattedRevenue }: {
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {acctSettings.units.map((unit, idx) => {
-                    const lower = unit.toLowerCase();
-                    const IconUnit = lower.includes("garage") ? Warehouse
-                      : (lower.includes("parc") || lower.includes("parking")) ? Car
-                      : Home;
+                    const unitType = acctSettings.unitTypes?.[unit] || (() => {
+                      const lower = unit.toLowerCase();
+                      return lower.includes("garage") ? "garage" : (lower.includes("parc") || lower.includes("parking")) ? "place_de_parc" : "appartement";
+                    })();
+                    const IconUnit = unitType === "garage" ? Warehouse : unitType === "place_de_parc" ? Car : Home;
+                    const typeLabel = unitType === "garage" ? "Garage" : unitType === "place_de_parc" ? "Place de parc" : unitType === "autre" ? "Autre" : "Appartement";
                     const assignedTenantId = acctSettings.unitAssignments?.[unit] || "";
                     const assignedTenant = bTenants.find((tn: any) => tn.id === assignedTenantId);
                     return (
@@ -723,7 +745,15 @@ function BuildingTabs({ building, t, occPct, occColor, formattedRevenue }: {
                         onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--background)"; }}
                       >
                         <IconUnit style={{ width: 14, height: 14, color: "var(--muted-foreground)", flexShrink: 0 }} />
-                        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)", minWidth: 120 }}>{unit}</span>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)", minWidth: 80 }}>{unit}</span>
+                        <span style={{
+                          fontSize: 9, fontWeight: 600, padding: "2px 7px", borderRadius: 99,
+                          background: unitType === "garage" ? "rgba(107,114,128,0.08)" : unitType === "place_de_parc" ? "rgba(37,99,235,0.08)" : "rgba(69,85,58,0.07)",
+                          color: unitType === "garage" ? "#6b7280" : unitType === "place_de_parc" ? "#2563EB" : "var(--primary)",
+                          textTransform: "uppercase", letterSpacing: "0.03em", flexShrink: 0,
+                        }}>
+                          {typeLabel}
+                        </span>
                         {/* Tenant assignment dropdown */}
                         <select
                           value={assignedTenantId}
