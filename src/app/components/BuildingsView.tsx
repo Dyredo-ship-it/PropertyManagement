@@ -14,8 +14,15 @@ import {
   ArrowLeft,
   Banknote,
   ChevronRight,
+  Wrench,
+  BarChart3,
+  Clock,
+  CheckCircle,
+  AlertCircle,
+  Mail,
+  Phone,
 } from "lucide-react";
-import { getBuildings, saveBuildings, type Building, type Currency } from "../utils/storage";
+import { getBuildings, saveBuildings, getTenants, getMaintenanceRequests, type Building, type Currency, type Tenant, type MaintenanceRequest } from "../utils/storage";
 import { useLanguage } from "../i18n/LanguageContext";
 import { useCurrency } from "../context/CurrencyContext";
 
@@ -384,39 +391,236 @@ function BuildingDetail({
         </div>
       </div>
 
-      {/* ── Occupancy bar ───────────────────────────────────── */}
-      <div style={{
-        padding: "14px 18px", borderRadius: 12,
-        background: "var(--card)", border: "1px solid var(--border)",
-      }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-          <span style={{ fontSize: 11, fontWeight: 600, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-            {t("occupancyRate")}
-          </span>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
-            <span style={{ fontSize: 16, fontWeight: 700, color: "var(--foreground)" }}>{occPct}%</span>
-            <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>
-              ({building.occupiedUnits}/{building.units} {t("unit")})
-            </span>
-          </div>
-        </div>
-        <div style={{
-          width: "100%", height: 6, borderRadius: 99, overflow: "hidden",
-          background: "var(--background)",
-        }}>
-          <div style={{
-            height: "100%", borderRadius: 99,
-            width: `${occPct}%`, background: occColor,
-            transition: "width 0.4s ease",
-          }} />
-        </div>
+      {/* ── Tabs ──────────────────────────────────────────── */}
+      <BuildingTabs building={building} t={t} occPct={occPct} occColor={occColor} formattedRevenue={formattedRevenue} />
+    </div>
+  );
+}
+
+/* ─── Building Tabs ──────────────────────────────────────────── */
+
+const TAB_LIST = [
+  { key: "overview", label: "Vue d'ensemble", icon: BarChart3 },
+  { key: "tenants", label: "Locataires", icon: Users },
+  { key: "renovations", label: "Rénovations", icon: Wrench },
+  { key: "maintenance", label: "Maintenance", icon: AlertCircle },
+] as const;
+
+type TabKey = typeof TAB_LIST[number]["key"];
+
+function BuildingTabs({ building, t, occPct, occColor, formattedRevenue }: {
+  building: Building; t: (k: string) => string;
+  occPct: number; occColor: string; formattedRevenue: string;
+}) {
+  const [activeTab, setActiveTab] = useState<TabKey>("overview");
+  const [bTenants, setBTenants] = useState<Tenant[]>([]);
+  const [bRequests, setBRequests] = useState<MaintenanceRequest[]>([]);
+
+  useEffect(() => {
+    setBTenants(getTenants().filter((tn: any) => tn.buildingId === building.id));
+    setBRequests(getMaintenanceRequests().filter((r) => r.buildingId === building.id));
+  }, [building.id]);
+
+  return (
+    <>
+      {/* Tab bar */}
+      <div style={{ display: "flex", gap: 4, marginBottom: 20, borderBottom: "1px solid var(--border)", paddingBottom: 0 }}>
+        {TAB_LIST.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.key;
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              style={{
+                display: "flex", alignItems: "center", gap: 6,
+                padding: "10px 16px", fontSize: 12, fontWeight: 600,
+                border: "none", cursor: "pointer",
+                background: "transparent",
+                color: isActive ? "var(--primary)" : "var(--muted-foreground)",
+                borderBottom: isActive ? "2px solid var(--primary)" : "2px solid transparent",
+                marginBottom: -1,
+                transition: "all 0.15s",
+              }}
+              onMouseEnter={(e) => { if (!isActive) (e.currentTarget as HTMLElement).style.color = "var(--foreground)"; }}
+              onMouseLeave={(e) => { if (!isActive) (e.currentTarget as HTMLElement).style.color = "var(--muted-foreground)"; }}
+            >
+              <Icon style={{ width: 14, height: 14 }} />
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
 
-      {/* ── Renovation Tracker ──────────────────────────────── */}
-      <div style={{ marginTop: 22 }}>
+      {/* Tab content */}
+      {activeTab === "overview" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* Occupancy bar */}
+          <div style={{ padding: "14px 18px", borderRadius: 12, background: "var(--card)", border: "1px solid var(--border)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                {t("occupancyRate")}
+              </span>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+                <span style={{ fontSize: 16, fontWeight: 700, color: "var(--foreground)" }}>{occPct}%</span>
+                <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>
+                  ({building.occupiedUnits}/{building.units} {t("unit")})
+                </span>
+              </div>
+            </div>
+            <div style={{ width: "100%", height: 6, borderRadius: 99, overflow: "hidden", background: "var(--background)" }}>
+              <div style={{ height: "100%", borderRadius: 99, width: `${occPct}%`, background: occColor, transition: "width 0.4s ease" }} />
+            </div>
+          </div>
+
+          {/* Quick stats */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+            <div style={{ padding: "14px 16px", borderRadius: 12, background: "var(--card)", border: "1px solid var(--border)" }}>
+              <span style={{ fontSize: 10, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--muted-foreground)" }}>
+                {t("tenants") || "Locataires"}
+              </span>
+              <div style={{ fontSize: 20, fontWeight: 700, color: "var(--foreground)", marginTop: 4 }}>{bTenants.length}</div>
+            </div>
+            <div style={{ padding: "14px 16px", borderRadius: 12, background: "var(--card)", border: "1px solid var(--border)" }}>
+              <span style={{ fontSize: 10, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--muted-foreground)" }}>
+                Demandes ouvertes
+              </span>
+              <div style={{ fontSize: 20, fontWeight: 700, color: bRequests.filter(r => r.status !== "completed").length > 0 ? "#F59E0B" : "var(--foreground)", marginTop: 4 }}>
+                {bRequests.filter(r => r.status !== "completed").length}
+              </div>
+            </div>
+            <div style={{ padding: "14px 16px", borderRadius: 12, background: "var(--card)", border: "1px solid var(--border)" }}>
+              <span style={{ fontSize: 10, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--primary)" }}>
+                {t("monthlyRevenue")}
+              </span>
+              <div style={{ fontSize: 18, fontWeight: 700, color: "var(--primary)", marginTop: 4 }}>{formattedRevenue}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === "tenants" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {bTenants.length === 0 ? (
+            <div style={{ padding: "48px 24px", borderRadius: 14, textAlign: "center", background: "var(--card)", border: "1px solid var(--border)" }}>
+              <Users style={{ width: 32, height: 32, color: "var(--border)", margin: "0 auto 8px" }} />
+              <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: 0 }}>Aucun locataire dans ce bâtiment</p>
+            </div>
+          ) : (
+            bTenants.map((tn: any) => {
+              const tenantRequests = bRequests.filter(r => r.tenantId === tn.id);
+              const openReqs = tenantRequests.filter(r => r.status !== "completed").length;
+              return (
+                <div key={tn.id} style={{
+                  display: "flex", alignItems: "center", gap: 14,
+                  padding: "14px 16px", borderRadius: 12,
+                  background: "var(--card)", border: "1px solid var(--border)",
+                  transition: "box-shadow 0.15s",
+                }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = "0 2px 12px rgba(0,0,0,0.05)"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = "none"; }}
+                >
+                  <div style={{
+                    width: 38, height: 38, borderRadius: 10, flexShrink: 0,
+                    background: "rgba(69,85,58,0.07)", color: "var(--primary)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 13, fontWeight: 700,
+                  }}>
+                    {tn.name.split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2)}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)" }}>{tn.name}</span>
+                      <span style={{
+                        fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 99,
+                        background: tn.status === "active" ? "rgba(34,197,94,0.08)" : "rgba(107,114,128,0.08)",
+                        color: tn.status === "active" ? "#16a34a" : "#6b7280",
+                      }}>
+                        {tn.status === "active" ? t("active") : t("ended")}
+                      </span>
+                    </div>
+                    <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>
+                      {t("unit")} {tn.unit}
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+                    {tn.email && (
+                      <a href={`mailto:${tn.email}`} style={{ color: "var(--muted-foreground)", transition: "color 0.15s" }}
+                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--primary)"; }}
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--muted-foreground)"; }}
+                      >
+                        <Mail style={{ width: 14, height: 14 }} />
+                      </a>
+                    )}
+                    {tn.phone && (
+                      <a href={`tel:${tn.phone}`} style={{ color: "var(--muted-foreground)", transition: "color 0.15s" }}
+                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--primary)"; }}
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--muted-foreground)"; }}
+                      >
+                        <Phone style={{ width: 14, height: 14 }} />
+                      </a>
+                    )}
+                    {openReqs > 0 && (
+                      <span style={{
+                        fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 99,
+                        background: "rgba(245,158,11,0.1)", color: "#B45309",
+                      }}>
+                        {openReqs} demande{openReqs > 1 ? "s" : ""}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+
+      {activeTab === "renovations" && (
         <RenovationTracker buildingId={building.id} />
-      </div>
-    </div>
+      )}
+
+      {activeTab === "maintenance" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {bRequests.length === 0 ? (
+            <div style={{ padding: "48px 24px", borderRadius: 14, textAlign: "center", background: "var(--card)", border: "1px solid var(--border)" }}>
+              <Wrench style={{ width: 32, height: 32, color: "var(--border)", margin: "0 auto 8px" }} />
+              <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: 0 }}>Aucune demande de maintenance</p>
+            </div>
+          ) : (
+            bRequests.map((req) => {
+              const sc = req.status === "pending" ? { color: "#F59E0B", bg: "rgba(245,158,11,0.08)", label: t("pending") }
+                : req.status === "in-progress" ? { color: "var(--primary)", bg: "rgba(69,85,58,0.07)", label: t("inProgress") }
+                : { color: "#15803D", bg: "rgba(34,197,94,0.08)", label: t("completed") };
+              return (
+                <div key={req.id} style={{ display: "flex", overflow: "hidden", borderRadius: 12, background: "var(--card)", border: "1px solid var(--border)" }}>
+                  <div style={{ width: 4, flexShrink: 0, background: sc.color }} />
+                  <div style={{ flex: 1, padding: "12px 16px" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)" }}>{req.title}</span>
+                      <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 99, background: sc.bg, color: sc.color }}>
+                        {sc.label}
+                      </span>
+                    </div>
+                    <p style={{ fontSize: 12, color: "var(--muted-foreground)", margin: 0, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                      {req.description}
+                    </p>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
+                      <span style={{ fontSize: 10, color: "var(--muted-foreground)" }}>
+                        {req.tenantName || `Apt ${req.unit}`}
+                      </span>
+                      <span style={{ fontSize: 10, color: "var(--muted-foreground)" }}>
+                        · {new Date(req.createdAt).toLocaleDateString("fr-CH")}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+    </>
   );
 }
 
