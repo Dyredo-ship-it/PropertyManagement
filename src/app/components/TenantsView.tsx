@@ -528,7 +528,10 @@ function TenantDetailDrawer({
               <StatusDotLight status={tenant.status} t={t} />
             </div>
             <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: "2px 0 0" }}>
-              {tenant.buildingName} &middot; {t("unit")} {tenant.unit}
+              {tenant.buildingName}
+              {assignedUnits.length > 0
+                ? ` · ${assignedUnits.map((u) => u.name).join(", ")}`
+                : tenant.unit ? ` · ${t("unit")} ${tenant.unit}` : ""}
             </p>
           </div>
           {/* Close button */}
