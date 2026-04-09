@@ -737,16 +737,21 @@ function LabelValue({ label, value }: { label: string; value: string }) {
 }
 
 function StatusDotLight({ status, t }: { status: string; t: (k: string) => string }) {
-  const cfg: Record<string, { bg: string; text: string; dot: string }> = {
-    active: { bg: "bg-emerald-50 dark:bg-emerald-500/10", text: "text-emerald-700 dark:text-emerald-400", dot: "bg-emerald-500" },
-    pending: { bg: "bg-amber-50 dark:bg-amber-500/10", text: "text-amber-700 dark:text-amber-400", dot: "bg-amber-500" },
-    ended: { bg: "bg-slate-100 dark:bg-slate-500/10", text: "text-slate-600 dark:text-slate-400", dot: "bg-slate-400" },
+  const cfg: Record<string, { bg: string; fg: string; dot: string }> = {
+    active: { bg: "rgba(34,197,94,0.08)", fg: "#16a34a", dot: "#22c55e" },
+    pending: { bg: "rgba(245,158,11,0.08)", fg: "#b45309", dot: "#f59e0b" },
+    ended: { bg: "rgba(107,114,128,0.08)", fg: "#6b7280", dot: "#9ca3af" },
   };
   const c = cfg[status] ?? cfg.ended;
   const label = status === "active" ? t("active") : status === "pending" ? t("pending") : t("ended");
   return (
-    <span className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium", c.bg, c.text)}>
-      <span className={cn("w-1.5 h-1.5 rounded-full", c.dot)} />
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 5,
+      padding: "3px 9px", borderRadius: 99,
+      fontSize: 11, fontWeight: 600,
+      background: c.bg, color: c.fg,
+    }}>
+      <span style={{ width: 6, height: 6, borderRadius: 99, background: c.dot }} />
       {label}
     </span>
   );
@@ -1241,20 +1246,22 @@ export function TenantsView() {
                               {getInitials(tenant.name)}
                             </div>
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              <p style={{
-                                fontSize: 16, fontWeight: 700, color: "var(--foreground)",
-                                lineHeight: 1.3, margin: 0,
-                                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                              }}>
-                                {tenant.name}
-                              </p>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <p style={{
+                                  fontSize: 16, fontWeight: 700, color: "var(--foreground)",
+                                  lineHeight: 1.3, margin: 0,
+                                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                                }}>
+                                  {tenant.name}
+                                </p>
+                                <StatusDotLight status={tenant.status} t={t} />
+                              </div>
                               <p style={{
                                 fontSize: 13, color: "var(--muted-foreground)", margin: 0, marginTop: 2,
                               }}>
                                 {t("unit")} {tenant.unit}
                               </p>
                             </div>
-                            <StatusDotLight status={tenant.status} t={t} />
                           </div>
 
                           {/* ── Middle section: Contact info ── */}
