@@ -495,7 +495,7 @@ export function RenovationTracker({ buildingId }: { buildingId: string }) {
             {summary.nearEndOfLife > 0 && <AlertTriangle size={16} style={{ color: "#f59e0b" }} />}
           </div>
           <div style={{ fontSize: 11, color: "var(--muted-foreground)" }}>
-            éléments à moins de 2 ans
+            à moins de 2 ans d'amortissement
           </div>
         </div>
       </div>
