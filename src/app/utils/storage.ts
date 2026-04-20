@@ -1,3 +1,20 @@
+// ============================================================
+// In-memory cache backed by Supabase.
+//
+// The public API (getX / saveX) is synchronous, same shape as the
+// previous localStorage-based storage. At app boot (after auth),
+// `hydrateFromSupabase()` fills the cache. Save functions update the
+// cache synchronously and fire-and-forget a write to Supabase.
+//
+// This keeps all existing React components working while persisting
+// data server-side.
+// ============================================================
+
+import { supabase } from "../lib/supabase";
+
+// ──────────────────────────────────────────────────────────────
+// Types (unchanged — kept identical to pre-migration)
+// ──────────────────────────────────────────────────────────────
 export type Currency = "CHF" | "EUR" | "USD" | "GBP";
 
 export interface Building {
@@ -8,7 +25,7 @@ export interface Building {
   occupiedUnits: number;
   monthlyRevenue: number;
   imageUrl?: string;
-  currency?: Currency; // defaults to base currency if undefined
+  currency?: Currency;
 }
 
 export interface ExchangeRateCache {
@@ -23,7 +40,7 @@ export type TenantGender = "male" | "female" | "unspecified";
 export interface TenantNote {
   id: string;
   tenantId: string;
-  date: string; // ISO string
+  date: string;
   text: string;
 }
 
@@ -43,9 +60,9 @@ export interface TenantDocument {
   fileName: string;
   fileSize?: number;
   mimeType?: string;
-  createdAt: string; // ISO string
-  // Stockage simple (local) : base64 optionnel
+  createdAt: string;
   dataUrl?: string;
+  storagePath?: string;
 }
 
 export interface Tenant {
@@ -56,23 +73,15 @@ export interface Tenant {
   buildingId: string;
   buildingName: string;
   unit: string;
-
-  // ✅ Nouveau modèle CHF
-  rentNet: number; // CHF
-  charges: number; // CHF
-
-  leaseStart: string; // yyyy-mm-dd
-  leaseEnd?: string; // ✅ optionnel (peut être vide)
-
+  rentNet: number;
+  charges: number;
+  leaseStart: string;
+  leaseEnd?: string;
   status: TenantStatus;
-
-  // ✅ Genre
   gender: TenantGender;
-
-  // ✅ Suivi paiement
-  paymentStatus?: "up-to-date" | "late" | "very-late"; // défaut: up-to-date
-  latePaymentMonths?: number; // nombre de mois en retard
-  lastPaymentDate?: string;   // yyyy-mm-dd
+  paymentStatus?: "up-to-date" | "late" | "very-late";
+  latePaymentMonths?: number;
+  lastPaymentDate?: string;
 }
 
 export type NotificationCategory = "general" | "maintenance" | "payment" | "inspection" | "urgent";
@@ -113,15 +122,12 @@ export interface MaintenanceRequest {
   priority: MaintenancePriority;
   createdAt: string;
   updatedAt?: string;
-  
-  // Nouveaux champs pour l'espace locataire
   category?: string;
   requestType?: RequestType;
   dateObserved?: string;
   photos?: string[];
 }
 
-// ✅ Actions / TODO bâtiment (chronologique / importance)
 export type BuildingActionPriority = "low" | "medium" | "high";
 export type BuildingActionStatus = "open" | "done";
 
@@ -132,27 +138,25 @@ export interface BuildingAction {
   description?: string;
   priority: BuildingActionPriority;
   status: BuildingActionStatus;
-  dueDate?: string; // yyyy-mm-dd (optionnel)
-  createdAt: string; // ISO
-  updatedAt: string; // ISO
+  dueDate?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
-// ✅ Calendar Events
 export type CalendarEventType = "visit" | "inspection" | "signing" | "meeting" | "other";
 
 export interface CalendarEvent {
   id: string;
   title: string;
-  date: string;       // yyyy-mm-dd
-  startTime: string;  // HH:mm
-  endTime?: string;    // HH:mm
+  date: string;
+  startTime: string;
+  endTime?: string;
   type: CalendarEventType;
   buildingId?: string;
   notes?: string;
   createdAt: string;
 }
 
-// ✅ Accounting Transactions
 export type AccountCategory =
   | 101 | 102 | 103 | 104 | 105 | 106
   | 201 | 202 | 203 | 204 | 205 | 206 | 207 | 208 | 209 | 210 | 211 | 212 | 213 | 214 | 215 | 216 | 217 | 218
@@ -161,40 +165,39 @@ export type AccountCategory =
 export interface AccountingTransaction {
   id: string;
   buildingId: string;
-  dateInvoice: string;      // yyyy-mm-dd
-  datePayment?: string;     // yyyy-mm-dd
-  unit?: string;            // "2ème / 4.5p", "Garage N*6", "Immeuble"
+  dateInvoice: string;
+  datePayment?: string;
+  unit?: string;
   description: string;
-  category: string;         // "Loyers", "Acompte de charges", "Entretien", etc.
+  category: string;
   subCategory?: string;
-  accountNumber: number;    // 101, 202, etc.
-  debit: number;            // CHF spent
-  credit: number;           // CHF received
-  status?: string;          // "Payé", "", etc.
-  tenantName?: string;      // extracted or manual
-  month?: string;           // "2026-01" for rent tracking
+  accountNumber: number;
+  debit: number;
+  credit: number;
+  status?: string;
+  tenantName?: string;
+  month?: string;
 }
 
-// ✅ Renovation Tracking
 export interface Renovation {
   id: string;
   buildingId: string;
-  unit?: string;             // specific apartment or empty = whole building
-  category: string;          // "Revêtements de sols", "Cuisine", etc.
-  item: string;              // "Parquet collé, bois massif", "Peinture mur", etc.
-  amortizationYears: number; // from tabelle FRI/ASLOCA
-  dateCompleted: string;     // yyyy-mm-dd
-  cost: number;              // CHF
+  unit?: string;
+  category: string;
+  item: string;
+  amortizationYears: number;
+  dateCompleted: string;
+  cost: number;
   notes?: string;
   createdAt: string;
 }
 
 export interface AccountingSettings {
-  units: string[];          // "1er / 4.5p", "2ème / 3.5p", "Garage N*1", etc.
-  categories: string[];     // "Loyers", "Acompte de charges", "Entretien", etc.
-  subCategories: string[];  // "Robinetterie", "Peinture", "Vitres", etc.
-  unitAssignments?: Record<string, string>; // unit name → tenant id
-  unitTypes?: Record<string, "appartement" | "garage" | "place_de_parc" | "autre">; // unit name → type
+  units: string[];
+  categories: string[];
+  subCategories: string[];
+  unitAssignments?: Record<string, string>;
+  unitTypes?: Record<string, "appartement" | "garage" | "place_de_parc" | "autre">;
 }
 
 export interface ManualAdjustment {
@@ -202,12 +205,11 @@ export interface ManualAdjustment {
   buildingId: string;
   accountNumber: number;
   label: string;
-  amount: number;           // positive = add to debit/credit as appropriate
+  amount: number;
   type: "debit" | "credit";
   createdAt: string;
 }
 
-// ✅ Rental Applications (Demandes de location)
 export type RentalApplicationStatus = "received" | "under-review" | "accepted" | "rejected";
 
 export interface RentalApplication {
@@ -219,705 +221,1038 @@ export interface RentalApplication {
   applicantEmail: string;
   applicantPhone: string;
   currentAddress: string;
-  desiredMoveIn: string; // yyyy-mm-dd
+  desiredMoveIn: string;
   monthlyIncome: number;
   householdSize: number;
   occupation: string;
   employer: string;
   message: string;
   status: RentalApplicationStatus;
-  createdAt: string; // ISO
-  updatedAt: string; // ISO
-  documents?: { name: string; type: string; data: string }[]; // uploaded PDFs/images as base64
+  createdAt: string;
+  updatedAt: string;
+  documents?: { name: string; type: string; data: string }[];
 }
 
-// ------------------------
-// Keys
-// ------------------------
-const LS_KEYS = {
-  buildings: "buildings",
-  tenants: "tenants",
-  notifications: "notifications",
-  maintenanceRequests: "maintenanceRequests",
-  tenantNotes: "tenantNotes",
-  tenantDocuments: "tenantDocuments",
-  buildingActions: "buildingActions",
-  tenantAbsences: "tenantAbsences",
-  rentalApplications: "rentalApplications",
-  accountingTransactions: "immostore_accountingTx",
-  manualAdjustments: "immostore_manualAdj",
-  renovations: "immostore_renovations",
-  accountingSettings: "immostore_accountingSettings",
-  calendarEvents: "immostore_calendarEvents",
-  baseCurrency: "immostore_baseCurrency",
-  exchangeRates: "immostore_exchangeRates",
-} as const;
+// ──────────────────────────────────────────────────────────────
+// In-memory cache
+// ──────────────────────────────────────────────────────────────
+type Cache = {
+  buildings: Building[];
+  tenants: Tenant[];
+  notifications: Notification[];
+  maintenanceRequests: MaintenanceRequest[];
+  tenantNotes: TenantNote[];
+  tenantDocuments: TenantDocument[];
+  tenantAbsences: TenantAbsence[];
+  buildingActions: BuildingAction[];
+  rentalApplications: RentalApplication[];
+  calendarEvents: CalendarEvent[];
+  accountingTransactions: AccountingTransaction[];
+  manualAdjustments: ManualAdjustment[];
+  renovations: Renovation[];
+  accountingSettings: Record<string, AccountingSettings>; // keyed by buildingId
+  baseCurrency: Currency;
+  exchangeRates: ExchangeRateCache | null;
+};
 
-// ------------------------
-// Helpers
-// ------------------------
-const safeParse = <T,>(raw: string | null, fallback: T): T => {
+const cache: Cache = {
+  buildings: [],
+  tenants: [],
+  notifications: [],
+  maintenanceRequests: [],
+  tenantNotes: [],
+  tenantDocuments: [],
+  tenantAbsences: [],
+  buildingActions: [],
+  rentalApplications: [],
+  calendarEvents: [],
+  accountingTransactions: [],
+  manualAdjustments: [],
+  renovations: [],
+  accountingSettings: {},
+  baseCurrency: ((): Currency => {
+    const stored = localStorage.getItem("immostore_baseCurrency");
+    return stored === "CHF" || stored === "EUR" || stored === "USD" || stored === "GBP" ? stored : "CHF";
+  })(),
+  exchangeRates: (() => {
+    try {
+      const raw = localStorage.getItem("immostore_exchangeRates");
+      return raw ? (JSON.parse(raw) as ExchangeRateCache) : null;
+    } catch {
+      return null;
+    }
+  })(),
+};
+
+let hydrated = false;
+let orgIdCache: string | null = null;
+
+function nowISO() {
+  return new Date().toISOString();
+}
+
+function genTmpId(): string {
+  return `tmp_${Date.now()}_${Math.random().toString(16).slice(2, 6)}`;
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export function isValidDbId(id: string | undefined | null): boolean {
+  return !!id && UUID_RE.test(id);
+}
+
+// Returns x unchanged if id is a valid UUID (= already persisted) or already a tmp_ id.
+// Any other non-UUID id (e.g. Date.now().toString() from legacy components) is
+// deterministically prefixed with tmp_ so subsequent saves see the same identity.
+function ensureId<T extends { id: string }>(x: T): T {
+  if (isValidDbId(x.id)) return x;
+  if (x.id?.startsWith("tmp_")) return x;
+  if (x.id) return { ...x, id: `tmp_${x.id}` };
+  return { ...x, id: genTmpId() };
+}
+
+function toastError(where: string, err: any) {
+  const msg = err?.message ?? err?.hint ?? JSON.stringify(err);
+  // eslint-disable-next-line no-console
+  console.error(`[storage] ${where}:`, err);
   try {
-    return raw ? (JSON.parse(raw) as T) : fallback;
-  } catch {
-    return fallback;
+    // Visible toast so users see sync failures without opening devtools
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    import("sonner").then(({ toast }) => toast.error(`Sync ${where}: ${msg}`));
+  } catch {}
+}
+
+function toastInfo(msg: string) {
+  // eslint-disable-next-line no-console
+  console.log(`[storage] ${msg}`);
+}
+
+async function getOrgId(): Promise<string> {
+  if (orgIdCache) return orgIdCache;
+  const { data: u } = await supabase.auth.getUser();
+  const uid = u.user?.id;
+  if (!uid) throw new Error("Not authenticated");
+  const { data } = await supabase.from("profiles").select("organization_id").eq("id", uid).maybeSingle();
+  if (!data?.organization_id) throw new Error("No organization");
+  orgIdCache = data.organization_id;
+  return orgIdCache;
+}
+
+export function clearStorageCache() {
+  orgIdCache = null;
+  hydrated = false;
+  cache.buildings = [];
+  cache.tenants = [];
+  cache.notifications = [];
+  cache.maintenanceRequests = [];
+  cache.tenantNotes = [];
+  cache.tenantDocuments = [];
+  cache.tenantAbsences = [];
+  cache.buildingActions = [];
+  cache.rentalApplications = [];
+  cache.calendarEvents = [];
+  cache.accountingTransactions = [];
+  cache.manualAdjustments = [];
+  cache.renovations = [];
+  cache.accountingSettings = {};
+}
+
+// ──────────────────────────────────────────────────────────────
+// Mappers (DB row ↔ client type)
+// ──────────────────────────────────────────────────────────────
+const b2c = (r: any): Building => ({
+  id: r.id,
+  name: r.name,
+  address: r.address,
+  units: r.units ?? 0,
+  occupiedUnits: r.occupied_units ?? 0,
+  monthlyRevenue: Number(r.monthly_revenue ?? 0),
+  imageUrl: r.image_url ?? undefined,
+  currency: r.currency ?? undefined,
+});
+
+const b2r = (b: Partial<Building>, org: string) => ({
+  ...(isValidDbId(b.id) ? { id: b.id } : {}),
+  organization_id: org,
+  name: b.name ?? "",
+  address: b.address ?? "",
+  units: b.units ?? 0,
+  occupied_units: b.occupiedUnits ?? 0,
+  monthly_revenue: b.monthlyRevenue ?? 0,
+  image_url: b.imageUrl ?? null,
+  currency: b.currency ?? "CHF",
+});
+
+const t2c = (r: any): Tenant => ({
+  id: r.id,
+  name: r.name,
+  email: r.email,
+  phone: r.phone ?? "",
+  buildingId: r.building_id ?? "",
+  buildingName: r.building_name ?? "",
+  unit: r.unit ?? "",
+  rentNet: Number(r.rent_net ?? 0),
+  charges: Number(r.charges ?? 0),
+  leaseStart: r.lease_start ?? "",
+  leaseEnd: r.lease_end ?? undefined,
+  status: r.status ?? "active",
+  gender: r.gender ?? "unspecified",
+  paymentStatus: r.payment_status ?? undefined,
+  latePaymentMonths: r.late_payment_months ?? undefined,
+  lastPaymentDate: r.last_payment_date ?? undefined,
+});
+
+const t2r = (t: Partial<Tenant>, org: string) => ({
+  ...(isValidDbId(t.id) ? { id: t.id } : {}),
+  organization_id: org,
+  building_id: t.buildingId || null,
+  building_name: t.buildingName ?? null,
+  name: t.name ?? "",
+  email: t.email ?? "",
+  phone: t.phone ?? null,
+  unit: t.unit ?? null,
+  rent_net: t.rentNet ?? 0,
+  charges: t.charges ?? 0,
+  lease_start: t.leaseStart || null,
+  lease_end: t.leaseEnd || null,
+  status: t.status ?? "active",
+  gender: t.gender ?? "unspecified",
+  payment_status: t.paymentStatus ?? null,
+  late_payment_months: t.latePaymentMonths ?? null,
+  last_payment_date: t.lastPaymentDate ?? null,
+});
+
+const m2c = (r: any): MaintenanceRequest => ({
+  id: r.id,
+  title: r.title,
+  description: r.description ?? "",
+  buildingId: r.building_id ?? "",
+  buildingName: r.building_name ?? "",
+  unit: r.unit ?? "",
+  tenantId: r.tenant_id ?? "",
+  tenantName: r.tenant_name ?? "",
+  status: r.status,
+  priority: r.priority,
+  createdAt: r.created_at,
+  updatedAt: r.updated_at ?? undefined,
+  category: r.category ?? undefined,
+  requestType: r.request_type ?? undefined,
+  dateObserved: r.date_observed ?? undefined,
+  photos: (r.photos as string[] | undefined) ?? undefined,
+});
+
+const m2r = (m: Partial<MaintenanceRequest>, org: string) => ({
+  ...(isValidDbId(m.id) ? { id: m.id } : {}),
+  organization_id: org,
+  building_id: m.buildingId || null,
+  building_name: m.buildingName ?? null,
+  tenant_id: m.tenantId || null,
+  tenant_name: m.tenantName ?? null,
+  unit: m.unit ?? null,
+  title: m.title ?? "",
+  description: m.description ?? null,
+  status: m.status ?? "pending",
+  priority: m.priority ?? "medium",
+  category: m.category ?? null,
+  request_type: m.requestType ?? null,
+  date_observed: m.dateObserved || null,
+  photos: m.photos ?? [],
+});
+
+const n2c = (r: any): Notification => ({
+  id: r.id,
+  title: r.title,
+  message: r.message ?? "",
+  date: r.date,
+  read: r.read,
+  buildingId: r.building_id ?? undefined,
+  recipientId: r.recipient_id ?? undefined,
+  category: r.category ?? undefined,
+});
+
+const n2r = (n: Partial<Notification>, org: string) => ({
+  ...(isValidDbId(n.id) ? { id: n.id } : {}),
+  organization_id: org,
+  building_id: n.buildingId || null,
+  recipient_id: n.recipientId || null,
+  title: n.title ?? "",
+  message: n.message ?? null,
+  category: n.category ?? "general",
+  read: n.read ?? false,
+  date: n.date ?? nowISO(),
+});
+
+const ra2c = (r: any): RentalApplication => ({
+  id: r.id,
+  buildingId: r.building_id ?? "",
+  buildingName: r.building_name ?? "",
+  desiredUnit: r.desired_unit ?? "",
+  applicantName: r.applicant_name,
+  applicantEmail: r.applicant_email,
+  applicantPhone: r.applicant_phone ?? "",
+  currentAddress: r.current_address ?? "",
+  desiredMoveIn: r.desired_move_in ?? "",
+  monthlyIncome: Number(r.monthly_income ?? 0),
+  householdSize: r.household_size ?? 0,
+  occupation: r.occupation ?? "",
+  employer: r.employer ?? "",
+  message: r.message ?? "",
+  status: r.status,
+  createdAt: r.created_at,
+  updatedAt: r.updated_at,
+  documents: (r.documents as any) ?? [],
+});
+
+const ra2r = (a: Partial<RentalApplication>, org: string) => ({
+  ...(isValidDbId(a.id) ? { id: a.id } : {}),
+  organization_id: org,
+  building_id: a.buildingId || null,
+  building_name: a.buildingName ?? null,
+  desired_unit: a.desiredUnit ?? null,
+  applicant_name: a.applicantName ?? "",
+  applicant_email: a.applicantEmail ?? "",
+  applicant_phone: a.applicantPhone ?? null,
+  current_address: a.currentAddress ?? null,
+  desired_move_in: a.desiredMoveIn || null,
+  monthly_income: a.monthlyIncome ?? null,
+  household_size: a.householdSize ?? null,
+  occupation: a.occupation ?? null,
+  employer: a.employer ?? null,
+  message: a.message ?? null,
+  status: a.status ?? "received",
+  documents: a.documents ?? [],
+});
+
+const ca2c = (r: any): CalendarEvent => ({
+  id: r.id,
+  title: r.title,
+  date: r.date,
+  startTime: r.start_time ?? "",
+  endTime: r.end_time ?? undefined,
+  type: r.type,
+  buildingId: r.building_id ?? undefined,
+  notes: r.notes ?? undefined,
+  createdAt: r.created_at,
+});
+
+const ca2r = (e: Partial<CalendarEvent>, org: string) => ({
+  ...(isValidDbId(e.id) ? { id: e.id } : {}),
+  organization_id: org,
+  building_id: e.buildingId || null,
+  title: e.title ?? "",
+  date: e.date ?? "",
+  start_time: e.startTime ?? null,
+  end_time: e.endTime ?? null,
+  type: e.type ?? "other",
+  notes: e.notes ?? null,
+});
+
+const tx2c = (r: any): AccountingTransaction => ({
+  id: r.id,
+  buildingId: r.building_id,
+  dateInvoice: r.date_invoice,
+  datePayment: r.date_payment ?? undefined,
+  unit: r.unit ?? undefined,
+  description: r.description ?? "",
+  category: r.category ?? "",
+  subCategory: r.sub_category ?? undefined,
+  accountNumber: r.account_number ?? 0,
+  debit: Number(r.debit ?? 0),
+  credit: Number(r.credit ?? 0),
+  status: r.status ?? undefined,
+  tenantName: r.tenant_name ?? undefined,
+  month: r.month ?? undefined,
+});
+
+const tx2r = (t: Partial<AccountingTransaction>, org: string) => ({
+  ...(isValidDbId(t.id) ? { id: t.id } : {}),
+  organization_id: org,
+  building_id: t.buildingId ?? "",
+  date_invoice: t.dateInvoice ?? new Date().toISOString().slice(0, 10),
+  date_payment: t.datePayment || null,
+  unit: t.unit ?? null,
+  description: t.description ?? null,
+  category: t.category ?? null,
+  sub_category: t.subCategory ?? null,
+  account_number: t.accountNumber ?? null,
+  debit: t.debit ?? 0,
+  credit: t.credit ?? 0,
+  status: t.status ?? null,
+  tenant_name: t.tenantName ?? null,
+  month: t.month ?? null,
+});
+
+const adj2c = (r: any): ManualAdjustment => ({
+  id: r.id,
+  buildingId: r.building_id,
+  accountNumber: r.account_number,
+  label: r.label,
+  amount: Number(r.amount),
+  type: r.type,
+  createdAt: r.created_at,
+});
+
+const adj2r = (a: Partial<ManualAdjustment>, org: string) => ({
+  ...(isValidDbId(a.id) ? { id: a.id } : {}),
+  organization_id: org,
+  building_id: a.buildingId ?? "",
+  account_number: a.accountNumber ?? 0,
+  label: a.label ?? "",
+  amount: a.amount ?? 0,
+  type: a.type ?? "debit",
+});
+
+const reno2c = (r: any): Renovation => ({
+  id: r.id,
+  buildingId: r.building_id,
+  unit: r.unit ?? undefined,
+  category: r.category ?? "",
+  item: r.item ?? "",
+  amortizationYears: r.amortization_years ?? 10,
+  dateCompleted: r.date_completed ?? "",
+  cost: Number(r.cost ?? 0),
+  notes: r.notes ?? undefined,
+  createdAt: r.created_at,
+});
+
+const reno2r = (r: Partial<Renovation>, org: string) => ({
+  ...(isValidDbId(r.id) ? { id: r.id } : {}),
+  organization_id: org,
+  building_id: r.buildingId ?? "",
+  unit: r.unit ?? null,
+  category: r.category ?? null,
+  item: r.item ?? null,
+  amortization_years: r.amortizationYears ?? 10,
+  date_completed: r.dateCompleted || null,
+  cost: r.cost ?? 0,
+  notes: r.notes ?? null,
+});
+
+const ba2c = (r: any): BuildingAction => ({
+  id: r.id,
+  buildingId: r.building_id,
+  title: r.title,
+  description: r.description ?? undefined,
+  priority: r.priority,
+  status: r.status,
+  dueDate: r.due_date ?? undefined,
+  createdAt: r.created_at,
+  updatedAt: r.updated_at,
+});
+
+const ba2r = (a: Partial<BuildingAction>, org: string) => ({
+  ...(isValidDbId(a.id) ? { id: a.id } : {}),
+  organization_id: org,
+  building_id: a.buildingId ?? "",
+  title: a.title ?? "",
+  description: a.description ?? null,
+  priority: a.priority ?? "medium",
+  status: a.status ?? "open",
+  due_date: a.dueDate || null,
+});
+
+const tn2c = (r: any): TenantNote => ({ id: r.id, tenantId: r.tenant_id, date: r.date, text: r.text });
+
+const td2c = (r: any): TenantDocument => ({
+  id: r.id,
+  tenantId: r.tenant_id,
+  type: r.type,
+  fileName: r.file_name,
+  fileSize: r.file_size ?? undefined,
+  mimeType: r.mime_type ?? undefined,
+  createdAt: r.created_at,
+  storagePath: r.storage_path ?? undefined,
+});
+
+const abs2c = (r: any): TenantAbsence => ({
+  id: r.id,
+  tenantId: r.tenant_id,
+  startDate: r.start_date,
+  endDate: r.end_date,
+  comment: r.comment ?? undefined,
+});
+
+// ──────────────────────────────────────────────────────────────
+// Hydration
+// ──────────────────────────────────────────────────────────────
+export async function hydrateFromSupabase(): Promise<void> {
+  hydrated = false;
+  try {
+    const [
+      { data: buildings },
+      { data: tenants },
+      { data: notifications },
+      { data: maintenance },
+      { data: rentalApps },
+      { data: calendarEvents },
+      { data: txs },
+      { data: adjs },
+      { data: renos },
+      { data: actions },
+      { data: tenantNotes },
+      { data: tenantDocs },
+      { data: tenantAbsences },
+      { data: accSettings },
+    ] = await Promise.all([
+      supabase.from("buildings").select("*"),
+      supabase.from("tenants").select("*"),
+      supabase.from("notifications").select("*"),
+      supabase.from("maintenance_requests").select("*"),
+      supabase.from("rental_applications").select("*"),
+      supabase.from("calendar_events").select("*"),
+      supabase.from("accounting_transactions").select("*"),
+      supabase.from("manual_adjustments").select("*"),
+      supabase.from("renovations").select("*"),
+      supabase.from("building_actions").select("*"),
+      supabase.from("tenant_notes").select("*"),
+      supabase.from("tenant_documents").select("*"),
+      supabase.from("tenant_absences").select("*"),
+      supabase.from("accounting_settings").select("*"),
+    ]);
+
+    cache.buildings = (buildings ?? []).map(b2c);
+    cache.tenants = (tenants ?? []).map(t2c);
+    cache.notifications = (notifications ?? []).map(n2c);
+    cache.maintenanceRequests = (maintenance ?? []).map(m2c);
+    cache.rentalApplications = (rentalApps ?? []).map(ra2c);
+    cache.calendarEvents = (calendarEvents ?? []).map(ca2c);
+    cache.accountingTransactions = (txs ?? []).map(tx2c);
+    cache.manualAdjustments = (adjs ?? []).map(adj2c);
+    cache.renovations = (renos ?? []).map(reno2c);
+    cache.buildingActions = (actions ?? []).map(ba2c);
+    cache.tenantNotes = (tenantNotes ?? []).map(tn2c);
+    cache.tenantDocuments = (tenantDocs ?? []).map(td2c);
+    cache.tenantAbsences = (tenantAbsences ?? []).map(abs2c);
+    cache.accountingSettings = {};
+    for (const r of accSettings ?? []) {
+      cache.accountingSettings[(r as any).building_id] = {
+        units: ((r as any).units as string[]) ?? [],
+        categories: ((r as any).categories as string[]) ?? [],
+        subCategories: ((r as any).sub_categories as string[]) ?? [],
+        unitAssignments: ((r as any).unit_assignments as Record<string, string>) ?? {},
+        unitTypes: ((r as any).unit_types as any) ?? {},
+      };
+    }
+    hydrated = true;
+  } catch (err) {
+    toastError("hydrate", err);
+    hydrated = true; // don't block the app; cache may be empty
   }
-};
+}
 
-const nowISO = () => new Date().toISOString();
-
-const migrateTenants = (tenants: any[]): Tenant[] => {
-  return (tenants ?? []).map((t) => {
-    const rentNet =
-      Number(t.rentNet ?? t.rent ?? 0) || 0; // compat ancien "rent"
-    const charges = Number(t.charges ?? 0) || 0;
-
-    const leaseEnd =
-      typeof t.leaseEnd === "string" && t.leaseEnd.length > 0 ? t.leaseEnd : "";
-
-    const gender: TenantGender =
-      t.gender === "male" || t.gender === "female" || t.gender === "unspecified"
-        ? t.gender
-        : "unspecified";
-
-    const status: TenantStatus =
-      t.status === "active" || t.status === "pending" || t.status === "ended"
-        ? t.status
-        : "active";
-
-    return {
-      id: String(t.id),
-      name: String(t.name ?? ""),
-      email: String(t.email ?? ""),
-      phone: String(t.phone ?? ""),
-      buildingId: String(t.buildingId ?? ""),
-      buildingName: String(t.buildingName ?? ""),
-      unit: String(t.unit ?? ""),
-      rentNet,
-      charges,
-      leaseStart: String(t.leaseStart ?? ""),
-      leaseEnd: leaseEnd || undefined, // ✅ optionnel
-      status,
-      gender,
-    };
-  });
-};
-
-const initializeDefaultData = () => {
-  // Buildings
-  if (!localStorage.getItem(LS_KEYS.buildings)) {
-    const defaultBuildings: Building[] = [
-      {
-        id: "1",
-        name: "Résidence Bellevue",
-        address: "123 Rue de la Paix, Montréal",
-        units: 24,
-        occupiedUnits: 22,
-        monthlyRevenue: 28800,
-      },
-      {
-        id: "2",
-        name: "Le Château",
-        address: "456 Avenue des Érables, Québec",
-        units: 18,
-        occupiedUnits: 18,
-        monthlyRevenue: 25200,
-      },
-      {
-        id: "3",
-        name: "Les Jardins du Parc",
-        address: "789 Boulevard Saint-Laurent, Laval",
-        units: 32,
-        occupiedUnits: 28,
-        monthlyRevenue: 36400,
-      },
-    ];
-    localStorage.setItem(LS_KEYS.buildings, JSON.stringify(defaultBuildings));
+// ──────────────────────────────────────────────────────────────
+// Diff helpers (compute what changed between cache and a new list)
+// ──────────────────────────────────────────────────────────────
+function diffById<T extends { id: string }>(
+  prev: T[],
+  next: T[],
+): { inserted: T[]; updated: T[]; deletedIds: string[] } {
+  const prevMap = new Map(prev.map((x) => [x.id, x]));
+  const nextMap = new Map(next.map((x) => [x.id, x]));
+  const inserted: T[] = [];
+  const updated: T[] = [];
+  const deletedIds: string[] = [];
+  for (const [id, x] of nextMap) {
+    const p = prevMap.get(id);
+    if (!p) inserted.push(x);
+    else if (JSON.stringify(p) !== JSON.stringify(x)) updated.push(x);
   }
-
-  // Tenants (avec migration compat)
-  const existingTenantsRaw = localStorage.getItem(LS_KEYS.tenants);
-  if (!existingTenantsRaw) {
-    const defaultTenants: Tenant[] = [
-      {
-        id: "1",
-        name: "Dylan Tremblay",
-        email: "dylan@locataire.com",
-        phone: "079 345 67 89",
-        buildingId: "1",
-        buildingName: "Résidence Bellevue",
-        unit: "301",
-        rentNet: 1200,
-        charges: 0,
-        leaseStart: "2024-01-01",
-        leaseEnd: "2025-12-31",
-        status: "active",
-        gender: "male",
-      },
-      {
-        id: "2",
-        name: "Sophie Martin",
-        email: "sophie.martin@email.com",
-        phone: "078 234 56 78",
-        buildingId: "1",
-        buildingName: "Résidence Bellevue",
-        unit: "205",
-        rentNet: 1350,
-        charges: 0,
-        leaseStart: "2024-03-01",
-        leaseEnd: "2025-02-28",
-        status: "active",
-        gender: "female",
-      },
-      {
-        id: "3",
-        name: "Marc Dubois",
-        email: "marc.dubois@email.com",
-        phone: "076 891 23 45",
-        buildingId: "2",
-        buildingName: "Le Château",
-        unit: "102",
-        rentNet: 1400,
-        charges: 0,
-        leaseStart: "2023-09-01",
-        leaseEnd: "2025-08-31",
-        status: "active",
-        gender: "unspecified",
-      },
-    ];
-    localStorage.setItem(LS_KEYS.tenants, JSON.stringify(defaultTenants));
-  } else {
-    const parsed = safeParse<any[]>(existingTenantsRaw, []);
-    const migrated = migrateTenants(parsed);
-    localStorage.setItem(LS_KEYS.tenants, JSON.stringify(migrated));
+  for (const id of prevMap.keys()) {
+    if (!nextMap.has(id)) deletedIds.push(id);
   }
+  return { inserted, updated, deletedIds };
+}
 
-  // Notifications
-  if (!localStorage.getItem(LS_KEYS.notifications)) {
-    const defaultNotifications: Notification[] = [
-      {
-        id: "1",
-        title: "Réparation de la porte d'entrée",
-        message: "Bonjour Dylan, la porte d'entrée du bâtiment a été réparée.",
-        date: new Date(Date.now() - 86400000 * 2).toISOString(),
-        read: false,
-        buildingId: "1",
-        recipientId: "1",
-      },
-      {
-        id: "2",
-        title: "Inspection annuelle",
-        message:
-          "Une inspection annuelle de votre unité aura lieu le 15 février. Merci de vous assurer que quelqu'un soit présent.",
-        date: new Date(Date.now() - 86400000 * 5).toISOString(),
-        read: false,
-        buildingId: "1",
-        recipientId: "1",
-      },
-      {
-        id: "3",
-        title: "Augmentation du loyer",
-        message:
-          "Nous vous informons que le loyer sera augmenté de 2% à partir du 1er juillet 2026, conformément à la réglementation.",
-        date: new Date(Date.now() - 86400000 * 10).toISOString(),
-        read: true,
-        buildingId: "2",
-        recipientId: "3",
-      },
-    ];
-    localStorage.setItem(
-      LS_KEYS.notifications,
-      JSON.stringify(defaultNotifications),
-    );
+async function sync<T extends { id: string }>(
+  table: string,
+  prev: T[],
+  next: T[],
+  toRow: (x: T, org: string) => any,
+  fromRow: (r: any) => T,
+  updateCache: (list: T[]) => void,
+) {
+  const { inserted, updated, deletedIds } = diffById(prev, next);
+  toastInfo(`sync ${table}: +${inserted.length} ~${updated.length} -${deletedIds.length}`);
+  if (inserted.length === 0 && updated.length === 0 && deletedIds.length === 0) return;
+
+  try {
+    const org = await getOrgId();
+
+    if (inserted.length > 0) {
+      const rows = inserted.map((x) => toRow(x, org));
+      toastInfo(`insert ${table}: ${JSON.stringify(rows[0])}`);
+      const { data, error } = await supabase.from(table).insert(rows).select();
+      if (error) throw error;
+      // Replace temp ids with real ids in cache
+      if (data) {
+        const tmpIds = inserted.map((x) => x.id).filter((id) => !isValidDbId(id));
+        if (tmpIds.length > 0) {
+          const inserts = data.map(fromRow);
+          const list = [...next];
+          for (let i = 0; i < tmpIds.length && i < inserts.length; i++) {
+            const idx = list.findIndex((x) => x.id === tmpIds[i]);
+            if (idx >= 0) list[idx] = inserts[i];
+          }
+          updateCache(list);
+        }
+      }
+    }
+    for (const u of updated) {
+      const { error } = await supabase.from(table).update(toRow(u, org)).eq("id", u.id);
+      if (error) throw error;
+    }
+    if (deletedIds.length > 0) {
+      const { error } = await supabase.from(table).delete().in("id", deletedIds);
+      if (error) throw error;
+    }
+  } catch (err) {
+    toastError(`sync:${table}`, err);
   }
+}
 
-  // Maintenance
-  if (!localStorage.getItem(LS_KEYS.maintenanceRequests)) {
-    const defaultRequests: MaintenanceRequest[] = [
-      {
-        id: "1",
-        title: "Robinet qui fuit à la cuisine",
-        description:
-          "Le robinet de la cuisine fuit depuis hier. L'eau coule continuellement même quand il est fermé.",
-        buildingId: "1",
-        buildingName: "Résidence Bellevue",
-        unit: "301",
-        tenantId: "1",
-        tenantName: "Dylan Tremblay",
-        status: "pending",
-        priority: "high",
-        createdAt: new Date(Date.now() - 86400000).toISOString(),
-        updatedAt: new Date(Date.now() - 86400000).toISOString(),
-      },
-      {
-        id: "2",
-        title: "Problème de chauffage",
-        description: "Le radiateur de la chambre principale ne chauffe plus.",
-        buildingId: "1",
-        buildingName: "Résidence Bellevue",
-        unit: "205",
-        tenantId: "2",
-        tenantName: "Sophie Martin",
-        status: "in-progress",
-        priority: "high",
-        createdAt: new Date(Date.now() - 86400000 * 3).toISOString(),
-        updatedAt: new Date(Date.now() - 86400000).toISOString(),
-      },
-      {
-        id: "3",
-        title: "Ampoule grillée dans le couloir",
-        description: "L'ampoule du couloir principal est grillée.",
-        buildingId: "2",
-        buildingName: "Le Château",
-        unit: "102",
-        tenantId: "3",
-        tenantName: "Marc Dubois",
-        status: "completed",
-        priority: "low",
-        createdAt: new Date(Date.now() - 86400000 * 7).toISOString(),
-        updatedAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-      },
-    ];
-    localStorage.setItem(
-      LS_KEYS.maintenanceRequests,
-      JSON.stringify(defaultRequests),
-    );
-  }
+// ──────────────────────────────────────────────────────────────
+// Public API (sync) — same signatures as the previous storage
+// ──────────────────────────────────────────────────────────────
+// Used by components that want to know if initial load is done.
+export function isHydrated() {
+  return hydrated;
+}
 
-  // ✅ Tenant notes
-  if (!localStorage.getItem(LS_KEYS.tenantNotes)) {
-    localStorage.setItem(LS_KEYS.tenantNotes, JSON.stringify([] as TenantNote[]));
-  }
-
-  // ✅ Tenant documents
-  if (!localStorage.getItem(LS_KEYS.tenantDocuments)) {
-    localStorage.setItem(
-      LS_KEYS.tenantDocuments,
-      JSON.stringify([] as TenantDocument[]),
-    );
-  }
-
-  // ✅ Building actions
-  if (!localStorage.getItem(LS_KEYS.buildingActions)) {
-    const defaults: BuildingAction[] = [
-      {
-        id: "a1",
-        buildingId: "1",
-        title: "Planifier contrôle annuel chauffage",
-        description: "Contacter entreprise et fixer un créneau",
-        priority: "medium",
-        status: "open",
-        createdAt: new Date(Date.now() - 86400000 * 4).toISOString(),
-        updatedAt: new Date(Date.now() - 86400000 * 4).toISOString(),
-      },
-      {
-        id: "a2",
-        buildingId: "2",
-        title: "Vérifier assurance immeuble",
-        description: "Comparer primes et franchises avant échéance",
-        priority: "low",
-        status: "open",
-        createdAt: new Date(Date.now() - 86400000 * 12).toISOString(),
-        updatedAt: new Date(Date.now() - 86400000 * 12).toISOString(),
-      },
-    ];
-    localStorage.setItem(LS_KEYS.buildingActions, JSON.stringify(defaults));
-  }
+// Buildings
+export const getBuildings = (): Building[] => cache.buildings;
+export const saveBuildings = (next: Building[]) => {
+  const prev = cache.buildings;
+  // Assign tmp ids to new entries
+  next = next.map((x) => ensureId(x));
+  cache.buildings = next;
+  void sync<Building>("buildings", prev, next, b2r as any, b2c, (list) => (cache.buildings = list));
 };
 
-// ✅ Absences
-export const getTenantAbsences = (): TenantAbsence[] => {
-  return safeParse<TenantAbsence[]>(localStorage.getItem(LS_KEYS.tenantAbsences), []);
-};
-export const saveTenantAbsences = (absences: TenantAbsence[]) => {
-  localStorage.setItem(LS_KEYS.tenantAbsences, JSON.stringify(absences));
-};
-export const addTenantAbsence = (absence: Omit<TenantAbsence, "id">) => {
-  const absences = getTenantAbsences();
-  const newAbsence = { id: `abs-${Date.now()}`, ...absence };
-  saveTenantAbsences([...absences, newAbsence]);
-  return newAbsence;
+// Tenants
+export const getTenants = (): Tenant[] => cache.tenants;
+export const saveTenants = (next: Tenant[]) => {
+  const prev = cache.tenants;
+  next = next.map((x) => ensureId(x));
+  cache.tenants = next;
+  void sync<Tenant>("tenants", prev, next, t2r as any, t2c, (list) => (cache.tenants = list));
 };
 
-// ------------------------
-// Storage functions
-// ------------------------
-export const getBuildings = (): Building[] => {
-  initializeDefaultData();
-  return safeParse<Building[]>(
-    localStorage.getItem(LS_KEYS.buildings),
-    [],
-  );
+// Notifications
+export const getNotifications = (): Notification[] => cache.notifications;
+export const saveNotifications = (next: Notification[]) => {
+  const prev = cache.notifications;
+  next = next.map((x) => ensureId(x));
+  cache.notifications = next;
+  void sync<Notification>("notifications", prev, next, n2r as any, n2c, (list) => (cache.notifications = list));
 };
 
-export const saveBuildings = (buildings: Building[]) => {
-  localStorage.setItem(LS_KEYS.buildings, JSON.stringify(buildings));
+// Maintenance requests
+export const getMaintenanceRequests = (): MaintenanceRequest[] => cache.maintenanceRequests;
+export const saveMaintenanceRequests = (next: MaintenanceRequest[]) => {
+  const prev = cache.maintenanceRequests;
+  next = next.map((x) => ensureId(x));
+  cache.maintenanceRequests = next;
+  void sync<MaintenanceRequest>("maintenance_requests", prev, next, m2r as any, m2c, (list) => (cache.maintenanceRequests = list));
 };
 
-export const getTenants = (): Tenant[] => {
-  initializeDefaultData();
-  const raw = localStorage.getItem(LS_KEYS.tenants);
-  const parsed = safeParse<any[]>(raw, []);
-  const migrated = migrateTenants(parsed);
-  // garde la DB clean si anciens champs
-  localStorage.setItem(LS_KEYS.tenants, JSON.stringify(migrated));
-  return migrated;
+// Rental applications
+export const getRentalApplications = (): RentalApplication[] => cache.rentalApplications;
+export const saveRentalApplications = (next: RentalApplication[]) => {
+  const prev = cache.rentalApplications;
+  next = next.map((x) => ensureId(x));
+  cache.rentalApplications = next;
+  void sync<RentalApplication>("rental_applications", prev, next, ra2r as any, ra2c, (list) => (cache.rentalApplications = list));
 };
-
-export const saveTenants = (tenants: Tenant[]) => {
-  // ✅ on normalize avant save
-  const normalized = migrateTenants(tenants as any);
-  localStorage.setItem(LS_KEYS.tenants, JSON.stringify(normalized));
-};
-
-export const getNotifications = (): Notification[] => {
-  initializeDefaultData();
-  return safeParse<Notification[]>(
-    localStorage.getItem(LS_KEYS.notifications),
-    [],
-  );
-};
-
-export const saveNotifications = (notifications: Notification[]) => {
-  localStorage.setItem(LS_KEYS.notifications, JSON.stringify(notifications));
-};
-
-export const getMaintenanceRequests = (): MaintenanceRequest[] => {
-  initializeDefaultData();
-  return safeParse<MaintenanceRequest[]>(
-    localStorage.getItem(LS_KEYS.maintenanceRequests),
-    [],
-  );
-};
-
-export const saveMaintenanceRequests = (requests: MaintenanceRequest[]) => {
-  localStorage.setItem(
-    LS_KEYS.maintenanceRequests,
-    JSON.stringify(requests),
-  );
-};
-
-// ✅ Tenant notes
-export const getTenantNotes = (): TenantNote[] => {
-  initializeDefaultData();
-  return safeParse<TenantNote[]>(
-    localStorage.getItem(LS_KEYS.tenantNotes),
-    [],
-  );
-};
-
-export const saveTenantNotes = (notes: TenantNote[]) => {
-  localStorage.setItem(LS_KEYS.tenantNotes, JSON.stringify(notes));
-};
-
-export const addTenantNote = (tenantId: string, text: string) => {
-  const notes = getTenantNotes();
-  const newNote: TenantNote = {
-    id: `${Date.now()}`,
-    tenantId,
-    date: nowISO(),
-    text,
-  };
-  saveTenantNotes([newNote, ...notes]);
-  return newNote;
-};
-
-// ✅ Tenant documents
-export const getTenantDocuments = (): TenantDocument[] => {
-  initializeDefaultData();
-  return safeParse<TenantDocument[]>(
-    localStorage.getItem(LS_KEYS.tenantDocuments),
-    [],
-  );
-};
-
-export const saveTenantDocuments = (docs: TenantDocument[]) => {
-  localStorage.setItem(LS_KEYS.tenantDocuments, JSON.stringify(docs));
-};
-
-export const addTenantDocument = (doc: Omit<TenantDocument, "id" | "createdAt">) => {
-  const docs = getTenantDocuments();
-  const newDoc: TenantDocument = {
-    id: `${Date.now()}`,
-    createdAt: nowISO(),
-    ...doc,
-  };
-  saveTenantDocuments([newDoc, ...docs]);
-  return newDoc;
-};
-
-export const deleteTenantDocument = (docId: string) => {
-  const docs = getTenantDocuments();
-  saveTenantDocuments(docs.filter((d) => d.id !== docId));
-};
-
-// ✅ Building actions
-export const getBuildingActions = (): BuildingAction[] => {
-  initializeDefaultData();
-  return safeParse<BuildingAction[]>(
-    localStorage.getItem(LS_KEYS.buildingActions),
-    [],
-  );
-};
-
-export const saveBuildingActions = (actions: BuildingAction[]) => {
-  localStorage.setItem(LS_KEYS.buildingActions, JSON.stringify(actions));
-};
-
-export const addBuildingAction = (
-  action: Omit<BuildingAction, "id" | "createdAt" | "updatedAt">,
+export const addRentalApplication = (
+  app: Omit<RentalApplication, "id" | "createdAt" | "updatedAt" | "status">,
 ) => {
-  const actions = getBuildingActions();
-  const newAction: BuildingAction = {
-    id: `${Date.now()}`,
-    createdAt: nowISO(),
-    updatedAt: nowISO(),
-    ...action,
-  };
-  saveBuildingActions([newAction, ...actions]);
-  return newAction;
-};
-
-export const updateBuildingAction = (updated: BuildingAction) => {
-  const actions = getBuildingActions();
-  const next = actions.map((a) =>
-    a.id === updated.id ? { ...updated, updatedAt: nowISO() } : a,
-  );
-  saveBuildingActions(next);
-};
-
-export const deleteBuildingAction = (id: string) => {
-  const actions = getBuildingActions();
-  saveBuildingActions(actions.filter((a) => a.id !== id));
-};
-
-// ✅ Rental Applications
-export const getRentalApplications = (): RentalApplication[] => {
-  const raw = localStorage.getItem(LS_KEYS.rentalApplications);
-  if (!raw) {
-    // Initialize with sample data
-    const defaults: RentalApplication[] = [
-      {
-        id: "ra1",
-        buildingId: "1",
-        buildingName: "Résidence Bellevue",
-        desiredUnit: "401",
-        applicantName: "Alice Fontaine",
-        applicantEmail: "alice.fontaine@email.com",
-        applicantPhone: "+41 76 123 45 67",
-        currentAddress: "12 Rue du Lac, 1003 Lausanne",
-        desiredMoveIn: "2026-05-01",
-        monthlyIncome: 7200,
-        householdSize: 2,
-        occupation: "Ingénieure logiciel",
-        employer: "TechCorp SA",
-        message: "Nous sommes un couple sans animaux, très intéressés par cet appartement proche de notre lieu de travail.",
-        status: "received",
-        createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-        updatedAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-      },
-      {
-        id: "ra2",
-        buildingId: "2",
-        buildingName: "Le Château",
-        desiredUnit: "203",
-        applicantName: "Pierre Morel",
-        applicantEmail: "pierre.morel@email.com",
-        applicantPhone: "+41 79 987 65 43",
-        currentAddress: "45 Avenue de la Gare, 1001 Lausanne",
-        desiredMoveIn: "2026-06-01",
-        monthlyIncome: 5800,
-        householdSize: 1,
-        occupation: "Comptable",
-        employer: "FinancePlus Sàrl",
-        message: "Je cherche un appartement calme pour une personne. J'ai d'excellentes références de mon propriétaire actuel.",
-        status: "under-review",
-        createdAt: new Date(Date.now() - 86400000 * 5).toISOString(),
-        updatedAt: new Date(Date.now() - 86400000 * 1).toISOString(),
-      },
-      {
-        id: "ra3",
-        buildingId: "1",
-        buildingName: "Résidence Bellevue",
-        desiredUnit: "105",
-        applicantName: "Famille Keller",
-        applicantEmail: "keller.family@email.com",
-        applicantPhone: "+41 78 456 78 90",
-        currentAddress: "8 Chemin des Vignes, 1009 Pully",
-        desiredMoveIn: "2026-04-15",
-        monthlyIncome: 9500,
-        householdSize: 4,
-        occupation: "Directeur commercial",
-        employer: "SwissRetail AG",
-        message: "Famille de 4 personnes (2 adultes, 2 enfants) cherchant un logement plus spacieux. Nous avons un dossier complet à disposition.",
-        status: "accepted",
-        createdAt: new Date(Date.now() - 86400000 * 10).toISOString(),
-        updatedAt: new Date(Date.now() - 86400000 * 3).toISOString(),
-      },
-    ];
-    localStorage.setItem(LS_KEYS.rentalApplications, JSON.stringify(defaults));
-    return defaults;
-  }
-  return safeParse<RentalApplication[]>(raw, []);
-};
-
-export const saveRentalApplications = (apps: RentalApplication[]) => {
-  localStorage.setItem(LS_KEYS.rentalApplications, JSON.stringify(apps));
-};
-
-export const addRentalApplication = (app: Omit<RentalApplication, "id" | "createdAt" | "updatedAt" | "status">) => {
-  const apps = getRentalApplications();
   const newApp: RentalApplication = {
-    id: `ra-${Date.now()}`,
+    id: `tmp_${Date.now()}_${Math.random().toString(16).slice(2, 6)}`,
     status: "received",
     createdAt: nowISO(),
     updatedAt: nowISO(),
     ...app,
   };
-  saveRentalApplications([newApp, ...apps]);
+  saveRentalApplications([newApp, ...cache.rentalApplications]);
   return newApp;
 };
-
 export const updateRentalApplication = (updated: RentalApplication) => {
-  const apps = getRentalApplications();
-  const next = apps.map((a) =>
+  const next = cache.rentalApplications.map((a) =>
     a.id === updated.id ? { ...updated, updatedAt: nowISO() } : a,
   );
   saveRentalApplications(next);
 };
-
 export const deleteRentalApplication = (id: string) => {
-  const apps = getRentalApplications();
-  saveRentalApplications(apps.filter((a) => a.id !== id));
+  saveRentalApplications(cache.rentalApplications.filter((a) => a.id !== id));
 };
 
-// ── Currency helpers ──
-export const getBaseCurrency = (): Currency => {
-  const stored = localStorage.getItem(LS_KEYS.baseCurrency);
-  if (stored === "CHF" || stored === "EUR" || stored === "USD" || stored === "GBP") return stored;
-  return "CHF";
+// Tenant notes
+export const getTenantNotes = (): TenantNote[] => cache.tenantNotes;
+export const saveTenantNotes = (next: TenantNote[]) => {
+  const prev = cache.tenantNotes;
+  next = next.map((x) => ensureId(x));
+  cache.tenantNotes = next;
+  void (async () => {
+    try {
+      const org = await getOrgId();
+      const { inserted, deletedIds } = diffById(prev, next);
+      if (inserted.length > 0) {
+        const rows = inserted.map((n) => ({
+          ...(isValidDbId(n.id) ? { id: n.id } : {}),
+          organization_id: org,
+          tenant_id: n.tenantId,
+          text: n.text,
+          date: n.date,
+        }));
+        const { data, error } = await supabase.from("tenant_notes").insert(rows).select();
+        if (error) throw error;
+        if (data) {
+          const inserts = data.map(tn2c);
+          const list = [...next];
+          const tmpIds = inserted.map((n) => n.id).filter((id) => !isValidDbId(id));
+          for (let i = 0; i < tmpIds.length && i < inserts.length; i++) {
+            const idx = list.findIndex((n) => n.id === tmpIds[i]);
+            if (idx >= 0) list[idx] = inserts[i];
+          }
+          cache.tenantNotes = list;
+        }
+      }
+      if (deletedIds.length > 0) {
+        await supabase.from("tenant_notes").delete().in("id", deletedIds);
+      }
+    } catch (err) {
+      toastError("sync:tenant_notes", err);
+    }
+  })();
+};
+export const addTenantNote = (tenantId: string, text: string) => {
+  const newNote: TenantNote = {
+    id: `tmp_${Date.now()}_${Math.random().toString(16).slice(2, 6)}`,
+    tenantId,
+    date: nowISO(),
+    text,
+  };
+  saveTenantNotes([newNote, ...cache.tenantNotes]);
+  return newNote;
 };
 
-export const saveBaseCurrency = (c: Currency): void => {
-  localStorage.setItem(LS_KEYS.baseCurrency, c);
+// Tenant documents (metadata — files must go via uploadTenantDocumentFile)
+export const getTenantDocuments = (): TenantDocument[] => cache.tenantDocuments;
+export const saveTenantDocuments = (next: TenantDocument[]) => {
+  const prev = cache.tenantDocuments;
+  cache.tenantDocuments = next;
+  // Only support delete via this path
+  const prevIds = new Set(prev.map((d) => d.id));
+  const nextIds = new Set(next.map((d) => d.id));
+  const deletedIds = [...prevIds].filter((id) => !nextIds.has(id));
+  if (deletedIds.length > 0) {
+    void (async () => {
+      try {
+        const paths = prev.filter((d) => deletedIds.includes(d.id) && d.storagePath).map((d) => d.storagePath!);
+        if (paths.length > 0) await supabase.storage.from("tenant-documents").remove(paths);
+        await supabase.from("tenant_documents").delete().in("id", deletedIds);
+      } catch (err) {
+        toastError("sync:tenant_documents (delete)", err);
+      }
+    })();
+  }
+};
+export const addTenantDocument = (doc: Omit<TenantDocument, "id" | "createdAt">) => {
+  // Legacy path: store metadata only (if caller already uploaded or supplied dataUrl)
+  const newDoc: TenantDocument = {
+    id: `tmp_${Date.now()}`,
+    createdAt: nowISO(),
+    ...doc,
+  };
+  cache.tenantDocuments = [newDoc, ...cache.tenantDocuments];
+  void (async () => {
+    try {
+      const org = await getOrgId();
+      const { data, error } = await supabase
+        .from("tenant_documents")
+        .insert({
+          organization_id: org,
+          tenant_id: doc.tenantId,
+          type: doc.type,
+          file_name: doc.fileName,
+          file_size: doc.fileSize ?? null,
+          mime_type: doc.mimeType ?? null,
+          storage_path: doc.storagePath ?? null,
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      const inserted = td2c(data);
+      cache.tenantDocuments = cache.tenantDocuments.map((d) => (d.id === newDoc.id ? inserted : d));
+    } catch (err) {
+      toastError("sync:tenant_documents (insert)", err);
+    }
+  })();
+  return newDoc;
+};
+export const deleteTenantDocument = (id: string) => {
+  saveTenantDocuments(cache.tenantDocuments.filter((d) => d.id !== id));
 };
 
-export const getExchangeRateCache = (): ExchangeRateCache | null => {
-  const raw = localStorage.getItem(LS_KEYS.exchangeRates);
-  return raw ? safeParse<ExchangeRateCache | null>(raw, null) : null;
+// Upload a file to Storage + create the metadata row
+export async function uploadTenantDocumentFile(params: {
+  tenantId: string;
+  file: File;
+  type: TenantDocumentType;
+}): Promise<TenantDocument> {
+  const org = await getOrgId();
+  const path = `${org}/${params.tenantId}/${Date.now()}-${params.file.name}`;
+  const up = await supabase.storage
+    .from("tenant-documents")
+    .upload(path, params.file, { cacheControl: "3600", upsert: false });
+  if (up.error) throw up.error;
+
+  const { data, error } = await supabase
+    .from("tenant_documents")
+    .insert({
+      organization_id: org,
+      tenant_id: params.tenantId,
+      type: params.type,
+      file_name: params.file.name,
+      file_size: params.file.size,
+      mime_type: params.file.type,
+      storage_path: path,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  const doc = td2c(data);
+  cache.tenantDocuments = [doc, ...cache.tenantDocuments];
+  return doc;
+}
+
+export async function getTenantDocumentSignedUrl(storagePath: string): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from("tenant-documents")
+    .createSignedUrl(storagePath, 60 * 10);
+  if (error) throw error;
+  return data.signedUrl;
+}
+
+// Building actions
+export const getBuildingActions = (): BuildingAction[] => cache.buildingActions;
+export const saveBuildingActions = (next: BuildingAction[]) => {
+  const prev = cache.buildingActions;
+  next = next.map((x) => ensureId(x));
+  cache.buildingActions = next;
+  void sync<BuildingAction>("building_actions", prev, next, ba2r as any, ba2c, (list) => (cache.buildingActions = list));
+};
+export const addBuildingAction = (
+  action: Omit<BuildingAction, "id" | "createdAt" | "updatedAt">,
+) => {
+  const newAction: BuildingAction = {
+    id: `tmp_${Date.now()}_${Math.random().toString(16).slice(2, 6)}`,
+    createdAt: nowISO(),
+    updatedAt: nowISO(),
+    ...action,
+  };
+  saveBuildingActions([newAction, ...cache.buildingActions]);
+  return newAction;
+};
+export const updateBuildingAction = (updated: BuildingAction) => {
+  saveBuildingActions(
+    cache.buildingActions.map((a) => (a.id === updated.id ? { ...updated, updatedAt: nowISO() } : a)),
+  );
+};
+export const deleteBuildingAction = (id: string) => {
+  saveBuildingActions(cache.buildingActions.filter((a) => a.id !== id));
 };
 
-export const saveExchangeRateCache = (cache: ExchangeRateCache): void => {
-  localStorage.setItem(LS_KEYS.exchangeRates, JSON.stringify(cache));
+// Tenant absences
+export const getTenantAbsences = (): TenantAbsence[] => cache.tenantAbsences;
+export const saveTenantAbsences = (next: TenantAbsence[]) => {
+  const prev = cache.tenantAbsences;
+  next = next.map((x) => ensureId(x));
+  cache.tenantAbsences = next;
+  void (async () => {
+    try {
+      const org = await getOrgId();
+      const { inserted, deletedIds } = diffById(prev, next);
+      if (inserted.length > 0) {
+        const rows = inserted.map((a) => ({
+          ...(isValidDbId(a.id) ? { id: a.id } : {}),
+          organization_id: org,
+          tenant_id: a.tenantId,
+          start_date: a.startDate,
+          end_date: a.endDate,
+          comment: a.comment ?? null,
+        }));
+        const { data, error } = await supabase.from("tenant_absences").insert(rows).select();
+        if (error) throw error;
+        if (data) {
+          const inserts = (data as any[]).map(abs2c);
+          const list = [...next];
+          const tmpIds = inserted.map((a) => a.id).filter((id) => !isValidDbId(id));
+          for (let i = 0; i < tmpIds.length && i < inserts.length; i++) {
+            const idx = list.findIndex((a) => a.id === tmpIds[i]);
+            if (idx >= 0) list[idx] = inserts[i];
+          }
+          cache.tenantAbsences = list;
+        }
+      }
+      if (deletedIds.length > 0) {
+        await supabase.from("tenant_absences").delete().in("id", deletedIds);
+      }
+    } catch (err) {
+      toastError("sync:tenant_absences", err);
+    }
+  })();
+};
+export const addTenantAbsence = (absence: Omit<TenantAbsence, "id">) => {
+  const newAbsence: TenantAbsence = {
+    id: `tmp_${Date.now()}_${Math.random().toString(16).slice(2, 6)}`,
+    ...absence,
+  };
+  saveTenantAbsences([...cache.tenantAbsences, newAbsence]);
+  return newAbsence;
 };
 
-// ─── Calendar Events ──────────────────────────────────────────
-
-export const getCalendarEvents = (): CalendarEvent[] =>
-  safeParse<CalendarEvent[]>(localStorage.getItem(LS_KEYS.calendarEvents), []);
-
-export const saveCalendarEvents = (events: CalendarEvent[]) =>
-  localStorage.setItem(LS_KEYS.calendarEvents, JSON.stringify(events));
-
+// Calendar events
+export const getCalendarEvents = (): CalendarEvent[] => cache.calendarEvents;
+export const saveCalendarEvents = (next: CalendarEvent[]) => {
+  const prev = cache.calendarEvents;
+  next = next.map((x) => ensureId(x));
+  cache.calendarEvents = next;
+  void sync<CalendarEvent>("calendar_events", prev, next, ca2r as any, ca2c, (list) => (cache.calendarEvents = list));
+};
 export const addCalendarEvent = (event: Omit<CalendarEvent, "id" | "createdAt">): CalendarEvent => {
-  const events = getCalendarEvents();
   const newEvent: CalendarEvent = {
-    id: `${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
+    id: `tmp_${Date.now()}_${Math.random().toString(16).slice(2, 6)}`,
     createdAt: nowISO(),
     ...event,
   };
-  saveCalendarEvents([newEvent, ...events]);
+  saveCalendarEvents([newEvent, ...cache.calendarEvents]);
   return newEvent;
 };
-
 export const deleteCalendarEvent = (id: string) => {
-  const events = getCalendarEvents();
-  saveCalendarEvents(events.filter((e) => e.id !== id));
+  saveCalendarEvents(cache.calendarEvents.filter((e) => e.id !== id));
 };
 
-// ─── Accounting Transactions ──────────────────────────────────
-
+// Accounting transactions
 export const getAccountingTransactions = (buildingId?: string): AccountingTransaction[] => {
-  const all = safeParse<AccountingTransaction[]>(localStorage.getItem(LS_KEYS.accountingTransactions), []);
-  return buildingId ? all.filter((t) => t.buildingId === buildingId) : all;
+  return buildingId
+    ? cache.accountingTransactions.filter((t) => t.buildingId === buildingId)
+    : cache.accountingTransactions;
 };
-
-export const saveAccountingTransactions = (txs: AccountingTransaction[]) =>
-  localStorage.setItem(LS_KEYS.accountingTransactions, JSON.stringify(txs));
-
+export const saveAccountingTransactions = (txs: AccountingTransaction[]) => {
+  const prev = cache.accountingTransactions;
+  const next = txs.map((x) => ensureId(x));
+  cache.accountingTransactions = next;
+  void sync<AccountingTransaction>("accounting_transactions", prev, next, tx2r as any, tx2c, (list) => (cache.accountingTransactions = list));
+};
 export const addAccountingTransactions = (txs: Omit<AccountingTransaction, "id">[]): AccountingTransaction[] => {
-  const existing = getAccountingTransactions();
-  const newTxs = txs.map((tx, i) => ({
-    id: `tx-${Date.now()}-${i}-${Math.random().toString(16).slice(2, 6)}`,
+  const newTxs: AccountingTransaction[] = txs.map((tx, i) => ({
+    id: `tmp_${Date.now()}_${i}_${Math.random().toString(16).slice(2, 6)}`,
     ...tx,
   }));
-  saveAccountingTransactions([...existing, ...newTxs]);
+  saveAccountingTransactions([...cache.accountingTransactions, ...newTxs]);
   return newTxs;
 };
-
 export const deleteAccountingTransactions = (buildingId: string) => {
-  const all = getAccountingTransactions();
-  saveAccountingTransactions(all.filter((t) => t.buildingId !== buildingId));
+  const kept = cache.accountingTransactions.filter((t) => t.buildingId !== buildingId);
+  const removed = cache.accountingTransactions.filter((t) => t.buildingId === buildingId);
+  cache.accountingTransactions = kept;
+  if (removed.length > 0) {
+    void (async () => {
+      try {
+        await supabase.from("accounting_transactions").delete().eq("building_id", buildingId);
+      } catch (err) {
+        toastError("sync:accounting_transactions (delete)", err);
+      }
+    })();
+  }
 };
 
-// ─── Manual Adjustments ───────────────────────────────────────
-
+// Manual adjustments
 export const getManualAdjustments = (buildingId?: string): ManualAdjustment[] => {
-  const all = safeParse<ManualAdjustment[]>(localStorage.getItem(LS_KEYS.manualAdjustments), []);
-  return buildingId ? all.filter((a) => a.buildingId === buildingId) : all;
+  return buildingId
+    ? cache.manualAdjustments.filter((a) => a.buildingId === buildingId)
+    : cache.manualAdjustments;
 };
-
-export const saveManualAdjustments = (adjs: ManualAdjustment[]) =>
-  localStorage.setItem(LS_KEYS.manualAdjustments, JSON.stringify(adjs));
-
+export const saveManualAdjustments = (adjs: ManualAdjustment[]) => {
+  const prev = cache.manualAdjustments;
+  const next = adjs.map((x) => ensureId(x));
+  cache.manualAdjustments = next;
+  void sync<ManualAdjustment>("manual_adjustments", prev, next, adj2r as any, adj2c, (list) => (cache.manualAdjustments = list));
+};
 export const addManualAdjustment = (adj: Omit<ManualAdjustment, "id" | "createdAt">): ManualAdjustment => {
-  const all = getManualAdjustments();
-  const newAdj: ManualAdjustment = { id: `adj-${Date.now()}`, createdAt: nowISO(), ...adj };
-  saveManualAdjustments([...all, newAdj]);
+  const newAdj: ManualAdjustment = {
+    id: `tmp_${Date.now()}_${Math.random().toString(16).slice(2, 6)}`,
+    createdAt: nowISO(),
+    ...adj,
+  };
+  saveManualAdjustments([...cache.manualAdjustments, newAdj]);
   return newAdj;
 };
-
 export const deleteManualAdjustment = (id: string) => {
-  const all = getManualAdjustments();
-  saveManualAdjustments(all.filter((a) => a.id !== id));
+  saveManualAdjustments(cache.manualAdjustments.filter((a) => a.id !== id));
 };
 
-// ─── Accounting Settings ──────────────────────────────────────
-
-const DEFAULT_ACCOUNTING_SETTINGS: Record<string, AccountingSettings> = {};
-
-// ─── Renovations ──────────────────────────────────────────────
-
+// Renovations
 export const getRenovations = (buildingId?: string): Renovation[] => {
-  const all = safeParse<Renovation[]>(localStorage.getItem(LS_KEYS.renovations), []);
-  return buildingId ? all.filter((r) => r.buildingId === buildingId) : all;
+  return buildingId
+    ? cache.renovations.filter((r) => r.buildingId === buildingId)
+    : cache.renovations;
 };
-
-export const saveRenovations = (renovations: Renovation[]) =>
-  localStorage.setItem(LS_KEYS.renovations, JSON.stringify(renovations));
-
+export const saveRenovations = (renovations: Renovation[]) => {
+  const prev = cache.renovations;
+  const next = renovations.map((x) => ensureId(x));
+  cache.renovations = next;
+  void sync<Renovation>("renovations", prev, next, reno2r as any, reno2c, (list) => (cache.renovations = list));
+};
 export const addRenovation = (reno: Omit<Renovation, "id" | "createdAt">): Renovation => {
-  const all = getRenovations();
-  const newReno: Renovation = { id: `reno-${Date.now()}-${Math.random().toString(16).slice(2,6)}`, createdAt: nowISO(), ...reno };
-  saveRenovations([newReno, ...all]);
+  const newReno: Renovation = {
+    id: `tmp_${Date.now()}_${Math.random().toString(16).slice(2, 6)}`,
+    createdAt: nowISO(),
+    ...reno,
+  };
+  saveRenovations([newReno, ...cache.renovations]);
   return newReno;
 };
-
 export const deleteRenovation = (id: string) => {
-  saveRenovations(getRenovations().filter((r) => r.id !== id));
+  saveRenovations(cache.renovations.filter((r) => r.id !== id));
 };
 
+// Accounting settings
 export const getAccountingSettings = (buildingId: string): AccountingSettings => {
-  const all = safeParse<Record<string, AccountingSettings>>(
-    localStorage.getItem(LS_KEYS.accountingSettings), {}
-  );
-  return all[buildingId] || { units: [], categories: [], subCategories: [] };
+  return cache.accountingSettings[buildingId] ?? { units: [], categories: [], subCategories: [] };
+};
+export const saveAccountingSettings = (buildingId: string, settings: AccountingSettings) => {
+  cache.accountingSettings[buildingId] = settings;
+  void (async () => {
+    try {
+      const org = await getOrgId();
+      await supabase.from("accounting_settings").upsert(
+        {
+          organization_id: org,
+          building_id: buildingId,
+          units: settings.units ?? [],
+          categories: settings.categories ?? [],
+          sub_categories: settings.subCategories ?? [],
+          unit_assignments: settings.unitAssignments ?? {},
+          unit_types: settings.unitTypes ?? {},
+        },
+        { onConflict: "building_id" },
+      );
+    } catch (err) {
+      toastError("sync:accounting_settings", err);
+    }
+  })();
 };
 
-export const saveAccountingSettings = (buildingId: string, settings: AccountingSettings) => {
-  const all = safeParse<Record<string, AccountingSettings>>(
-    localStorage.getItem(LS_KEYS.accountingSettings), {}
-  );
-  all[buildingId] = settings;
-  localStorage.setItem(LS_KEYS.accountingSettings, JSON.stringify(all));
+// Currency helpers (stay in localStorage — personal device pref)
+export const getBaseCurrency = (): Currency => cache.baseCurrency;
+export const saveBaseCurrency = (c: Currency) => {
+  cache.baseCurrency = c;
+  localStorage.setItem("immostore_baseCurrency", c);
+};
+
+export const getExchangeRateCache = (): ExchangeRateCache | null => cache.exchangeRates;
+export const saveExchangeRateCache = (c: ExchangeRateCache) => {
+  cache.exchangeRates = c;
+  localStorage.setItem("immostore_exchangeRates", JSON.stringify(c));
 };

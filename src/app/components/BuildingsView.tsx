@@ -28,6 +28,8 @@ import {
 import { getBuildings, saveBuildings, getTenants, getMaintenanceRequests, getAccountingSettings, saveAccountingSettings, type Building, type Currency, type Tenant, type MaintenanceRequest, type AccountingSettings } from "../utils/storage";
 import { useLanguage } from "../i18n/LanguageContext";
 import { useCurrency } from "../context/CurrencyContext";
+import { usePlanLimits } from "../lib/billing";
+import { PlanLimitModal } from "./PlanLimitModal";
 
 /* ─── Helpers ────────────────────────────────────────────────── */
 
@@ -823,8 +825,10 @@ function BuildingTabs({ building, t, occPct, occColor, formattedRevenue }: {
 
 export function BuildingsView({ onSelectBuilding, initialSelectedId }: BuildingsViewProps) {
   const { t } = useLanguage();
+  const { plan, limits, loading: planLoading } = usePlanLimits();
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [showLimitModal, setShowLimitModal] = useState(false);
   const [editingBuilding, setEditingBuilding] = useState<Building | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId ?? null);
   const { formatAmount, getBuildingCurrency, convertToBase, baseCurrency } = useCurrency();
@@ -952,7 +956,13 @@ export function BuildingsView({ onSelectBuilding, initialSelectedId }: Buildings
 
         <button
           type="button"
-          onClick={() => { resetForm(); setEditingBuilding(null); setIsDialogOpen(true); }}
+          onClick={() => {
+            if (!planLoading && limits.buildings !== null && buildings.length >= limits.buildings) {
+              setShowLimitModal(true);
+              return;
+            }
+            resetForm(); setEditingBuilding(null); setIsDialogOpen(true);
+          }}
           className="flex items-center gap-2 text-[13px] font-medium transition-colors shrink-0"
           style={{
             padding: "10px 20px",
@@ -1082,6 +1092,14 @@ export function BuildingsView({ onSelectBuilding, initialSelectedId }: Buildings
         setFormData={setFormData}
         editing={!!editingBuilding}
         t={t}
+      />
+
+      <PlanLimitModal
+        open={showLimitModal}
+        onClose={() => setShowLimitModal(false)}
+        kind="building"
+        currentPlan={plan}
+        limit={limits.buildings}
       />
     </div>
   );

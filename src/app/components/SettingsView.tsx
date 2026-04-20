@@ -18,6 +18,14 @@ import { useAuth } from "../context/AuthContext";
 import { useCurrency } from "../context/CurrencyContext";
 import { useLanguage } from "../i18n/LanguageContext";
 import { LANGUAGES } from "../i18n/translations";
+import {
+  PLANS,
+  fetchSubscription,
+  startCheckout,
+  openBillingPortal,
+  type Plan,
+  type SubscriptionInfo,
+} from "../lib/billing";
 
 /* ─── Types ────────────────────────────────────────────────────── */
 
@@ -216,7 +224,7 @@ function SaveButton({ saved, onClick }: { saved: boolean; onClick: () => void })
 function ProfileTab({ user }: { user: any }) {
   const [name, setName] = useState(user?.name ?? "");
   const [email, setEmail] = useState(user?.email ?? "");
-  const [phone, setPhone] = useState("+41 79 000 00 00");
+  const [phone, setPhone] = useState("079 612 34 56");
   const [saved, setSaved] = useState(false);
 
   const handleSave = () => {
@@ -570,140 +578,223 @@ function AppearanceTab() {
 }
 
 function BillingTab() {
+  const [sub, setSub] = useState<SubscriptionInfo | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchSubscription()
+      .then((s) => setSub(s))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleSubscribe = async (plan: Plan) => {
+    setError(null);
+    setBusy(plan);
+    try {
+      await startCheckout(plan);
+    } catch (e: any) {
+      setError(e.message ?? "Erreur lors du paiement");
+      setBusy(null);
+    }
+  };
+
+  const handlePortal = async () => {
+    setError(null);
+    setBusy("portal");
+    try {
+      await openBillingPortal();
+    } catch (e: any) {
+      setError(e.message ?? "Erreur lors de l'ouverture du portail");
+      setBusy(null);
+    }
+  };
+
+  const currentPlan = sub?.plan ?? null;
+  const status = sub?.status ?? "trialing";
+  const isActive = status === "active" || status === "trialing";
+
   return (
     <>
-      <Section title="Current Plan" description="Your active subscription plan.">
-        <div
-          className="flex items-center justify-between"
-          style={{
-            padding: "20px 24px",
-            borderRadius: 14,
-            background: "var(--background)",
-            border: "1px solid var(--border)",
-          }}
-        >
-          <div>
-            <p className="text-[16px] font-bold" style={{ color: "var(--foreground)" }}>
-              Pro Plan
-            </p>
-            <p className="text-[12px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>
-              Unlimited buildings, tenants, and analytics
-            </p>
-          </div>
-          <div className="text-right">
-            <p className="text-[18px] font-bold" style={{ color: "var(--foreground)" }}>
-              CHF 49
-            </p>
-            <p className="text-[11px]" style={{ color: "var(--muted-foreground)" }}>
-              / month
-            </p>
-          </div>
-        </div>
-      </Section>
-
-      <Section title="Payment Method" description="Manage your payment details.">
-        <div
-          className="flex items-center gap-4"
-          style={{
-            padding: "16px 20px",
-            borderRadius: 12,
-            background: "var(--background)",
-            border: "1px solid var(--border)",
-          }}
-        >
+      <Section title="Plan actuel" description="Votre abonnement actuel.">
+        {loading ? (
+          <div style={{ padding: 20, color: "var(--muted-foreground)" }}>Chargement…</div>
+        ) : (
           <div
-            className="w-10 h-7 rounded flex items-center justify-center"
-            style={{ background: "#1A1F36" }}
-          >
-            <span className="text-[10px] font-bold text-white">VISA</span>
-          </div>
-          <div className="flex-1">
-            <p className="text-[13px] font-medium" style={{ color: "var(--foreground)" }}>
-              •••• •••• •••• 4242
-            </p>
-            <p className="text-[11px]" style={{ color: "var(--muted-foreground)" }}>
-              Expires 12/2027
-            </p>
-          </div>
-          <button
-            type="button"
             style={{
-              padding: "6px 14px",
-              borderRadius: 8,
+              padding: "20px 24px",
+              borderRadius: 14,
+              background: "var(--background)",
               border: "1px solid var(--border)",
-              background: "transparent",
-              color: "var(--foreground)",
-              fontSize: 12,
-              fontWeight: 500,
-              cursor: "pointer",
+              display: "flex",
+              flexDirection: "column",
+              gap: 16,
             }}
           >
-            Update
-          </button>
-        </div>
+            <div>
+              <p className="text-[16px] font-bold" style={{ color: "var(--foreground)" }}>
+                {currentPlan
+                  ? PLANS.find((p) => p.id === currentPlan)?.name ?? currentPlan
+                  : "Aucun abonnement actif"}
+              </p>
+              <p className="text-[12px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>
+                Statut : {status}
+                {sub?.current_period_end && !sub?.cancel_at_period_end
+                  ? ` · prochain renouvellement ${new Date(sub.current_period_end).toLocaleDateString()}`
+                  : ""}
+              </p>
+              {sub?.cancel_at_period_end && sub?.current_period_end && (
+                <div
+                  style={{
+                    marginTop: 12,
+                    padding: "10px 14px",
+                    borderRadius: 10,
+                    background: "rgba(245,158,11,0.10)",
+                    border: "1px solid rgba(245,158,11,0.35)",
+                    color: "#92400E",
+                    fontSize: 12,
+                    fontWeight: 500,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  <span style={{ fontSize: 14, marginRight: 6 }}>⚠</span>
+                  Annulation prévue — votre accès prendra fin le{" "}
+                  <strong>
+                    {new Date(sub.current_period_end).toLocaleDateString("fr-CH", {
+                      day: "2-digit",
+                      month: "long",
+                      year: "numeric",
+                    })}
+                  </strong>
+                  .
+                </div>
+              )}
+            </div>
+            {isActive && currentPlan && (
+              <button
+                type="button"
+                onClick={handlePortal}
+                disabled={busy === "portal"}
+                style={{
+                  alignSelf: "flex-start",
+                  padding: 0,
+                  border: "none",
+                  background: "transparent",
+                  color: "var(--primary)",
+                  fontSize: 12,
+                  fontWeight: 500,
+                  cursor: busy === "portal" ? "default" : "pointer",
+                  opacity: busy === "portal" ? 0.6 : 1,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 5,
+                  textDecoration: "underline",
+                  textUnderlineOffset: 3,
+                }}
+              >
+                {busy === "portal" ? "Ouverture…" : "Gérer la facturation"}
+              </button>
+            )}
+          </div>
+        )}
       </Section>
 
-      <Section title="Billing History">
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr>
-                {["Date", "Description", "Amount", "Status"].map((h) => (
-                  <th
-                    key={h}
-                    className="text-left text-[11px] font-medium uppercase"
-                    style={{
-                      color: "var(--muted-foreground)",
-                      padding: "8px 12px",
-                      borderBottom: "1px solid var(--border)",
-                      letterSpacing: "0.05em",
-                    }}
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {[
-                { date: "01.03.2026", desc: "Pro Plan — Monthly", amount: "CHF 49.00", status: "Paid" },
-                { date: "01.02.2026", desc: "Pro Plan — Monthly", amount: "CHF 49.00", status: "Paid" },
-                { date: "01.01.2026", desc: "Pro Plan — Monthly", amount: "CHF 49.00", status: "Paid" },
-              ].map((row) => (
-                <tr key={row.date}>
-                  {[row.date, row.desc, row.amount].map((cell, i) => (
-                    <td
-                      key={i}
-                      className="text-[13px]"
-                      style={{
-                        color: "var(--foreground)",
-                        padding: "12px 12px",
-                        borderBottom: "1px solid var(--border)",
-                      }}
-                    >
-                      {cell}
-                    </td>
-                  ))}
-                  <td
-                    style={{
-                      padding: "12px 12px",
-                      borderBottom: "1px solid var(--border)",
-                    }}
-                  >
+      <Section
+        title="Plans & tarifs"
+        description="Passez à un plan supérieur pour débloquer plus de bâtiments et de locataires."
+      >
+        {error && (
+          <div
+            style={{
+              marginBottom: 12,
+              padding: "10px 14px",
+              borderRadius: 8,
+              background: "rgba(239,68,68,0.08)",
+              color: "#B91C1C",
+              fontSize: 12,
+            }}
+          >
+            {error}
+          </div>
+        )}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {PLANS.map((p) => {
+            const isCurrent = currentPlan === p.id && isActive;
+            return (
+              <div
+                key={p.id}
+                style={{
+                  padding: 20,
+                  borderRadius: 14,
+                  background: "var(--background)",
+                  border: isCurrent ? "2px solid var(--primary)" : "1px solid var(--border)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 12,
+                }}
+              >
+                <div>
+                  <p className="text-[15px] font-semibold" style={{ color: "var(--foreground)" }}>
+                    {p.name}
+                  </p>
+                  <p className="text-[22px] font-bold mt-1" style={{ color: "var(--foreground)" }}>
+                    CHF {p.priceCHF}
                     <span
-                      className="text-[11px] font-medium px-2 py-0.5 rounded-full"
-                      style={{
-                        background: "rgba(34,197,94,0.1)",
-                        color: "#16A34A",
-                      }}
+                      className="text-[12px] font-normal ml-1"
+                      style={{ color: "var(--muted-foreground)" }}
                     >
-                      {row.status}
+                      / {p.period}
                     </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </p>
+                </div>
+                <ul
+                  style={{
+                    padding: 0,
+                    margin: 0,
+                    listStyle: "none",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 6,
+                  }}
+                >
+                  {p.features.map((f) => (
+                    <li
+                      key={f}
+                      className="text-[12px]"
+                      style={{ color: "var(--muted-foreground)" }}
+                    >
+                      ✓ {f}
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  type="button"
+                  onClick={() => !isCurrent && handleSubscribe(p.id)}
+                  disabled={isCurrent || busy === p.id}
+                  style={{
+                    marginTop: "auto",
+                    padding: "10px 14px",
+                    borderRadius: 10,
+                    border: "none",
+                    background: isCurrent ? "var(--muted)" : "var(--primary)",
+                    color: isCurrent ? "var(--muted-foreground)" : "var(--primary-foreground)",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: isCurrent ? "default" : "pointer",
+                  }}
+                >
+                  {isCurrent
+                    ? "Plan actuel"
+                    : busy === p.id
+                      ? "…"
+                      : currentPlan
+                        ? "Changer de plan"
+                        : "Choisir ce plan"}
+                </button>
+              </div>
+            );
+          })}
         </div>
       </Section>
     </>
@@ -711,10 +802,10 @@ function BillingTab() {
 }
 
 function CompanyTab() {
-  const [companyName, setCompanyName] = useState("ImmoStore SA");
-  const [address, setAddress] = useState("Rue du Marché 12, 1204 Genève");
-  const [vatId, setVatId] = useState("CHE-123.456.789");
-  const [contactEmail, setContactEmail] = useState("contact@immostore.ch");
+  const [companyName, setCompanyName] = useState("");
+  const [address, setAddress] = useState("");
+  const [vatId, setVatId] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
   const [saved, setSaved] = useState(false);
 
   const handleSave = () => {
@@ -731,6 +822,7 @@ function CompanyTab() {
               type="text"
               value={companyName}
               onChange={(e) => setCompanyName(e.target.value)}
+              placeholder="Nom de votre société (optionnel)"
               style={inputStyle}
             />
           </Field>
@@ -739,6 +831,7 @@ function CompanyTab() {
               type="email"
               value={contactEmail}
               onChange={(e) => setContactEmail(e.target.value)}
+              placeholder="contact@votre-societe.ch"
               style={inputStyle}
             />
           </Field>
@@ -747,6 +840,7 @@ function CompanyTab() {
               type="text"
               value={address}
               onChange={(e) => setAddress(e.target.value)}
+              placeholder="Rue, numéro, NPA, ville"
               style={inputStyle}
             />
           </Field>
@@ -755,6 +849,7 @@ function CompanyTab() {
               type="text"
               value={vatId}
               onChange={(e) => setVatId(e.target.value)}
+              placeholder="CHE-XXX.XXX.XXX"
               style={inputStyle}
             />
           </Field>
@@ -770,17 +865,17 @@ function CompanyTab() {
    MAIN SETTINGS VIEW
 ═══════════════════════════════════════════════════════════════ */
 
-export function SettingsView() {
+export function SettingsView({ initialTab }: { initialTab?: TabId } = {}) {
   const { user } = useAuth();
   const { t } = useLanguage();
-  const [activeTab, setActiveTab] = useState<TabId>("profile");
+  const [activeTab, setActiveTab] = useState<TabId>(initialTab ?? "profile");
 
   const tabs: Tab[] = [
     { id: "profile", labelKey: "Profile", icon: User },
     { id: "security", labelKey: "Security", icon: Lock },
     { id: "notifications", labelKey: "Notifications", icon: Bell },
     { id: "appearance", labelKey: "Appearance", icon: Palette },
-    { id: "billing", labelKey: "Billing", icon: CreditCard },
+    { id: "billing", labelKey: t("settingsTabBilling"), icon: CreditCard },
     { id: "company", labelKey: "Company", icon: Building },
   ];
 

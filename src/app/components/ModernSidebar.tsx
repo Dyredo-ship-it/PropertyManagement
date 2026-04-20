@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   LayoutDashboard,
   Building,
@@ -21,6 +21,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../i18n/LanguageContext";
 import { ImmoStoreLogo } from "./ImmoStoreLogo";
+import { fetchSubscription, PLANS, type SubscriptionInfo } from "../lib/billing";
 
 /* ─── Types ───────────────────────────────────────────────────── */
 
@@ -48,6 +49,35 @@ export function ModernSidebar({ activeView, onViewChange }: ModernSidebarProps) 
   const { user, logout } = useAuth();
   const { t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState("");
+  const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null);
+
+  useEffect(() => {
+    if (!user || user.role !== "admin") {
+      setSubscription(null);
+      return;
+    }
+    let cancelled = false;
+    fetchSubscription().then((s) => {
+      if (!cancelled) setSubscription(s);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  const planBadge = useMemo(() => {
+    if (!subscription) return null;
+    const isActive = subscription.status === "active" || subscription.status === "trialing";
+    if (!isActive) return null;
+    const plan = PLANS.find((p) => p.id === subscription.plan);
+    if (!plan) return null;
+    const colors: Record<string, { bg: string; fg: string }> = {
+      starter: { bg: "rgba(148,163,184,0.18)", fg: "#475569" },
+      pro: { bg: "rgba(99,102,241,0.15)", fg: "#4338CA" },
+      business: { bg: "rgba(234,179,8,0.18)", fg: "#A16207" },
+    };
+    return { label: plan.name, ...colors[plan.id] };
+  }, [subscription]);
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({});
 
   const toggleExpand = (id: string) =>
@@ -307,20 +337,42 @@ export function ModernSidebar({ activeView, onViewChange }: ModernSidebarProps) 
 
           {/* Name + email */}
           <div style={{ flex: 1, minWidth: 0 }}>
-            <p
-              style={{
-                fontSize: 13,
-                fontWeight: 600,
-                color: "var(--foreground)",
-                margin: 0,
-                lineHeight: 1.3,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {user?.name ?? "—"}
-            </p>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+              <p
+                style={{
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: "var(--foreground)",
+                  margin: 0,
+                  lineHeight: 1.3,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  flex: 1,
+                  minWidth: 0,
+                }}
+              >
+                {user?.name ?? "—"}
+              </p>
+              {planBadge && (
+                <span
+                  style={{
+                    flexShrink: 0,
+                    fontSize: 9,
+                    fontWeight: 700,
+                    letterSpacing: 0.4,
+                    textTransform: "uppercase",
+                    padding: "2px 6px",
+                    borderRadius: 4,
+                    background: planBadge.bg,
+                    color: planBadge.fg,
+                    lineHeight: 1.2,
+                  }}
+                >
+                  {planBadge.label}
+                </span>
+              )}
+            </div>
             <p
               style={{
                 fontSize: 11,

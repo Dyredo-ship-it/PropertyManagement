@@ -47,6 +47,8 @@ import {
 import { useLanguage } from "../i18n/LanguageContext";
 import { useCurrency } from "../context/CurrencyContext";
 import { Bell, ArrowUpDown } from "lucide-react";
+import { usePlanLimits } from "../lib/billing";
+import { PlanLimitModal } from "./PlanLimitModal";
 
 /* ─── Types ─── */
 
@@ -1228,10 +1230,12 @@ function StatusDotLight({ status, t }: { status: string; t: (k: string) => strin
 export function TenantsView() {
   const { t } = useLanguage();
   const { formatAmount } = useCurrency();
+  const { plan, limits, loading: planLoading } = usePlanLimits();
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [requests, setRequests] = useState<MaintenanceRequest[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [showLimitModal, setShowLimitModal] = useState(false);
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [drawerTenantId, setDrawerTenantId] = useState<string | null>(null);
@@ -1316,6 +1320,16 @@ export function TenantsView() {
 
   const resetForm = () => {
     setFormData({ name: "", email: "", phone: "", buildingId: "", unit: "", rentNet: 0, charges: 0, leaseStart: "", leaseEnd: "", status: "active", gender: "unspecified" });
+  };
+
+  const handleAddTenantClick = () => {
+    if (!planLoading && limits.tenants !== null && tenants.length >= limits.tenants) {
+      setShowLimitModal(true);
+      return;
+    }
+    resetForm();
+    setEditingTenant(null);
+    setIsDialogOpen(true);
   };
 
   const handleEdit = (tenant: any) => {
@@ -1433,7 +1447,7 @@ export function TenantsView() {
             {/* Add tenant */}
             <button
               type="button"
-              onClick={() => { resetForm(); setEditingTenant(null); setIsDialogOpen(true); }}
+              onClick={handleAddTenantClick}
               style={{
                 display: "flex", alignItems: "center", gap: 8,
                 padding: "10px 20px", borderRadius: 14, border: "none",
@@ -1857,7 +1871,7 @@ export function TenantsView() {
             <p className="text-sm mb-6" style={{ color: "var(--muted-foreground)" }}>{t("startAddTenant")}</p>
             <button
               type="button"
-              onClick={() => { resetForm(); setEditingTenant(null); setIsDialogOpen(true); }}
+              onClick={handleAddTenantClick}
               style={{
                 display: "inline-flex", alignItems: "center", gap: 8,
                 padding: "10px 20px", borderRadius: 14, border: "none",
@@ -2209,6 +2223,14 @@ export function TenantsView() {
           const current = ((drawerTenant as any)?.documents ?? []) as TenantDocument[];
           updateTenantById(drawerTenantId, { documents: current.filter((d) => d.id !== docId) });
         }}
+      />
+
+      <PlanLimitModal
+        open={showLimitModal}
+        onClose={() => setShowLimitModal(false)}
+        kind="tenant"
+        currentPlan={plan}
+        limit={limits.tenants}
       />
     </div>
   );

@@ -6,10 +6,15 @@ import { LANGUAGES } from "../i18n/translations";
 import { ImmoStoreLogo } from "./ImmoStoreLogo";
 
 export function LoginPage() {
+  const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [organizationName, setOrganizationName] = useState("");
   const [error, setError] = useState("");
-  const { login } = useAuth();
+  const [busy, setBusy] = useState(false);
+  const { login, signup } = useAuth();
   const { t, language, setLanguage } = useLanguage();
 
   // Lock body scroll on login page only
@@ -22,7 +27,7 @@ export function LoginPage() {
     };
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
@@ -30,10 +35,21 @@ export function LoginPage() {
       setError(t("loginFieldsRequired"));
       return;
     }
+    if (mode === "signup" && (!firstName || !lastName || !organizationName)) {
+      setError(t("loginFieldsRequired"));
+      return;
+    }
 
-    const success = login(email, password);
-    if (!success) {
-      setError(t("loginError"));
+    setBusy(true);
+    try {
+      const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
+      const res =
+        mode === "login"
+          ? await login(email, password)
+          : await signup({ email, password, fullName, organizationName });
+      if (!res.ok) setError(res.error ?? t("loginError"));
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -113,34 +129,6 @@ export function LoginPage() {
           </div>
         </div>
 
-        {/* Demo accounts overlay — bottom of image */}
-        <div
-          style={{
-            position: "absolute",
-            bottom: 36,
-            left: 36,
-            right: 36,
-            padding: "18px 20px",
-            borderRadius: 14,
-            background: "rgba(255,255,255,0.08)",
-            backdropFilter: "blur(16px)",
-            border: "1px solid rgba(255,255,255,0.1)",
-          }}
-        >
-          <p style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", margin: "0 0 8px", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-            {t("demoAccounts")}
-          </p>
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.85)", margin: 0 }}>
-              <span style={{ color: "rgba(255,255,255,0.5)" }}>{t("admin")}:</span>{" "}
-              admin@immostore.com / admin123
-            </p>
-            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.85)", margin: 0 }}>
-              <span style={{ color: "rgba(255,255,255,0.5)" }}>{t("tenant")}:</span>{" "}
-              dylan@locataire.com / tenant123
-            </p>
-          </div>
-        </div>
       </div>
 
       {/* ── Right panel: form ── */}
@@ -228,13 +216,59 @@ export function LoginPage() {
               letterSpacing: "-0.02em",
             }}
           >
-            {t("loginWelcome") !== "loginWelcome"
-              ? t("loginWelcome")
-              : `Welcome, login to\nyour account.`}
+            {mode === "signup"
+              ? "Créer un compte"
+              : t("loginWelcome") !== "loginWelcome"
+                ? t("loginWelcome")
+                : `Welcome, login to\nyour account.`}
           </h1>
 
           {/* Form */}
           <form onSubmit={handleSubmit}>
+            {mode === "signup" && (
+              <>
+                <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ display: "block", fontSize: 13, fontWeight: 500, color: "#555", marginBottom: 8 }}>
+                      Prénom
+                    </label>
+                    <input
+                      type="text"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      autoComplete="given-name"
+                      placeholder="Prénom"
+                      style={inputStyle}
+                    />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ display: "block", fontSize: 13, fontWeight: 500, color: "#555", marginBottom: 8 }}>
+                      Nom
+                    </label>
+                    <input
+                      type="text"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      autoComplete="family-name"
+                      placeholder="Nom"
+                      style={inputStyle}
+                    />
+                  </div>
+                </div>
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ display: "block", fontSize: 13, fontWeight: 500, color: "#555", marginBottom: 8 }}>
+                    Nom de votre gérance
+                  </label>
+                  <input
+                    type="text"
+                    value={organizationName}
+                    onChange={(e) => setOrganizationName(e.target.value)}
+                    placeholder="Ex: Gérance Dylan"
+                    style={inputStyle}
+                  />
+                </div>
+              </>
+            )}
             {/* Email */}
             <div style={{ marginBottom: 16 }}>
               <label
@@ -322,27 +356,33 @@ export function LoginPage() {
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <button
                 type="submit"
+                disabled={busy}
                 style={{
                   height: 46,
                   padding: "0 28px",
                   borderRadius: 23,
                   border: "none",
-                  background: "#1C201E",
+                  background: busy ? "#4A4F4C" : "#1C201E",
                   color: "#FFFFFF",
                   fontSize: 14,
                   fontWeight: 600,
-                  cursor: "pointer",
+                  cursor: busy ? "wait" : "pointer",
                   transition: "background 0.2s",
                   whiteSpace: "nowrap",
+                  opacity: busy ? 0.8 : 1,
                 }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = "#2A2F2C"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = "#1C201E"; }}
+                onMouseEnter={(e) => { if (!busy) e.currentTarget.style.background = "#2A2F2C"; }}
+                onMouseLeave={(e) => { if (!busy) e.currentTarget.style.background = "#1C201E"; }}
               >
-                {t("loginButton")}
+                {busy ? "..." : mode === "signup" ? "Créer mon compte" : t("loginButton")}
               </button>
 
               <button
                 type="button"
+                onClick={() => {
+                  setMode(mode === "login" ? "signup" : "login");
+                  setError("");
+                }}
                 style={{
                   background: "none",
                   border: "none",
@@ -356,39 +396,11 @@ export function LoginPage() {
                 onMouseEnter={(e) => { e.currentTarget.style.color = "#555"; }}
                 onMouseLeave={(e) => { e.currentTarget.style.color = "#999"; }}
               >
-                {t("forgotPassword") !== "forgotPassword"
-                  ? t("forgotPassword")
-                  : "Lost your password?"}
+                {mode === "login" ? "Créer un compte" : "← Retour à la connexion"}
               </button>
             </div>
           </form>
 
-          {/* Demo accounts — mobile only (shown below form when left panel is hidden) */}
-          <div
-            className="login-demo-mobile"
-            style={{
-              marginTop: 24,
-              padding: 16,
-              borderRadius: 12,
-              background: "#F8F8F8",
-              border: "1px solid #ECECEC",
-              display: "none",
-            }}
-          >
-            <p style={{ fontSize: 11, color: "#999", margin: "0 0 8px", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              {t("demoAccounts")}
-            </p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              <p style={{ fontSize: 12, color: "#333", margin: 0 }}>
-                <span style={{ color: "#999" }}>{t("admin")}:</span>{" "}
-                admin@immostore.com / admin123
-              </p>
-              <p style={{ fontSize: 12, color: "#333", margin: 0 }}>
-                <span style={{ color: "#999" }}>{t("tenant")}:</span>{" "}
-                dylan@locataire.com / tenant123
-              </p>
-            </div>
-          </div>
         </div>
 
         {/* Footer */}

@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { hydrateFromSupabase, clearStorageCache } from "./utils/storage";
 import { ThemeProvider } from "./context/ThemeContext";
 import { CurrencyProvider } from "./context/CurrencyContext";
 import { LanguageProvider, useLanguage } from "./i18n/LanguageContext";
@@ -23,10 +24,72 @@ import { CalendarView } from "./components/CalendarView";
 import { AccountingView } from "./components/AccountingView";
 
 function AppContent() {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, loading } = useAuth();
   const { t } = useLanguage();
   const [activeView, setActiveView] = useState<string>("dashboard");
   const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(null);
+  const [dataReady, setDataReady] = useState(false);
+  const [billingNotice, setBillingNotice] = useState<"success" | "canceled" | null>(null);
+  const [settingsInitialTab, setSettingsInitialTab] = useState<
+    "profile" | "security" | "notifications" | "appearance" | "billing" | "company" | undefined
+  >(undefined);
+
+  // Hydrate the local cache from Supabase once authenticated. We run this
+  // exactly once per login; further auth state changes (token refresh, etc.)
+  // don't re-trigger hydration.
+  useEffect(() => {
+    if (!isAuthenticated) {
+      clearStorageCache();
+      setDataReady(false);
+      return;
+    }
+    let cancelled = false;
+    hydrateFromSupabase().finally(() => {
+      if (!cancelled) setDataReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated]);
+
+  // Listen for in-app navigation requests to the billing tab (e.g. from
+  // PlanLimitModal "Voir les plans" button).
+  useEffect(() => {
+    const handler = () => {
+      setActiveView("settings");
+      setSettingsInitialTab("billing");
+    };
+    window.addEventListener("navigate-to-billing", handler);
+    return () => window.removeEventListener("navigate-to-billing", handler);
+  }, []);
+
+  // Handle Stripe billing redirect (?billing=success or ?billing=canceled)
+  useEffect(() => {
+    if (!isAuthenticated || !dataReady) return;
+    const params = new URLSearchParams(window.location.search);
+    const billing = params.get("billing");
+    if (billing !== "success" && billing !== "canceled") return;
+    setBillingNotice(billing);
+    setActiveView("settings");
+    setSettingsInitialTab("billing");
+    params.delete("billing");
+    const newSearch = params.toString();
+    window.history.replaceState(
+      {},
+      "",
+      window.location.pathname + (newSearch ? `?${newSearch}` : ""),
+    );
+    const t = setTimeout(() => setBillingNotice(null), 6000);
+    return () => clearTimeout(t);
+  }, [isAuthenticated, dataReady]);
+
+  if (loading || (isAuthenticated && !dataReady)) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background text-muted-foreground">
+        Chargement…
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return <LoginPage />;
@@ -44,10 +107,49 @@ function AppContent() {
 
   return (
     <div className="flex h-screen bg-background">
-      <ModernSidebar activeView={activeView} onViewChange={(v) => { setActiveView(v); if (v !== "buildings") setSelectedBuildingId(null); }} />
+      <ModernSidebar activeView={activeView} onViewChange={(v) => { setActiveView(v); if (v !== "buildings") setSelectedBuildingId(null); if (v !== "settings") setSettingsInitialTab(undefined); }} />
 
       <div className="flex-1 flex flex-col overflow-hidden">
         <TopHeader onNavigate={setActiveView} />
+
+        {billingNotice && (
+          <div
+            style={{
+              padding: "12px 24px",
+              background:
+                billingNotice === "success" ? "rgba(34,197,94,0.12)" : "rgba(245,158,11,0.12)",
+              color: billingNotice === "success" ? "#15803D" : "#B45309",
+              fontSize: 13,
+              fontWeight: 500,
+              borderBottom: "1px solid var(--border)",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <span>
+              {billingNotice === "success"
+                ? "✓ Abonnement activé avec succès. Bienvenue !"
+                : "Paiement annulé. Aucun changement n'a été effectué."}
+            </span>
+            <button
+              type="button"
+              onClick={() => setBillingNotice(null)}
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "inherit",
+                cursor: "pointer",
+                fontSize: 18,
+                lineHeight: 1,
+                padding: 0,
+              }}
+              aria-label="Fermer"
+            >
+              ×
+            </button>
+          </div>
+        )}
 
         <div className="flex-1 overflow-auto bg-background">
           {activeView === "dashboard" && user?.role === "admin" && <DashboardView onSelectBuilding={handleSelectBuilding} />}
@@ -69,7 +171,7 @@ function AppContent() {
           {activeView === "analytics" && user?.role === "admin" && <AnalyticsDashboard />}
           {activeView === "calendar" && user?.role === "admin" && <CalendarView />}
           {activeView === "accounting" && user?.role === "admin" && <AccountingView />}
-          {activeView === "settings" && <SettingsView />}
+          {activeView === "settings" && <SettingsView initialTab={settingsInitialTab} />}
           {activeView === "notifications" && <NotificationsView />}
           {(activeView === "info" || activeView === "informations") && <InformationsView />}
           {activeView === "profile" && user?.role === "tenant" && (

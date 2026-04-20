@@ -4,3 +4,20 @@ dist
 *.local
 .env
 .env.*
+
+# Next.js build output (legacy)
+.next/
+
+# Supabase CLI cache
+supabase/.temp/
+supabase/.branches/
+
+# Working / reference files (not part of the app)
+*.xlsx
+*.jpg
+*.jpeg
+*.png
+!src/**/*.png
+!src/**/*.jpg
+!public/**/*.png
+!public/**/*.jpg

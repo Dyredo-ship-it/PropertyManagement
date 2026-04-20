@@ -592,6 +592,9 @@ type TranslationSet = {
   lightMode: string;
   darkMode: string;
   theme: string;
+
+  // Settings tabs
+  settingsTabBilling: string;
 };
 
 export const translations: Record<Language, TranslationSet> = {
@@ -1154,6 +1157,8 @@ export const translations: Record<Language, TranslationSet> = {
     lightMode: "Jour",
     darkMode: "Nuit",
     theme: "Thème",
+
+    settingsTabBilling: "Abonnements",
   },
 
   en: {
@@ -1715,6 +1720,8 @@ export const translations: Record<Language, TranslationSet> = {
     lightMode: "Day",
     darkMode: "Night",
     theme: "Theme",
+
+    settingsTabBilling: "Subscription",
   },
 
   de: {
@@ -2276,6 +2283,8 @@ export const translations: Record<Language, TranslationSet> = {
     lightMode: "Tag",
     darkMode: "Nacht",
     theme: "Thema",
+
+    settingsTabBilling: "Abonnement",
   },
 
   it: {
@@ -2837,5 +2846,7 @@ export const translations: Record<Language, TranslationSet> = {
     lightMode: "Giorno",
     darkMode: "Notte",
     theme: "Tema",
+
+    settingsTabBilling: "Abbonamento",
   },
 };
