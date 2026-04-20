@@ -49,6 +49,32 @@ import { useCurrency } from "../context/CurrencyContext";
 import { Bell, ArrowUpDown } from "lucide-react";
 import { usePlanLimits } from "../lib/billing";
 import { PlanLimitModal } from "./PlanLimitModal";
+import { generateLeasePdf, generateRentReceiptPdf } from "../lib/pdf";
+import { getLandlordInfo } from "../lib/landlord";
+import { sendRentReminder, sendLeaseEndReminder } from "../lib/email";
+import { FileDown } from "lucide-react";
+
+function currentMonthPeriod(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function emailActionStyle(disabled: boolean): React.CSSProperties {
+  return {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    padding: "8px 12px",
+    borderRadius: 8,
+    border: "1px solid var(--border)",
+    background: "var(--card)",
+    color: disabled ? "var(--muted-foreground)" : "var(--foreground)",
+    fontSize: 12,
+    fontWeight: 500,
+    cursor: disabled ? "not-allowed" : "pointer",
+    opacity: disabled ? 0.6 : 1,
+  };
+}
 
 /* ─── Types ─── */
 
@@ -399,6 +425,34 @@ function TenantDetailDrawer({
   const [uploadCategory, setUploadCategory] = useState<TenantDocument["category"]>("Contrat de bail");
   const uploadFileRef = useRef<HTMLInputElement | null>(null);
 
+  /* PDF generation state */
+  const [receiptPeriod, setReceiptPeriod] = useState<string>(currentMonthPeriod);
+
+  const building = React.useMemo<Building | undefined>(() => {
+    if (!tenant?.buildingId) return undefined;
+    return (getBuildings() as Building[]).find((b) => b.id === tenant.buildingId);
+  }, [tenant?.buildingId]);
+
+  const handleGenerateLease = () => {
+    if (!tenant || !building) {
+      alert("Le bâtiment lié à ce locataire est introuvable.");
+      return;
+    }
+    generateLeasePdf(tenant as Tenant, building, getLandlordInfo());
+  };
+
+  const handleGenerateReceipt = () => {
+    if (!tenant || !building) {
+      alert("Le bâtiment lié à ce locataire est introuvable.");
+      return;
+    }
+    const total = (Number(tenant.rentNet) || 0) + (Number(tenant.charges) || 0);
+    generateRentReceiptPdf(tenant as Tenant, building, getLandlordInfo(), {
+      period: receiptPeriod,
+      amount: total,
+    });
+  };
+
   const handleSendDocument = async () => {
     if (!tenant || !sendDocFile) return;
     const dataUrl = await fileToDataUrl(sendDocFile);
@@ -735,6 +789,48 @@ function TenantDetailDrawer({
                   <Trash2 style={{ width: 15, height: 15 }} />
                 </button>
               </div>
+
+              {/* Automated emails */}
+              <div style={{
+                marginTop: 4, padding: 14, borderRadius: 10, background: "var(--background)",
+                display: "flex", flexDirection: "column", gap: 10,
+              }}>
+                <p style={{ ...labelStyle, marginBottom: 2 }}>Communication automatisée</p>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await sendRentReminder(tenant as Tenant, building!, currentMonthPeriod());
+                        alert("Rappel de loyer envoyé !");
+                      } catch (e: any) {
+                        alert("Erreur : " + (e?.message ?? "envoi impossible"));
+                      }
+                    }}
+                    disabled={!building || !tenant?.email}
+                    style={emailActionStyle(!building || !tenant?.email)}
+                  >
+                    <Bell style={{ width: 13, height: 13 }} />
+                    Envoyer rappel de loyer
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await sendLeaseEndReminder(tenant as Tenant, building!);
+                        alert("Email de renouvellement envoyé !");
+                      } catch (e: any) {
+                        alert("Erreur : " + (e?.message ?? "envoi impossible"));
+                      }
+                    }}
+                    disabled={!building || !tenant?.email || !tenant?.leaseEnd}
+                    style={emailActionStyle(!building || !tenant?.email || !tenant?.leaseEnd)}
+                  >
+                    <Mail style={{ width: 13, height: 13 }} />
+                    Rappel fin de bail
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
@@ -928,6 +1024,52 @@ function TenantDetailDrawer({
                   >
                     <Upload style={{ width: 14, height: 14 }} />
                     Choisir un fichier
+                  </button>
+                </div>
+              </div>
+
+              {/* Generate PDF section */}
+              <div style={{
+                padding: 16, borderRadius: 10, background: "var(--background)",
+                display: "flex", flexDirection: "column", gap: 12,
+              }}>
+                <p style={{ ...labelStyle, marginBottom: 2 }}>Générer un document PDF</p>
+                <button
+                  type="button"
+                  onClick={handleGenerateLease}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 8,
+                    padding: "10px 14px", borderRadius: 8, border: "1px solid var(--border)",
+                    background: "var(--card)", color: "var(--foreground)",
+                    fontSize: 13, fontWeight: 500, cursor: "pointer", width: "100%",
+                  }}
+                >
+                  <FileDown style={{ width: 14, height: 14, color: "var(--primary)" }} />
+                  Contrat de bail
+                </button>
+                <div style={{ display: "flex", gap: 8, alignItems: "stretch" }}>
+                  <input
+                    type="month"
+                    value={receiptPeriod}
+                    onChange={(e) => setReceiptPeriod(e.target.value)}
+                    style={{
+                      padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border)",
+                      background: "var(--card)", color: "var(--foreground)", fontSize: 13, outline: "none",
+                      flexShrink: 0,
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleGenerateReceipt}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 8,
+                      padding: "10px 14px", borderRadius: 8, border: "1px solid var(--border)",
+                      background: "var(--card)", color: "var(--foreground)",
+                      fontSize: 13, fontWeight: 500, cursor: "pointer", flex: 1,
+                    }}
+                  >
+                    <FileDown style={{ width: 14, height: 14, color: "var(--primary)" }} />
+                    Quittance de loyer
                   </button>
                 </div>
               </div>

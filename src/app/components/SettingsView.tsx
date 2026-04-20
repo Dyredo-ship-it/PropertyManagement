@@ -18,6 +18,7 @@ import { useAuth } from "../context/AuthContext";
 import { useCurrency } from "../context/CurrencyContext";
 import { useLanguage } from "../i18n/LanguageContext";
 import { LANGUAGES } from "../i18n/translations";
+import { getLandlordInfo, saveLandlordInfo } from "../lib/landlord";
 import {
   PLANS,
   fetchSubscription,
@@ -614,6 +615,7 @@ function BillingTab() {
   const currentPlan = sub?.plan ?? null;
   const status = sub?.status ?? "trialing";
   const isActive = status === "active" || status === "trialing";
+  const needsCardUpdate = status === "past_due" || status === "unpaid";
 
   return (
     <>
@@ -644,6 +646,26 @@ function BillingTab() {
                   ? ` · prochain renouvellement ${new Date(sub.current_period_end).toLocaleDateString()}`
                   : ""}
               </p>
+              {(status === "past_due" || status === "unpaid") && (
+                <div
+                  style={{
+                    marginTop: 12,
+                    padding: "12px 14px",
+                    borderRadius: 10,
+                    background: "rgba(220,38,38,0.10)",
+                    border: "1px solid rgba(220,38,38,0.35)",
+                    color: "#991B1B",
+                    fontSize: 12,
+                    fontWeight: 500,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  <span style={{ fontSize: 14, marginRight: 6 }}>⛔</span>
+                  Paiement échoué — votre dernière facture n'a pas pu être prélevée. Mettez à jour
+                  votre carte bancaire via <strong>Gérer la facturation</strong> pour éviter la
+                  suspension de votre accès.
+                </div>
+              )}
               {sub?.cancel_at_period_end && sub?.current_period_end && (
                 <div
                   style={{
@@ -671,7 +693,7 @@ function BillingTab() {
                 </div>
               )}
             </div>
-            {isActive && currentPlan && (
+            {(isActive || needsCardUpdate) && currentPlan && (
               <button
                 type="button"
                 onClick={handlePortal}
@@ -802,13 +824,15 @@ function BillingTab() {
 }
 
 function CompanyTab() {
-  const [companyName, setCompanyName] = useState("");
-  const [address, setAddress] = useState("");
-  const [vatId, setVatId] = useState("");
-  const [contactEmail, setContactEmail] = useState("");
+  const initial = getLandlordInfo();
+  const [companyName, setCompanyName] = useState(initial.name);
+  const [address, setAddress] = useState(initial.address);
+  const [vatId, setVatId] = useState(initial.vatId);
+  const [contactEmail, setContactEmail] = useState(initial.email);
   const [saved, setSaved] = useState(false);
 
   const handleSave = () => {
+    saveLandlordInfo({ name: companyName, address, email: contactEmail, vatId });
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };

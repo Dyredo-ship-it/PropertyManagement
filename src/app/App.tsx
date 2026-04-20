@@ -22,6 +22,8 @@ import { AnalyticsDashboard } from "./components/AnalyticsDashboard";
 import { SettingsView } from "./components/SettingsView";
 import { CalendarView } from "./components/CalendarView";
 import { AccountingView } from "./components/AccountingView";
+import { OnboardingWizard } from "./components/OnboardingWizard";
+import { getBuildings, getTenants } from "./utils/storage";
 
 function AppContent() {
   const { isAuthenticated, user, loading } = useAuth();
@@ -33,6 +35,7 @@ function AppContent() {
   const [settingsInitialTab, setSettingsInitialTab] = useState<
     "profile" | "security" | "notifications" | "appearance" | "billing" | "company" | undefined
   >(undefined);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   // Hydrate the local cache from Supabase once authenticated. We run this
   // exactly once per login; further auth state changes (token refresh, etc.)
@@ -51,6 +54,32 @@ function AppContent() {
       cancelled = true;
     };
   }, [isAuthenticated]);
+
+  // First-time onboarding for admins: triggered when the user has no buildings
+  // and no tenants, gated by a localStorage flag so we never show it twice.
+  // Use ?onboarding=force in the URL to preview the wizard for testing.
+  useEffect(() => {
+    if (!isAuthenticated || !dataReady || !user) return;
+    if (user.role !== "admin") return;
+    const force = new URLSearchParams(window.location.search).get("onboarding") === "force";
+    if (force) {
+      setShowOnboarding(true);
+      return;
+    }
+    const key = `immostore_onboarded_${user.id}`;
+    if (localStorage.getItem(key)) return;
+    const hasData = getBuildings().length > 0 || getTenants().length > 0;
+    if (hasData) {
+      localStorage.setItem(key, "1");
+      return;
+    }
+    setShowOnboarding(true);
+  }, [isAuthenticated, dataReady, user]);
+
+  const handleFinishOnboarding = () => {
+    if (user) localStorage.setItem(`immostore_onboarded_${user.id}`, "1");
+    setShowOnboarding(false);
+  };
 
   // Listen for in-app navigation requests to the billing tab (e.g. from
   // PlanLimitModal "Voir les plans" button).
@@ -197,6 +226,10 @@ function AppContent() {
           )}
         </div>
       </div>
+
+      {showOnboarding && user && (
+        <OnboardingWizard userName={user.name ?? user.email} onFinish={handleFinishOnboarding} />
+      )}
     </div>
   );
 }

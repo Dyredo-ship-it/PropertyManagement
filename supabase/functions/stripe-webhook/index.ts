@@ -92,6 +92,22 @@ Deno.serve(async (req) => {
           .eq("organization_id", orgId);
         break;
       }
+      case "invoice.payment_failed":
+      case "invoice.payment_succeeded": {
+        // Refresh our subscription row from Stripe so status (past_due / active)
+        // is in sync without waiting on the customer.subscription.updated event.
+        const invoice = event.data.object as Stripe.Invoice;
+        if (!invoice.subscription) break;
+        const subId =
+          typeof invoice.subscription === "string" ? invoice.subscription : invoice.subscription.id;
+        const sub = await stripe.subscriptions.retrieve(subId);
+        const orgId = sub.metadata?.organization_id;
+        if (!orgId) break;
+        const priceId = sub.items.data[0]?.price.id ?? "";
+        const plan = (sub.metadata?.plan as Plan) || planFromPriceLookup(priceId);
+        await upsertSubscription(orgId, sub, plan);
+        break;
+      }
       default:
         break;
     }

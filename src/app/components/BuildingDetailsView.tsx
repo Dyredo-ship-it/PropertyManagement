@@ -1,5 +1,5 @@
-import React, { useMemo } from "react";
-import { ArrowLeft, Building2, Users, Wrench, AlertCircle } from "lucide-react";
+import React, { useMemo, useState } from "react";
+import { ArrowLeft, Building2, Users, Wrench, AlertCircle, FileDown } from "lucide-react";
 import { RenovationTracker } from "./RenovationTracker";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
@@ -18,6 +18,8 @@ import {
   type MaintenanceRequest,
 } from "../utils/storage";
 import { useLanguage } from "../i18n/LanguageContext";
+import { generateMonthlyStatementPdf } from "../lib/pdf";
+import { getLandlordInfo } from "../lib/landlord";
 
 type BuildingDetailsViewProps = {
   buildingId: string;
@@ -49,6 +51,25 @@ export function BuildingDetailsView({ buildingId, onBack }: BuildingDetailsViewP
 
   const pendingRequests = buildingRequests.filter((r) => r.status === "pending").length;
   const inProgressRequests = buildingRequests.filter((r) => r.status === "in-progress").length;
+
+  const [statementPeriod, setStatementPeriod] = useState<string>(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
+
+  const handleGenerateStatement = () => {
+    if (!building) return;
+    generateMonthlyStatementPdf(building, getLandlordInfo(), {
+      period: statementPeriod,
+      rows: buildingTenants.map((tn) => ({
+        tenantName: tn.name,
+        unit: tn.unit,
+        rentNet: tn.rentNet ?? 0,
+        charges: tn.charges ?? 0,
+        paid: (tn.paymentStatus ?? "up-to-date") === "up-to-date",
+      })),
+    });
+  };
 
   const totalUnits = building?.units ?? 0;
   const occupiedUnits = building?.occupiedUnits ?? 0;
@@ -269,6 +290,29 @@ export function BuildingDetailsView({ buildingId, onBack }: BuildingDetailsViewP
               <p className="text-sm text-[#6B6560] mt-1">
                 Aucun flux paiement n'est encore stock\u00E9 (placeholder).
               </p>
+            </div>
+
+            <div className="mt-6 rounded-xl border border-[#E8E5DB] bg-white p-4">
+              <p className="font-medium text-[#171414] mb-1">Décompte mensuel</p>
+              <p className="text-sm text-[#6B6560] mb-3">
+                Téléchargez un récapitulatif PDF des loyers du mois sélectionné.
+              </p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <input
+                  type="month"
+                  value={statementPeriod}
+                  onChange={(e) => setStatementPeriod(e.target.value)}
+                  className="px-3 py-2 rounded-lg border border-[#E8E5DB] text-sm bg-white text-[#171414]"
+                />
+                <button
+                  type="button"
+                  onClick={handleGenerateStatement}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#171414] text-white text-sm font-medium"
+                >
+                  <FileDown className="w-4 h-4" />
+                  Générer PDF
+                </button>
+              </div>
             </div>
           </Card>
         </TabsContent>
