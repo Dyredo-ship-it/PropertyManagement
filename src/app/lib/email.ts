@@ -7,6 +7,8 @@ interface SendEmailArgs {
   subject: string;
   html: string;
   text?: string;
+  senderName?: string;
+  replyTo?: string;
 }
 
 async function sendEmail(args: SendEmailArgs): Promise<void> {
@@ -92,6 +94,8 @@ export async function sendRentReminder(
     to: tenant.email,
     subject: `Rappel : loyer ${periodLabel}`,
     html,
+    senderName: landlord.name || undefined,
+    replyTo: landlord.email || undefined,
   });
 }
 
@@ -133,5 +137,7 @@ export async function sendLeaseEndReminder(
     to: tenant.email,
     subject: "Renouvellement de bail",
     html,
+    senderName: landlord.name || undefined,
+    replyTo: landlord.email || undefined,
   });
 }

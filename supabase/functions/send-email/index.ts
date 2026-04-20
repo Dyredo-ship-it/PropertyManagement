@@ -19,6 +19,23 @@ interface SendEmailBody {
   subject: string;
   html: string;
   text?: string;
+  senderName?: string;
+  replyTo?: string;
+}
+
+// Extract the email address from a "Name <email@domain>" string, or return the value as-is.
+function extractEmailAddress(from: string): string {
+  const match = from.match(/<([^>]+)>/);
+  return (match ? match[1] : from).trim();
+}
+
+// Strip characters that would break an RFC 5322 display-name inside quotes.
+function sanitizeSenderName(name: string): string {
+  return name.replace(/["\\\r\n]/g, "").trim().slice(0, 64);
+}
+
+function isValidEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
 Deno.serve(async (req) => {
@@ -50,13 +67,20 @@ Deno.serve(async (req) => {
     }
 
     const apiKey = Deno.env.get("RESEND_API_KEY");
-    const from = Deno.env.get("EMAIL_FROM");
-    if (!apiKey || !from) {
+    const defaultFrom = Deno.env.get("EMAIL_FROM");
+    if (!apiKey || !defaultFrom) {
       return new Response(JSON.stringify({ error: "email transport not configured" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    const senderName = body.senderName ? sanitizeSenderName(body.senderName) : "";
+    const from = senderName
+      ? `${senderName} <${extractEmailAddress(defaultFrom)}>`
+      : defaultFrom;
+
+    const replyTo = body.replyTo && isValidEmail(body.replyTo) ? body.replyTo : undefined;
 
     const resp = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -70,6 +94,7 @@ Deno.serve(async (req) => {
         subject: body.subject,
         html: body.html,
         text: body.text,
+        reply_to: replyTo,
       }),
     });
 
