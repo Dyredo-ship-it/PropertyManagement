@@ -116,7 +116,7 @@ export function ModernSidebar({ activeView, onViewChange }: ModernSidebarProps) 
       {
         key: "comms",
         items: [
-          { id: "notifications", labelKey: "navNotifications", icon: Bell, badge: 3 },
+          { id: "notifications", labelKey: "navNotifications", icon: Bell },
           { id: "informations", labelKey: "navInformations", icon: Info },
         ],
       },

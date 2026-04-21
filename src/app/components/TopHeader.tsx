@@ -41,18 +41,9 @@ type Notif = {
   priority?: boolean;
 };
 
-const ADMIN_NOTIFS: Notif[] = [
-  { id: 1, type: "request", title: "Nouvelle demande de maintenance", body: "Alice Fontaine · Résidence Bellevue · Apt 3B", time: "Il y a 5 min", unread: true, priority: true },
-  { id: 2, type: "application", title: "Candidature reçue", body: "Pierre Morel · Résidence Pins · Apt 7A", time: "Il y a 1h", unread: true, priority: false },
-  { id: 3, type: "request", title: "Demande mise à jour", body: "Famille Keller · Résidence Lumière · Apt 2C", time: "Il y a 3h", unread: false, priority: false },
-  { id: 4, type: "message", title: "Message locataire", body: "Jean-Marc Duval a envoyé un message", time: "Hier", unread: false, priority: false },
-];
+const ADMIN_NOTIFS: Notif[] = [];
 
-const TENANT_NOTIFS: Notif[] = [
-  { id: 1, type: "alert", title: "Votre demande a été traitée", body: "Fuite robinet · Résidence Bellevue", time: "Il y a 2h", unread: true, priority: false },
-  { id: 2, type: "message", title: "Message de la gérance", body: "Concernant votre renouvellement de bail", time: "Hier", unread: true, priority: true },
-  { id: 3, type: "request", title: "Intervention planifiée", body: "Technicien prévu le 28 mars 2026", time: "Il y a 2j", unread: false, priority: false },
-];
+const TENANT_NOTIFS: Notif[] = [];
 
 const notifIcon = (type: Notif["type"]) => {
   const cls = "w-4 h-4";
@@ -497,6 +488,22 @@ export function TopHeader({ onNavigate }: { onNavigate?: (view: string) => void 
 
               {/* Notif list */}
               <div className="overflow-y-auto flex-1">
+                {notifs.length === 0 && (
+                  <div className="flex flex-col items-center justify-center py-10 px-4">
+                    <div
+                      className="w-10 h-10 rounded-full flex items-center justify-center mb-3"
+                      style={{ background: "var(--sidebar-accent)", color: "var(--muted-foreground)" }}
+                    >
+                      <Bell className="w-5 h-5" />
+                    </div>
+                    <p className="text-[12px] font-medium" style={{ color: "var(--foreground)" }}>
+                      Aucune notification
+                    </p>
+                    <p className="text-[11px] mt-1 text-center" style={{ color: "var(--muted-foreground)" }}>
+                      Vous serez averti ici des nouvelles activités.
+                    </p>
+                  </div>
+                )}
                 {notifs.map((n) => {
                   const isUnread = n.unread && !notifRead.has(n.id);
                   const { bg, color } = notifColor(n.type);
