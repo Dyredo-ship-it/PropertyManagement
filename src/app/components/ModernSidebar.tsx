@@ -19,6 +19,7 @@ import {
   Receipt,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useNotifications } from "../context/NotificationsContext";
 import { useLanguage } from "../i18n/LanguageContext";
 import { ImmoStoreLogo } from "./ImmoStoreLogo";
 import { fetchSubscription, PLANS, type SubscriptionInfo } from "../lib/billing";
@@ -47,6 +48,7 @@ type Section = {
 
 export function ModernSidebar({ activeView, onViewChange }: ModernSidebarProps) {
   const { user, logout } = useAuth();
+  const { unreadCount } = useNotifications();
   const { t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState("");
   const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null);
@@ -116,7 +118,7 @@ export function ModernSidebar({ activeView, onViewChange }: ModernSidebarProps) 
       {
         key: "comms",
         items: [
-          { id: "notifications", labelKey: "navNotifications", icon: Bell },
+          { id: "notifications", labelKey: "navNotifications", icon: Bell, badge: unreadCount },
           { id: "informations", labelKey: "navInformations", icon: Info },
         ],
       },
@@ -128,7 +130,7 @@ export function ModernSidebar({ activeView, onViewChange }: ModernSidebarProps) 
         ],
       },
     ],
-    []
+    [unreadCount]
   );
 
   const tenantSections = useMemo<Section[]>(
@@ -144,12 +146,12 @@ export function ModernSidebar({ activeView, onViewChange }: ModernSidebarProps) 
       {
         key: "comms",
         items: [
-          { id: "notifications", labelKey: "navNotifications", icon: Bell },
+          { id: "notifications", labelKey: "navNotifications", icon: Bell, badge: unreadCount },
           { id: "informations", labelKey: "navInformations", icon: Info },
         ],
       },
     ],
-    []
+    [unreadCount]
   );
 
   const isAdmin = user?.role === "admin";

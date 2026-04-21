@@ -844,6 +844,22 @@ export const saveNotifications = (next: Notification[]) => {
   cache.notifications = next;
   void sync<Notification>("notifications", prev, next, n2r as any, n2c, (list) => (cache.notifications = list));
 };
+export const addNotification = (
+  n: Omit<Notification, "id" | "date" | "read"> & Partial<Pick<Notification, "id" | "date" | "read">>,
+): Notification => {
+  const newNotif: Notification = {
+    id: n.id ?? `tmp_${Date.now()}_${Math.random().toString(16).slice(2, 6)}`,
+    date: n.date ?? nowISO(),
+    read: n.read ?? false,
+    title: n.title,
+    message: n.message,
+    buildingId: n.buildingId,
+    recipientId: n.recipientId,
+    category: n.category,
+  };
+  saveNotifications([newNotif, ...cache.notifications]);
+  return newNotif;
+};
 
 // Maintenance requests
 export const getMaintenanceRequests = (): MaintenanceRequest[] => cache.maintenanceRequests;

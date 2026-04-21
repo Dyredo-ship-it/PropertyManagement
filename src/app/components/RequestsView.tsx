@@ -38,6 +38,7 @@ import {
   type RentalApplication,
 } from "../utils/storage";
 import { useAuth } from "../context/AuthContext";
+import { useNotifications } from "../context/NotificationsContext";
 import { useLanguage } from "../i18n/LanguageContext";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -501,6 +502,7 @@ const selectStyle: React.CSSProperties = {
 
 export function RequestsView() {
   const { user } = useAuth();
+  const { addNotification } = useNotifications();
   const { t } = useLanguage();
   const isAdmin = user?.role === "admin";
 
@@ -591,6 +593,12 @@ export function RequestsView() {
         updatedAt: new Date().toISOString(),
       };
       saveMaintenanceRequests([...getMaintenanceRequests(), req]);
+      addNotification({
+        title: `Nouvelle demande de maintenance — ${req.title}`,
+        message: `${user!.name} · ${req.buildingName ?? ""} · ${req.unit ?? ""}`,
+        buildingId: req.buildingId,
+        category: req.priority === "urgent" ? "urgent" : "maintenance",
+      });
       setIsDialogOpen(false);
       setFormData({ title: "", description: "", priority: "medium" });
       loadData();
@@ -634,6 +642,12 @@ export function RequestsView() {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }, ...apps]);
+    addNotification({
+      title: `Nouvelle candidature — ${appFormData.applicantName}`,
+      message: `${bldg.name}${appFormData.desiredUnit ? ` · ${appFormData.desiredUnit}` : ""}`,
+      buildingId: appFormData.buildingId,
+      category: "general",
+    });
     setIsAppDialogOpen(false);
     setAppFormData({ buildingId: "", desiredUnit: "", applicantName: "", applicantEmail: "", applicantPhone: "", currentAddress: "", desiredMoveIn: "", monthlyIncome: 0, householdSize: 1, occupation: "", employer: "", message: "" });
     loadData();

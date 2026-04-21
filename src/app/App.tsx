@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { NotificationsProvider } from "./context/NotificationsContext";
 import { hydrateFromSupabase, clearStorageCache } from "./utils/storage";
 import { ThemeProvider } from "./context/ThemeContext";
 import { CurrencyProvider } from "./context/CurrencyContext";
@@ -240,7 +241,9 @@ export default function App() {
       <LanguageProvider>
         <CurrencyProvider>
           <AuthProvider>
-            <AppContent />
+            <NotificationsProvider>
+              <AppContent />
+            </NotificationsProvider>
           </AuthProvider>
         </CurrencyProvider>
       </LanguageProvider>

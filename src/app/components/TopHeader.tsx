@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
+import { useNotifications } from "../context/NotificationsContext";
 import { useLanguage } from "../i18n/LanguageContext";
 import { LANGUAGES } from "../i18n/translations";
 import {
@@ -27,38 +28,41 @@ import {
   type Building,
   type Tenant,
   type MaintenanceRequest,
+  type NotificationCategory,
 } from "../utils/storage";
 
-/* ─── Mock notifications ─────────────────────────────────────── */
+/* ─── Notification UI helpers ────────────────────────────────── */
 
-type Notif = {
-  id: number;
-  type: "request" | "application" | "message" | "alert";
-  title: string;
-  body: string;
-  time: string;
-  unread: boolean;
-  priority?: boolean;
-};
-
-const ADMIN_NOTIFS: Notif[] = [];
-
-const TENANT_NOTIFS: Notif[] = [];
-
-const notifIcon = (type: Notif["type"]) => {
+const notifIcon = (category?: NotificationCategory) => {
   const cls = "w-4 h-4";
-  if (type === "request") return <Wrench className={cls} />;
-  if (type === "application") return <FileText className={cls} />;
-  if (type === "message") return <MessageSquare className={cls} />;
-  return <AlertCircle className={cls} />;
+  if (category === "maintenance") return <Wrench className={cls} />;
+  if (category === "payment") return <FileText className={cls} />;
+  if (category === "inspection") return <ClipboardList className={cls} />;
+  if (category === "urgent") return <AlertCircle className={cls} />;
+  return <MessageSquare className={cls} />;
 };
 
-const notifColor = (type: Notif["type"]) => {
-  if (type === "request") return { bg: "rgba(245,158,11,0.10)", color: "#B45309" };
-  if (type === "application") return { bg: "rgba(59,130,246,0.10)", color: "#1D4ED8" };
-  if (type === "message") return { bg: "rgba(139,92,246,0.10)", color: "#6D28D9" };
-  return { bg: "rgba(239,68,68,0.10)", color: "#DC2626" };
+const notifColor = (category?: NotificationCategory) => {
+  if (category === "maintenance") return { bg: "rgba(245,158,11,0.10)", color: "#B45309" };
+  if (category === "payment") return { bg: "rgba(59,130,246,0.10)", color: "#1D4ED8" };
+  if (category === "inspection") return { bg: "rgba(16,185,129,0.10)", color: "#047857" };
+  if (category === "urgent") return { bg: "rgba(239,68,68,0.10)", color: "#DC2626" };
+  return { bg: "rgba(139,92,246,0.10)", color: "#6D28D9" };
 };
+
+function formatRelativeTime(dateString: string): string {
+  const date = new Date(dateString);
+  const diffMs = Date.now() - date.getTime();
+  const diffMin = Math.floor(diffMs / 60_000);
+  if (diffMin < 1) return "À l'instant";
+  if (diffMin < 60) return `Il y a ${diffMin} min`;
+  const diffHours = Math.floor(diffMin / 60);
+  if (diffHours < 24) return `Il y a ${diffHours} h`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays === 1) return "Hier";
+  if (diffDays < 7) return `Il y a ${diffDays} j`;
+  return date.toLocaleDateString("fr-CH", { day: "2-digit", month: "short" });
+}
 
 /* ─── Component ──────────────────────────────────────────────── */
 
@@ -74,10 +78,10 @@ export function TopHeader({ onNavigate }: { onNavigate?: (view: string) => void 
   const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { t, language, setLanguage } = useLanguage();
+  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
 
   const [isLangOpen, setIsLangOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
-  const [notifRead, setNotifRead] = useState<Set<number>>(new Set());
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
 
@@ -85,8 +89,7 @@ export function TopHeader({ onNavigate }: { onNavigate?: (view: string) => void 
   const notifRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
 
-  const notifs = user?.role === "admin" ? ADMIN_NOTIFS : TENANT_NOTIFS;
-  const unreadCount = notifs.filter((n) => n.unread && !notifRead.has(n.id)).length;
+  const notifs = notifications;
 
   const initials = user?.name
     ? user.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
@@ -167,7 +170,7 @@ export function TopHeader({ onNavigate }: { onNavigate?: (view: string) => void 
   }, []);
 
   const markAllRead = () => {
-    setNotifRead(new Set(notifs.map((n) => n.id)));
+    markAllAsRead();
   };
 
   const currentLang = LANGUAGES.find((l) => l.code === language);
@@ -505,8 +508,9 @@ export function TopHeader({ onNavigate }: { onNavigate?: (view: string) => void 
                   </div>
                 )}
                 {notifs.map((n) => {
-                  const isUnread = n.unread && !notifRead.has(n.id);
-                  const { bg, color } = notifColor(n.type);
+                  const isUnread = !n.read;
+                  const { bg, color } = notifColor(n.category);
+                  const isUrgent = n.category === "urgent";
                   return (
                     <div
                       key={n.id}
@@ -515,7 +519,9 @@ export function TopHeader({ onNavigate }: { onNavigate?: (view: string) => void 
                         borderColor: "var(--border)",
                         background: isUnread ? "var(--sidebar-accent)" : "transparent",
                       }}
-                      onClick={() => setNotifRead((prev) => new Set([...prev, n.id]))}
+                      onClick={() => {
+                        if (isUnread) markAsRead(n.id);
+                      }}
                       onMouseEnter={(e) => { e.currentTarget.style.background = "var(--background)"; }}
                       onMouseLeave={(e) => { e.currentTarget.style.background = isUnread ? "var(--sidebar-accent)" : "transparent"; }}
                     >
@@ -523,7 +529,7 @@ export function TopHeader({ onNavigate }: { onNavigate?: (view: string) => void 
                         className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
                         style={{ background: bg, color }}
                       >
-                        {notifIcon(n.type)}
+                        {notifIcon(n.category)}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
@@ -536,7 +542,7 @@ export function TopHeader({ onNavigate }: { onNavigate?: (view: string) => void 
                           >
                             {n.title}
                           </p>
-                          {n.priority && (
+                          {isUrgent && (
                             <span
                               className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded shrink-0"
                               style={{ background: "rgba(239,68,68,0.10)", color: "#DC2626" }}
@@ -545,11 +551,13 @@ export function TopHeader({ onNavigate }: { onNavigate?: (view: string) => void 
                             </span>
                           )}
                         </div>
-                        <p className="text-[11px] mt-0.5 truncate" style={{ color: "var(--muted-foreground)" }}>
-                          {n.body}
-                        </p>
+                        {n.message && (
+                          <p className="text-[11px] mt-0.5 truncate" style={{ color: "var(--muted-foreground)" }}>
+                            {n.message}
+                          </p>
+                        )}
                         <p className="text-[10px] mt-1" style={{ color: "var(--muted-foreground)", opacity: 0.7 }}>
-                          {n.time}
+                          {formatRelativeTime(n.date)}
                         </p>
                       </div>
                       {isUnread && (
@@ -572,6 +580,10 @@ export function TopHeader({ onNavigate }: { onNavigate?: (view: string) => void 
                   type="button"
                   className="text-[12px] font-medium transition-colors"
                   style={{ color: "var(--primary)" }}
+                  onClick={() => {
+                    setIsNotifOpen(false);
+                    onNavigate?.("notifications");
+                  }}
                 >
                   Voir toutes les notifications
                 </button>
