@@ -684,12 +684,26 @@ export function AccountingView() {
   /* ─── Income statement computed values ───────────────────── */
 
   const incomeStatement = useMemo(() => {
-    const revenueTotal = REVENUE_ACCOUNTS.reduce((sum, a) => sum + (accountTotals[a.num]?.credit || 0), 0);
-    const expenseTotal = EXPENSE_ACCOUNTS.reduce((sum, a) => sum + (accountTotals[a.num]?.debit || 0), 0);
-    const investTotal = INVESTMENT_ACCOUNTS.reduce((sum, a) => sum + (accountTotals[a.num]?.debit || 0), 0);
+    // Revenue: net = credit - debit (debits on revenue accounts are reversals)
+    const revenueTotal = REVENUE_ACCOUNTS.reduce((sum, a) => {
+      const t = accountTotals[a.num];
+      return sum + ((t?.credit || 0) - (t?.debit || 0));
+    }, 0);
+    // Expense: net = debit - credit (credits on expense accounts are refunds/reversals)
+    const expenseTotal = EXPENSE_ACCOUNTS.reduce((sum, a) => {
+      const t = accountTotals[a.num];
+      return sum + ((t?.debit || 0) - (t?.credit || 0));
+    }, 0);
+    const investTotal = INVESTMENT_ACCOUNTS.reduce((sum, a) => {
+      const t = accountTotals[a.num];
+      return sum + ((t?.debit || 0) - (t?.credit || 0));
+    }, 0);
     const totalExpenses = expenseTotal + investTotal;
     const solde = revenueTotal - totalExpenses;
-    const ownerPayment = OWNER_ACCOUNTS.reduce((sum, a) => sum + (accountTotals[a.num]?.debit || 0), 0);
+    const ownerPayment = OWNER_ACCOUNTS.reduce((sum, a) => {
+      const t = accountTotals[a.num];
+      return sum + ((t?.debit || 0) - (t?.credit || 0));
+    }, 0);
     const soldeApres = solde - ownerPayment;
 
     // Verification
@@ -704,9 +718,14 @@ export function AccountingView() {
   /* ─── Charges statement ──────────────────────────────────── */
 
   const chargesStatement = useMemo(() => {
-    const acomptesTotal = accountTotals[103]?.credit || 0;
+    // Net acomptes: credit - debit (debits on 103 reverse acomptes).
+    const acomptesTotal = (accountTotals[103]?.credit || 0) - (accountTotals[103]?.debit || 0);
+    // Net charge expenses: debit - credit (credits on expense accounts reduce them).
     const chargeExpenses = CHARGE_EXPENSE_ACCOUNTS.reduce(
-      (sum, num) => sum + (accountTotals[num]?.debit || 0),
+      (sum, num) => {
+        const t = accountTotals[num];
+        return sum + ((t?.debit || 0) - (t?.credit || 0));
+      },
       0,
     );
     const solde = acomptesTotal - chargeExpenses;
@@ -753,7 +772,9 @@ export function AccountingView() {
   ) => {
     const totals = accountTotals[account.num] || { debit: 0, credit: 0 };
     const acctAdj = filteredAdj.filter((a) => a.accountNumber === account.num);
-    const value = showCredit ? totals.credit : totals.debit;
+    // For revenue accounts (showCredit), net = credit - debit (debits reduce revenue).
+    // For expense/investment accounts (showDebit), net = debit - credit (credits reduce expenses).
+    const value = showCredit ? totals.credit - totals.debit : totals.debit - totals.credit;
     if (value === 0 && acctAdj.length === 0) {
       return (
         <tr key={account.num}>

@@ -506,7 +506,18 @@ export function RequestsView() {
   const { t } = useLanguage();
   const isAdmin = user?.role === "admin";
 
-  const [activeTab, setActiveTab] = useState<"maintenance" | "applications">("maintenance");
+  const [activeTab, setActiveTab] = useState<"maintenance" | "applications">(() => {
+    try {
+      const hint = sessionStorage.getItem("requests-active-tab");
+      if (hint === "applications" || hint === "maintenance") {
+        sessionStorage.removeItem("requests-active-tab");
+        return hint;
+      }
+    } catch {
+      /* ignore storage errors */
+    }
+    return "maintenance";
+  });
   const [requests, setRequests] = useState<MaintenanceRequest[]>([]);
   const [tenants, setTenants] = useState<any[]>([]);
   const [buildings, setBuildings] = useState<Building[]>([]);

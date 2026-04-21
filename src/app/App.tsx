@@ -202,7 +202,7 @@ function AppContent() {
           {activeView === "calendar" && user?.role === "admin" && <CalendarView />}
           {activeView === "accounting" && user?.role === "admin" && <AccountingView />}
           {activeView === "settings" && <SettingsView initialTab={settingsInitialTab} />}
-          {activeView === "notifications" && <NotificationsView />}
+          {activeView === "notifications" && <NotificationsView onNavigate={setActiveView} />}
           {(activeView === "info" || activeView === "informations") && <InformationsView />}
           {activeView === "profile" && user?.role === "tenant" && (
             <div className="p-8">

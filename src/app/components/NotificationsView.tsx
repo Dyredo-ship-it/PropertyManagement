@@ -16,6 +16,7 @@ import {
   ArrowUpDown,
   Tag,
   Building2,
+  ArrowUpRight,
 } from "lucide-react";
 import {
   getNotifications,
@@ -62,7 +63,7 @@ Envoyé le ${todayFr()}`;
 
 /* ─── Component ───────────────────────────────────────────────── */
 
-export function NotificationsView() {
+export function NotificationsView({ onNavigate }: { onNavigate?: (view: string) => void }) {
   const { user } = useAuth();
   const { t } = useLanguage();
 
@@ -185,6 +186,33 @@ export function NotificationsView() {
 
   const isInspection = (title: string) =>
     title.toLowerCase().includes("inspection");
+
+  const detectLink = (
+    notif: Notification,
+  ): { label: string; view: string; tab?: "maintenance" | "applications" } | null => {
+    const t0 = notif.title.toLowerCase();
+    if (t0.startsWith("nouvelle candidature")) {
+      return { label: "Voir la candidature", view: "requests", tab: "applications" };
+    }
+    if (t0.startsWith("nouvelle demande de maintenance")) {
+      return { label: "Voir la demande", view: "requests", tab: "maintenance" };
+    }
+    return null;
+  };
+
+  const openLink = (
+    link: { view: string; tab?: "maintenance" | "applications" },
+  ) => {
+    if (link.tab) {
+      try {
+        sessionStorage.setItem("requests-active-tab", link.tab);
+      } catch {
+        /* ignore storage errors */
+      }
+    }
+    setSelectedNotif(null);
+    onNavigate?.(link.view);
+  };
 
   const openBroadcast = (notification: Notification) => {
     const inferredBuildingId = (notification as any).buildingId ?? "";
@@ -655,6 +683,26 @@ export function NotificationsView() {
                 borderTop: "1px solid var(--border)",
                 display: "flex", alignItems: "center", gap: 8, justifyContent: "flex-end",
               }}>
+                {(() => {
+                  const link = detectLink(selectedNotif);
+                  if (!link) return null;
+                  return (
+                    <button
+                      onClick={() => openLink(link)}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 6,
+                        padding: "8px 14px", borderRadius: 9, fontSize: 12, fontWeight: 550,
+                        border: "1px solid var(--border)", background: "var(--card)",
+                        color: "var(--foreground)", cursor: "pointer", transition: "background 0.15s",
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = "var(--background)"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = "var(--card)"; }}
+                    >
+                      <ArrowUpRight style={{ width: 13, height: 13 }} />
+                      {link.label}
+                    </button>
+                  );
+                })()}
                 {user?.role === "admin" && isInspection(selectedNotif.title) && (
                   <button
                     onClick={() => { openBroadcast(selectedNotif); setSelectedNotif(null); }}
@@ -684,7 +732,7 @@ export function NotificationsView() {
                     onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
                   >
                     <Trash2 style={{ width: 13, height: 13 }} />
-                    {t("confirmDeleteNotif")}
+                    {t("delete")}
                   </button>
                 )}
                 <button
