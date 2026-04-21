@@ -210,6 +210,24 @@ export interface ManualAdjustment {
   createdAt: string;
 }
 
+export type ChartEntryType = "revenue" | "expense" | "investment" | "owner" | "charges_income";
+
+// One row per (org, num). Stores either an override on a standard account
+// (is_custom=false, possibly with custom_label and/or disabled), or a user-
+// defined custom account (is_custom=true, custom_label required).
+// buildingIds empty = applies to all buildings of the org.
+export interface ChartEntry {
+  id: string;
+  num: number;
+  customLabel: string | null;
+  type: ChartEntryType;
+  buildingIds: string[];
+  disabled: boolean;
+  isCustom: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type RentalApplicationStatus = "received" | "under-review" | "accepted" | "rejected";
 
 export interface RentalApplication {
@@ -249,6 +267,7 @@ type Cache = {
   calendarEvents: CalendarEvent[];
   accountingTransactions: AccountingTransaction[];
   manualAdjustments: ManualAdjustment[];
+  chartEntries: ChartEntry[];
   renovations: Renovation[];
   accountingSettings: Record<string, AccountingSettings>; // keyed by buildingId
   baseCurrency: Currency;
@@ -268,6 +287,7 @@ const cache: Cache = {
   calendarEvents: [],
   accountingTransactions: [],
   manualAdjustments: [],
+  chartEntries: [],
   renovations: [],
   accountingSettings: {},
   baseCurrency: ((): Currency => {
@@ -352,6 +372,7 @@ export function clearStorageCache() {
   cache.calendarEvents = [];
   cache.accountingTransactions = [];
   cache.manualAdjustments = [];
+  cache.chartEntries = [];
   cache.renovations = [];
   cache.accountingSettings = {};
 }
@@ -601,6 +622,29 @@ const adj2r = (a: Partial<ManualAdjustment>, org: string) => ({
   type: a.type ?? "debit",
 });
 
+const ce2c = (r: any): ChartEntry => ({
+  id: r.id,
+  num: r.num,
+  customLabel: r.custom_label ?? null,
+  type: r.type,
+  buildingIds: Array.isArray(r.building_ids) ? r.building_ids : [],
+  disabled: !!r.disabled,
+  isCustom: !!r.is_custom,
+  createdAt: r.created_at,
+  updatedAt: r.updated_at,
+});
+
+const ce2r = (c: Partial<ChartEntry>, org: string) => ({
+  ...(isValidDbId(c.id) ? { id: c.id } : {}),
+  organization_id: org,
+  num: c.num ?? 0,
+  custom_label: c.customLabel ?? null,
+  type: c.type ?? "revenue",
+  building_ids: c.buildingIds ?? [],
+  disabled: c.disabled ?? false,
+  is_custom: c.isCustom ?? false,
+});
+
 const reno2c = (r: any): Renovation => ({
   id: r.id,
   buildingId: r.building_id,
@@ -692,6 +736,7 @@ export async function hydrateFromSupabase(): Promise<void> {
       { data: tenantDocs },
       { data: tenantAbsences },
       { data: accSettings },
+      { data: chartEntries },
     ] = await Promise.all([
       supabase.from("buildings").select("*"),
       supabase.from("tenants").select("*"),
@@ -707,6 +752,7 @@ export async function hydrateFromSupabase(): Promise<void> {
       supabase.from("tenant_documents").select("*"),
       supabase.from("tenant_absences").select("*"),
       supabase.from("accounting_settings").select("*"),
+      supabase.from("account_chart_entries").select("*"),
     ]);
 
     cache.buildings = (buildings ?? []).map(b2c);
@@ -732,6 +778,7 @@ export async function hydrateFromSupabase(): Promise<void> {
         unitTypes: ((r as any).unit_types as any) ?? {},
       };
     }
+    cache.chartEntries = (chartEntries ?? []).map(ce2c);
     hydrated = true;
   } catch (err) {
     toastError("hydrate", err);
@@ -1206,6 +1253,40 @@ export const addManualAdjustment = (adj: Omit<ManualAdjustment, "id" | "createdA
 };
 export const deleteManualAdjustment = (id: string) => {
   saveManualAdjustments(cache.manualAdjustments.filter((a) => a.id !== id));
+};
+
+// Chart entries (custom plan comptable per org)
+export const getChartEntries = (): ChartEntry[] => cache.chartEntries;
+export const saveChartEntries = (entries: ChartEntry[]) => {
+  const prev = cache.chartEntries;
+  const next = entries.map((x) => ensureId(x));
+  cache.chartEntries = next;
+  void sync<ChartEntry>("account_chart_entries", prev, next, ce2r as any, ce2c, (list) => (cache.chartEntries = list));
+};
+export const upsertChartEntry = (
+  entry: Omit<ChartEntry, "id" | "createdAt" | "updatedAt"> & Partial<Pick<ChartEntry, "id" | "createdAt" | "updatedAt">>,
+): ChartEntry => {
+  const now = nowISO();
+  const existing = cache.chartEntries.find((e) => e.num === entry.num);
+  const next: ChartEntry = {
+    id: entry.id ?? existing?.id ?? `tmp_${Date.now()}_${Math.random().toString(16).slice(2, 6)}`,
+    num: entry.num,
+    customLabel: entry.customLabel ?? null,
+    type: entry.type,
+    buildingIds: entry.buildingIds ?? [],
+    disabled: entry.disabled ?? false,
+    isCustom: entry.isCustom ?? false,
+    createdAt: entry.createdAt ?? existing?.createdAt ?? now,
+    updatedAt: now,
+  };
+  const list = existing
+    ? cache.chartEntries.map((e) => (e.id === existing.id ? next : e))
+    : [...cache.chartEntries, next];
+  saveChartEntries(list);
+  return next;
+};
+export const deleteChartEntry = (id: string) => {
+  saveChartEntries(cache.chartEntries.filter((e) => e.id !== id));
 };
 
 // Renovations

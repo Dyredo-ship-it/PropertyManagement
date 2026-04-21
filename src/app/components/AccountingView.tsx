@@ -13,55 +13,117 @@ import {
   getManualAdjustments, addManualAdjustment, deleteManualAdjustment,
   getNotifications, saveNotifications,
   getAccountingSettings, saveAccountingSettings,
+  getChartEntries, upsertChartEntry, deleteChartEntry,
   type AccountingTransaction, type ManualAdjustment, type Building, type Notification,
-  type AccountingSettings,
+  type AccountingSettings, type ChartEntry, type ChartEntryType,
 } from "../utils/storage";
 import { useLanguage } from "../i18n/LanguageContext";
 import { useCurrency } from "../context/CurrencyContext";
 
-/* ─── Account chart ────────────────────────────────────────── */
+/* ─── Account chart (standards) ──────────────────────────────
+   Standards are the defaults shipped with the app. Per-org
+   overrides (rename, disable, or custom additions) live in the
+   `account_chart_entries` table and are merged at runtime.
+*/
 
-const REVENUE_ACCOUNTS = [
-  { num: 101, label: "Encaissements loyers" },
-  { num: 102, label: "Encaissements loyers - Places de parc et garages" },
-  { num: 104, label: "Subventions reçues" },
-  { num: 105, label: "Pertes de loyers" },
-  { num: 106, label: "Recettes buanderie" },
-  { num: 107, label: "Autres recettes" },
+type AccountDef = { num: number; label: string; type: ChartEntryType };
+
+const STANDARD_REVENUE: AccountDef[] = [
+  { num: 101, label: "Encaissements loyers", type: "revenue" },
+  { num: 102, label: "Encaissements loyers - Places de parc et garages", type: "revenue" },
+  { num: 104, label: "Subventions reçues", type: "revenue" },
+  { num: 105, label: "Pertes de loyers", type: "revenue" },
+  { num: 106, label: "Recettes buanderie", type: "revenue" },
+  { num: 107, label: "Autres recettes", type: "revenue" },
 ];
-const CHARGES_INCOME_ACCOUNTS = [
-  { num: 103, label: "Acomptes de charges" },
+const STANDARD_CHARGES_INCOME: AccountDef[] = [
+  { num: 103, label: "Acomptes de charges", type: "charges_income" },
 ];
-const EXPENSE_ACCOUNTS = [
-  { num: 201, label: "Assurances" },
-  { num: 202, label: "Entretien appartements" },
-  { num: 203, label: "Entretien bâtiment" },
-  { num: 204, label: "Entretien des espaces verts" },
-  { num: 205, label: "Entretien machines immeubles" },
-  { num: 206, label: "Frais d'exploitation et d'entretien du chauffage" },
-  { num: 207, label: "Frais postaux" },
-  { num: 208, label: "Annonces locatives / Publicité" },
-  { num: 209, label: "Frais de gestion locative" },
-  { num: 210, label: "Frais de conciergerie" },
-  { num: 211, label: "Débiteurs locataires ouverts" },
-  { num: 212, label: "Frais divers" },
-  { num: 213, label: "Électricité" },
-  { num: 214, label: "Honoraires de gestion" },
-  { num: 215, label: "Dédommagements locataires pour travaux" },
-  { num: 216, label: "Frais de buanderie" },
-  { num: 217, label: "Gaz" },
-  { num: 218, label: "Eau" },
-  { num: 219, label: "Autres charges" },
+const STANDARD_EXPENSE: AccountDef[] = [
+  { num: 201, label: "Assurances", type: "expense" },
+  { num: 202, label: "Entretien appartements", type: "expense" },
+  { num: 203, label: "Entretien bâtiment", type: "expense" },
+  { num: 204, label: "Entretien des espaces verts", type: "expense" },
+  { num: 205, label: "Entretien machines immeubles", type: "expense" },
+  { num: 206, label: "Frais d'exploitation et d'entretien du chauffage", type: "expense" },
+  { num: 207, label: "Frais postaux", type: "expense" },
+  { num: 208, label: "Annonces locatives / Publicité", type: "expense" },
+  { num: 209, label: "Frais de gestion locative", type: "expense" },
+  { num: 210, label: "Frais de conciergerie", type: "expense" },
+  { num: 211, label: "Débiteurs locataires ouverts", type: "expense" },
+  { num: 212, label: "Frais divers", type: "expense" },
+  { num: 213, label: "Électricité", type: "expense" },
+  { num: 214, label: "Honoraires de gestion", type: "expense" },
+  { num: 215, label: "Dédommagements locataires pour travaux", type: "expense" },
+  { num: 216, label: "Frais de buanderie", type: "expense" },
+  { num: 217, label: "Gaz", type: "expense" },
+  { num: 218, label: "Eau", type: "expense" },
+  { num: 219, label: "Autres charges", type: "expense" },
 ];
-const INVESTMENT_ACCOUNTS = [
-  { num: 301, label: "Améliorations et rénovations" },
-  { num: 302, label: "Isolation (travaux d'enveloppe)" },
+const STANDARD_INVESTMENT: AccountDef[] = [
+  { num: 301, label: "Améliorations et rénovations", type: "investment" },
+  { num: 302, label: "Isolation (travaux d'enveloppe)", type: "investment" },
 ];
-const OWNER_ACCOUNTS = [
-  { num: 401, label: "Versement au propriétaire" },
+const STANDARD_OWNER: AccountDef[] = [
+  { num: 401, label: "Versement au propriétaire", type: "owner" },
 ];
 
-const ALL_ACCOUNTS = [...REVENUE_ACCOUNTS, ...CHARGES_INCOME_ACCOUNTS, ...EXPENSE_ACCOUNTS, ...INVESTMENT_ACCOUNTS, ...OWNER_ACCOUNTS];
+const ALL_STANDARDS: AccountDef[] = [
+  ...STANDARD_REVENUE, ...STANDARD_CHARGES_INCOME,
+  ...STANDARD_EXPENSE, ...STANDARD_INVESTMENT, ...STANDARD_OWNER,
+];
+const STANDARD_NUMS = new Set(ALL_STANDARDS.map((a) => a.num));
+
+// Build the effective chart for a given building by merging standards + chart entries.
+// - A chart entry with is_custom=false is an override on a standard (custom_label, disabled).
+// - A chart entry with is_custom=true is a user-defined account.
+// - buildingIds empty array on an entry means "all buildings of the org".
+function buildEffectiveChart(
+  standards: AccountDef[],
+  entries: ChartEntry[],
+  selectedBuildingId: string | null,
+): AccountDef[] {
+  const entryByNum = new Map(entries.map((e) => [e.num, e]));
+  const buildingScopeOk = (ids: string[]) => {
+    if (!ids || ids.length === 0) return true;
+    if (!selectedBuildingId) return true;
+    return ids.includes(selectedBuildingId);
+  };
+
+  const result: AccountDef[] = [];
+
+  // Standards (filtered by overrides)
+  for (const std of standards) {
+    const override = entryByNum.get(std.num);
+    if (override) {
+      if (override.disabled) continue;
+      if (!buildingScopeOk(override.buildingIds)) continue;
+      result.push({
+        num: std.num,
+        label: override.customLabel?.trim() || std.label,
+        type: std.type,
+      });
+    } else {
+      result.push(std);
+    }
+  }
+
+  // Custom user-added accounts
+  for (const e of entries) {
+    if (!e.isCustom) continue;
+    if (e.disabled) continue;
+    if (STANDARD_NUMS.has(e.num)) continue; // safety: don't double-count
+    if (!buildingScopeOk(e.buildingIds)) continue;
+    result.push({
+      num: e.num,
+      label: e.customLabel?.trim() || `Compte ${e.num}`,
+      type: e.type,
+    });
+  }
+
+  result.sort((a, b) => a.num - b.num);
+  return result;
+}
 
 const IMPORT_FIELDS = [
   { key: "dateInvoice", label: "Date facture" },
@@ -185,6 +247,7 @@ export function AccountingView() {
   const [selectedBuildingId, setSelectedBuildingId] = useState<string>("");
   const [transactions, setTransactions] = useState<AccountingTransaction[]>([]);
   const [adjustments, setAdjustments] = useState<ManualAdjustment[]>([]);
+  const [chartEntries, setChartEntries] = useState<ChartEntry[]>([]);
 
   // Import state
   const [showImport, setShowImport] = useState(false);
@@ -236,6 +299,16 @@ export function AccountingView() {
   const [settingsNewItem, setSettingsNewItem] = useState("");
   const [settingsTab, setSettingsTab] = useState<"units" | "categories" | "subCategories">("units");
 
+  // Chart-of-accounts modal
+  const [showChartModal, setShowChartModal] = useState(false);
+  const [chartForm, setChartForm] = useState<{
+    num: string;
+    label: string;
+    type: ChartEntryType;
+    scope: "all" | "specific";
+    buildingIds: string[];
+  }>({ num: "", label: "", type: "revenue", scope: "all", buildingIds: [] });
+
   // Format CHF fallback
   const fmtCHF = useCallback(
     (n: number) => {
@@ -266,6 +339,7 @@ export function AccountingView() {
     setTenants(getTenants());
     setTransactions(getAccountingTransactions());
     setAdjustments(getManualAdjustments());
+    setChartEntries(getChartEntries());
     if (!selectedBuildingId && b.length > 0) {
       setSelectedBuildingId(b[0].id);
     }
@@ -307,6 +381,36 @@ export function AccountingView() {
         ? adjustments.filter((a) => a.buildingId === selectedBuildingId)
         : adjustments,
     [adjustments, selectedBuildingId],
+  );
+
+  // Effective chart — standards merged with per-org overrides & custom entries,
+  // filtered by the currently selected building.
+  const REVENUE_ACCOUNTS = useMemo(
+    () => buildEffectiveChart(STANDARD_REVENUE, chartEntries, selectedBuildingId || null),
+    [chartEntries, selectedBuildingId],
+  );
+  const CHARGES_INCOME_ACCOUNTS = useMemo(
+    () => buildEffectiveChart(STANDARD_CHARGES_INCOME, chartEntries, selectedBuildingId || null),
+    [chartEntries, selectedBuildingId],
+  );
+  const EXPENSE_ACCOUNTS = useMemo(
+    () => buildEffectiveChart(STANDARD_EXPENSE, chartEntries, selectedBuildingId || null),
+    [chartEntries, selectedBuildingId],
+  );
+  const INVESTMENT_ACCOUNTS = useMemo(
+    () => buildEffectiveChart(STANDARD_INVESTMENT, chartEntries, selectedBuildingId || null),
+    [chartEntries, selectedBuildingId],
+  );
+  const OWNER_ACCOUNTS = useMemo(
+    () => buildEffectiveChart(STANDARD_OWNER, chartEntries, selectedBuildingId || null),
+    [chartEntries, selectedBuildingId],
+  );
+  const ALL_ACCOUNTS = useMemo(
+    () => [
+      ...REVENUE_ACCOUNTS, ...CHARGES_INCOME_ACCOUNTS,
+      ...EXPENSE_ACCOUNTS, ...INVESTMENT_ACCOUNTS, ...OWNER_ACCOUNTS,
+    ],
+    [REVENUE_ACCOUNTS, CHARGES_INCOME_ACCOUNTS, EXPENSE_ACCOUNTS, INVESTMENT_ACCOUNTS, OWNER_ACCOUNTS],
   );
 
   // ─── Building tenants ───
@@ -2192,6 +2296,357 @@ export function AccountingView() {
     );
   };
 
+  /* ─── Chart-of-accounts modal ─────────────────────────────── */
+
+  const chartGroups: { type: ChartEntryType; label: string; standards: AccountDef[] }[] = [
+    { type: "revenue", label: "Recettes", standards: STANDARD_REVENUE },
+    { type: "charges_income", label: "Acomptes de charges", standards: STANDARD_CHARGES_INCOME },
+    { type: "expense", label: "Dépenses", standards: STANDARD_EXPENSE },
+    { type: "investment", label: "Investissements", standards: STANDARD_INVESTMENT },
+    { type: "owner", label: "Propriétaire", standards: STANDARD_OWNER },
+  ];
+
+  const handleChartRename = (num: number, newLabel: string, type: ChartEntryType, isCustom: boolean) => {
+    const existing = chartEntries.find((e) => e.num === num);
+    upsertChartEntry({
+      ...(existing?.id ? { id: existing.id } : {}),
+      num,
+      customLabel: newLabel.trim() || null,
+      type,
+      buildingIds: existing?.buildingIds ?? [],
+      disabled: existing?.disabled ?? false,
+      isCustom,
+    });
+    setChartEntries(getChartEntries());
+  };
+
+  const handleChartToggleDisabled = (num: number, type: ChartEntryType, isCustom: boolean) => {
+    const existing = chartEntries.find((e) => e.num === num);
+    upsertChartEntry({
+      ...(existing?.id ? { id: existing.id } : {}),
+      num,
+      customLabel: existing?.customLabel ?? null,
+      type,
+      buildingIds: existing?.buildingIds ?? [],
+      disabled: !(existing?.disabled ?? false),
+      isCustom,
+    });
+    setChartEntries(getChartEntries());
+  };
+
+  const handleChartSetScope = (num: number, type: ChartEntryType, isCustom: boolean, buildingIds: string[]) => {
+    const existing = chartEntries.find((e) => e.num === num);
+    upsertChartEntry({
+      ...(existing?.id ? { id: existing.id } : {}),
+      num,
+      customLabel: existing?.customLabel ?? null,
+      type,
+      buildingIds,
+      disabled: existing?.disabled ?? false,
+      isCustom,
+    });
+    setChartEntries(getChartEntries());
+  };
+
+  const handleChartDeleteCustom = (id: string) => {
+    if (!confirm("Supprimer ce compte personnalisé ?")) return;
+    deleteChartEntry(id);
+    setChartEntries(getChartEntries());
+  };
+
+  const handleChartAdd = () => {
+    const numVal = Number(chartForm.num);
+    if (!Number.isInteger(numVal) || numVal <= 0) {
+      alert("Numéro de compte invalide");
+      return;
+    }
+    if (STANDARD_NUMS.has(numVal)) {
+      alert(`Le numéro ${numVal} est déjà utilisé par un compte standard`);
+      return;
+    }
+    if (chartEntries.some((e) => e.num === numVal && e.isCustom)) {
+      alert(`Le numéro ${numVal} existe déjà`);
+      return;
+    }
+    if (!chartForm.label.trim()) {
+      alert("Libellé requis");
+      return;
+    }
+    upsertChartEntry({
+      num: numVal,
+      customLabel: chartForm.label.trim(),
+      type: chartForm.type,
+      buildingIds: chartForm.scope === "specific" ? chartForm.buildingIds : [],
+      disabled: false,
+      isCustom: true,
+    });
+    setChartEntries(getChartEntries());
+    setChartForm({ num: "", label: "", type: "revenue", scope: "all", buildingIds: [] });
+  };
+
+  const suggestNextNum = (type: ChartEntryType): number => {
+    const base = { revenue: 107, charges_income: 103, expense: 219, investment: 302, owner: 401 }[type];
+    let n = base + 1;
+    const used = new Set<number>([...STANDARD_NUMS, ...chartEntries.filter((e) => e.isCustom).map((e) => e.num)]);
+    while (used.has(n)) n++;
+    return n;
+  };
+
+  const renderChartModal = () => {
+    if (!showChartModal) return null;
+
+    return createPortal(
+      <div
+        style={{
+          position: "fixed", inset: 0, zIndex: 9999,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)",
+        }}
+        onClick={(e) => { if (e.target === e.currentTarget) setShowChartModal(false); }}
+      >
+        <div
+          style={{
+            background: "var(--card)", borderRadius: 16,
+            border: "1px solid var(--border)", width: "92vw", maxWidth: 780,
+            maxHeight: "88vh", display: "flex", flexDirection: "column",
+            boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
+          }}
+        >
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: "18px 24px", borderBottom: "1px solid var(--border)",
+          }}>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "var(--foreground)" }}>Plan comptable</div>
+              <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 2 }}>
+                Renommez, désactivez ou ajoutez des comptes propres à votre régie.
+              </div>
+            </div>
+            <button
+              onClick={() => setShowChartModal(false)}
+              style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted-foreground)", padding: 4 }}
+            >
+              <X size={20} />
+            </button>
+          </div>
+
+          <div style={{ padding: "16px 24px", overflowY: "auto", flex: 1 }}>
+            {chartGroups.map((group) => {
+              const customs = chartEntries.filter((e) => e.isCustom && e.type === group.type);
+              const allRows: { num: number; label: string; isCustom: boolean; entry: ChartEntry | null }[] = [
+                ...group.standards.map((s) => {
+                  const entry = chartEntries.find((e) => e.num === s.num) ?? null;
+                  return { num: s.num, label: entry?.customLabel?.trim() || s.label, isCustom: false, entry };
+                }),
+                ...customs.map((e) => ({
+                  num: e.num, label: e.customLabel?.trim() || `Compte ${e.num}`, isCustom: true, entry: e,
+                })),
+              ].sort((a, b) => a.num - b.num);
+
+              return (
+                <div key={group.type} style={{ marginBottom: 24 }}>
+                  <div style={{
+                    fontSize: 13, fontWeight: 700, color: "var(--foreground)",
+                    textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 10,
+                  }}>{group.label}</div>
+
+                  {allRows.map((row) => {
+                    const disabled = row.entry?.disabled ?? false;
+                    const scoped = (row.entry?.buildingIds?.length ?? 0) > 0;
+                    return (
+                      <div key={row.num} style={{
+                        display: "flex", alignItems: "center", gap: 8,
+                        padding: "8px 10px", borderRadius: 8,
+                        background: disabled ? "rgba(239,68,68,0.04)" : "var(--background)",
+                        marginBottom: 4, opacity: disabled ? 0.6 : 1,
+                      }}>
+                        <div style={{ fontSize: 12, color: "var(--muted-foreground)", width: 42, fontVariantNumeric: "tabular-nums" }}>
+                          {row.num}
+                        </div>
+                        <input
+                          value={row.label}
+                          onChange={(e) => handleChartRename(row.num, e.target.value, group.type, row.isCustom)}
+                          style={{
+                            flex: 1, padding: "6px 10px", borderRadius: 6,
+                            border: "1px solid var(--border)", background: "var(--card)",
+                            color: "var(--foreground)", fontSize: 13,
+                          }}
+                        />
+                        {scoped && (
+                          <span style={{
+                            fontSize: 10, fontWeight: 600, color: "#4338CA",
+                            background: "rgba(99,102,241,0.12)", padding: "3px 7px", borderRadius: 6,
+                          }}>
+                            {row.entry?.buildingIds.length} immeuble(s)
+                          </span>
+                        )}
+                        <select
+                          value={scoped ? "specific" : "all"}
+                          onChange={(e) => {
+                            if (e.target.value === "all") {
+                              handleChartSetScope(row.num, group.type, row.isCustom, []);
+                            } else {
+                              const picked = prompt(
+                                `Sélectionnez les immeubles (IDs séparés par virgule).\nImmeubles disponibles:\n${buildings.map((b) => `${b.id.slice(0, 8)}… ${b.name}`).join("\n")}`,
+                                row.entry?.buildingIds.join(",") ?? "",
+                              );
+                              if (picked !== null) {
+                                const ids = picked.split(",").map((s) => s.trim()).filter((s) => s && buildings.some((b) => b.id === s));
+                                handleChartSetScope(row.num, group.type, row.isCustom, ids);
+                              }
+                            }
+                          }}
+                          style={{
+                            padding: "6px 8px", borderRadius: 6, fontSize: 12,
+                            border: "1px solid var(--border)", background: "var(--card)", color: "var(--foreground)",
+                          }}
+                        >
+                          <option value="all">Tous</option>
+                          <option value="specific">Spécifiques</option>
+                        </select>
+                        <button
+                          onClick={() => handleChartToggleDisabled(row.num, group.type, row.isCustom)}
+                          title={disabled ? "Activer" : "Désactiver"}
+                          style={{
+                            padding: "5px 9px", borderRadius: 6, fontSize: 11,
+                            border: "1px solid var(--border)",
+                            background: "var(--card)", color: "var(--foreground)", cursor: "pointer",
+                          }}
+                        >
+                          {disabled ? "Activer" : "Masquer"}
+                        </button>
+                        {row.isCustom && row.entry && (
+                          <button
+                            onClick={() => handleChartDeleteCustom(row.entry!.id)}
+                            title="Supprimer ce compte"
+                            style={{
+                              padding: 5, borderRadius: 6, border: "1px solid rgba(239,68,68,0.2)",
+                              background: "transparent", color: "#DC2626", cursor: "pointer",
+                            }}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+
+            {/* Add new account */}
+            <div style={{
+              marginTop: 20, padding: 14, borderRadius: 10,
+              border: "1px dashed var(--border)", background: "var(--background)",
+            }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)", marginBottom: 10 }}>
+                Ajouter un compte personnalisé
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "90px 1fr 160px 140px", gap: 8, marginBottom: 10 }}>
+                <input
+                  type="number"
+                  placeholder="N°"
+                  value={chartForm.num}
+                  onChange={(e) => setChartForm({ ...chartForm, num: e.target.value })}
+                  style={{ padding: "7px 10px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--card)", color: "var(--foreground)", fontSize: 13 }}
+                />
+                <input
+                  placeholder="Libellé (ex. Loyer antenne 5G)"
+                  value={chartForm.label}
+                  onChange={(e) => setChartForm({ ...chartForm, label: e.target.value })}
+                  style={{ padding: "7px 10px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--card)", color: "var(--foreground)", fontSize: 13 }}
+                />
+                <select
+                  value={chartForm.type}
+                  onChange={(e) => {
+                    const type = e.target.value as ChartEntryType;
+                    setChartForm({ ...chartForm, type, num: chartForm.num || String(suggestNextNum(type)) });
+                  }}
+                  style={{ padding: "7px 10px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--card)", color: "var(--foreground)", fontSize: 13 }}
+                >
+                  <option value="revenue">Recette</option>
+                  <option value="expense">Dépense</option>
+                  <option value="charges_income">Acompte charges</option>
+                  <option value="investment">Investissement</option>
+                  <option value="owner">Propriétaire</option>
+                </select>
+                <select
+                  value={chartForm.scope}
+                  onChange={(e) => setChartForm({ ...chartForm, scope: e.target.value as "all" | "specific" })}
+                  style={{ padding: "7px 10px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--card)", color: "var(--foreground)", fontSize: 13 }}
+                >
+                  <option value="all">Tous les immeubles</option>
+                  <option value="specific">Immeubles spécifiques</option>
+                </select>
+              </div>
+              {chartForm.scope === "specific" && (
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginBottom: 6 }}>
+                    Cochez les immeubles concernés :
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {buildings.map((b) => {
+                      const selected = chartForm.buildingIds.includes(b.id);
+                      return (
+                        <button
+                          key={b.id}
+                          onClick={() => {
+                            const next = selected
+                              ? chartForm.buildingIds.filter((x) => x !== b.id)
+                              : [...chartForm.buildingIds, b.id];
+                            setChartForm({ ...chartForm, buildingIds: next });
+                          }}
+                          style={{
+                            padding: "5px 10px", borderRadius: 14, fontSize: 11,
+                            border: "1px solid var(--border)",
+                            background: selected ? "var(--primary)" : "var(--card)",
+                            color: selected ? "var(--primary-foreground)" : "var(--foreground)",
+                            cursor: "pointer",
+                          }}
+                        >
+                          {b.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              <button
+                onClick={handleChartAdd}
+                disabled={!chartForm.num || !chartForm.label.trim()}
+                style={{
+                  ...tabBtnBase,
+                  fontSize: 12,
+                  background: chartForm.num && chartForm.label.trim() ? "var(--primary)" : "var(--border)",
+                  color: chartForm.num && chartForm.label.trim() ? "var(--primary-foreground)" : "var(--muted-foreground)",
+                  cursor: chartForm.num && chartForm.label.trim() ? "pointer" : "not-allowed",
+                }}
+              >
+                <Plus size={13} />
+                Ajouter le compte
+              </button>
+            </div>
+          </div>
+
+          <div style={{
+            padding: "12px 24px", borderTop: "1px solid var(--border)",
+            display: "flex", justifyContent: "flex-end",
+          }}>
+            <button
+              onClick={() => setShowChartModal(false)}
+              style={{
+                ...tabBtnBase, background: "var(--primary)", color: "var(--primary-foreground)", fontSize: 12,
+              }}
+            >
+              Terminé
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body,
+    );
+  };
+
   /* ─── Main render ────────────────────────────────────────── */
 
   const tabs = [
@@ -2274,6 +2729,19 @@ export function AccountingView() {
             Importer
           </button>
           <button
+            onClick={() => setShowChartModal(true)}
+            style={{
+              ...tabBtnBase,
+              background: "var(--background)",
+              color: "var(--foreground)",
+              border: "1px solid var(--border)",
+            }}
+            title="Plan comptable"
+          >
+            <Pencil size={14} />
+            Plan comptable
+          </button>
+          <button
             onClick={() => { if (selectedBuildingId) setShowSettings(true); else alert("Sélectionnez un immeuble d'abord"); }}
             style={{
               ...tabBtnBase,
@@ -2330,6 +2798,7 @@ export function AccountingView() {
       {/* Modals */}
       {renderImportModal()}
       {renderAdjustmentModal()}
+      {renderChartModal()}
 
       {/* Settings Modal */}
       {showSettings && createPortal(
