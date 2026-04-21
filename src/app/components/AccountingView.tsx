@@ -24,10 +24,13 @@ import { useCurrency } from "../context/CurrencyContext";
 const REVENUE_ACCOUNTS = [
   { num: 101, label: "Encaissements loyers" },
   { num: 102, label: "Encaissements loyers - Places de parc et garages" },
-  { num: 103, label: "Acomptes de charges" },
-  { num: 104, label: "Subventions reçues pour travaux d'isolation" },
+  { num: 104, label: "Subventions reçues" },
   { num: 105, label: "Pertes de loyers" },
   { num: 106, label: "Recettes buanderie" },
+  { num: 107, label: "Autres recettes" },
+];
+const CHARGES_INCOME_ACCOUNTS = [
+  { num: 103, label: "Acomptes de charges" },
 ];
 const EXPENSE_ACCOUNTS = [
   { num: 201, label: "Assurances" },
@@ -48,6 +51,7 @@ const EXPENSE_ACCOUNTS = [
   { num: 216, label: "Frais de buanderie" },
   { num: 217, label: "Gaz" },
   { num: 218, label: "Eau" },
+  { num: 219, label: "Autres charges" },
 ];
 const INVESTMENT_ACCOUNTS = [
   { num: 301, label: "Améliorations et rénovations" },
@@ -57,7 +61,7 @@ const OWNER_ACCOUNTS = [
   { num: 401, label: "Versement au propriétaire" },
 ];
 
-const ALL_ACCOUNTS = [...REVENUE_ACCOUNTS, ...EXPENSE_ACCOUNTS, ...INVESTMENT_ACCOUNTS, ...OWNER_ACCOUNTS];
+const ALL_ACCOUNTS = [...REVENUE_ACCOUNTS, ...CHARGES_INCOME_ACCOUNTS, ...EXPENSE_ACCOUNTS, ...INVESTMENT_ACCOUNTS, ...OWNER_ACCOUNTS];
 
 const IMPORT_FIELDS = [
   { key: "dateInvoice", label: "Date facture" },
