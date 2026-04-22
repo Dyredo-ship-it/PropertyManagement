@@ -16,6 +16,7 @@ import {
   ClipboardList,
   ChevronRight,
   ScanLine,
+  Menu,
 } from "lucide-react";
 import { DocumentScanner } from "./DocumentScanner";
 import { useAuth } from "../context/AuthContext";
@@ -76,7 +77,13 @@ type SearchResult = {
   view: string;
 };
 
-export function TopHeader({ onNavigate }: { onNavigate?: (view: string) => void }) {
+export function TopHeader({
+  onNavigate,
+  onToggleSidebar,
+}: {
+  onNavigate?: (view: string) => void;
+  onToggleSidebar?: () => void;
+}) {
   const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { t, language, setLanguage } = useLanguage();
@@ -197,11 +204,29 @@ export function TopHeader({ onNavigate }: { onNavigate?: (view: string) => void 
       className="shrink-0 flex items-center gap-4"
       style={{
         height: 64,
-        padding: "0 24px",
+        padding: "0 16px",
         borderBottom: "1px solid var(--border)",
         background: "var(--card)",
       }}
     >
+      {/* Mobile hamburger — hidden on lg+. */}
+      {onToggleSidebar && (
+        <button
+          type="button"
+          onClick={onToggleSidebar}
+          className="lg:hidden"
+          title="Menu"
+          style={{
+            display: "flex", alignItems: "center", justifyContent: "center",
+            width: 40, height: 40, borderRadius: 10,
+            background: "transparent", border: "1px solid var(--border)",
+            color: "var(--foreground)", cursor: "pointer", flexShrink: 0,
+          }}
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+      )}
+
       {/* Search */}
       <div ref={searchRef} style={{ flex: 1, maxWidth: 440, position: "relative" }}>
         <div style={{ position: "relative" }}>

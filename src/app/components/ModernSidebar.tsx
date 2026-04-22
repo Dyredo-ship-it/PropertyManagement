@@ -30,6 +30,10 @@ import type { FeatureKey } from "../lib/permissions";
 interface ModernSidebarProps {
   activeView: string;
   onViewChange: (view: string) => void;
+  /** Whether the drawer variant is open (mobile). Always visible on desktop. */
+  mobileOpen?: boolean;
+  /** Called to close the drawer on mobile (backdrop tap or item click). */
+  onMobileClose?: () => void;
 }
 
 type MenuItem = {
@@ -48,7 +52,7 @@ type Section = {
 
 /* ─── Component ───────────────────────────────────────────────── */
 
-export function ModernSidebar({ activeView, onViewChange }: ModernSidebarProps) {
+export function ModernSidebar({ activeView, onViewChange, mobileOpen = false, onMobileClose }: ModernSidebarProps) {
   const { user, logout } = useAuth();
   const { unreadCount } = useNotifications();
   const { t } = useLanguage();
@@ -193,19 +197,42 @@ export function ModernSidebar({ activeView, onViewChange }: ModernSidebarProps) 
       });
   };
 
+  // Intercept nav clicks so the mobile drawer closes after navigation.
+  const go = (view: string) => {
+    onViewChange(view);
+    onMobileClose?.();
+  };
+
   return (
-    <aside
-      style={{
-        width: 260,
-        height: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        background: "var(--card)",
-        borderRight: "1px solid var(--border)",
-        flexShrink: 0,
-        overflow: "hidden",
-      }}
-    >
+    <>
+      {/* Mobile backdrop — tap to close the drawer. */}
+      <div
+        onClick={onMobileClose}
+        style={{
+          position: "fixed", inset: 0, zIndex: 140,
+          background: "rgba(0,0,0,0.35)",
+          opacity: mobileOpen ? 1 : 0,
+          pointerEvents: mobileOpen ? "auto" : "none",
+          transition: "opacity 0.2s ease",
+          display: "block",
+        }}
+        className="lg:hidden"
+      />
+      <aside
+        className={`modern-sidebar ${mobileOpen ? "is-open" : ""}`}
+        style={{
+          width: 260,
+          height: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          background: "var(--card)",
+          borderRight: "1px solid var(--border)",
+          flexShrink: 0,
+          overflow: "hidden",
+          position: "relative",
+          zIndex: 150,
+        }}
+      >
       {/* ── Logo ────────────────────────────────────────────── */}
       <div
         style={{
@@ -315,7 +342,7 @@ export function ModernSidebar({ activeView, onViewChange }: ModernSidebarProps) 
                     activeView={activeView}
                     expanded={!!expandedMenus[item.id]}
                     onToggleExpand={() => toggleExpand(item.id)}
-                    onNavigate={onViewChange}
+                    onNavigate={go}
                     t={t}
                   />
                 ))}
@@ -442,7 +469,8 @@ export function ModernSidebar({ activeView, onViewChange }: ModernSidebarProps) 
           </button>
         </div>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }
 

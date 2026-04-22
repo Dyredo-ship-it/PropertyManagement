@@ -139,3 +139,21 @@ body {
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 }
+
+/* ── Responsive sidebar ───────────────────────────────────────
+   Desktop (>= lg breakpoint = 1024px): sidebar is a static column.
+   Mobile / small: sidebar slides in from the left as an overlay
+   when ModernSidebar.isOpen is true. */
+@media (max-width: 1023px) {
+  .modern-sidebar {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    transform: translateX(-100%);
+    transition: transform 0.24s ease;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.18);
+  }
+  .modern-sidebar.is-open {
+    transform: translateX(0);
+  }
+}

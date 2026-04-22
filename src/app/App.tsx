@@ -41,6 +41,7 @@ function AppContent() {
   >(undefined);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [biometricUnlocked, setBiometricUnlocked] = useState(false);
+  const [sidebarMobileOpen, setSidebarMobileOpen] = useState(false);
   const can = useCan();
 
   // Hydrate the local cache from Supabase once authenticated. We run this
@@ -187,10 +188,22 @@ function AppContent() {
 
   return (
     <div className="flex h-screen bg-background">
-      <ModernSidebar activeView={activeView} onViewChange={(v) => { setActiveView(v); if (v !== "buildings") setSelectedBuildingId(null); if (v !== "settings") setSettingsInitialTab(undefined); }} />
+      <ModernSidebar
+        activeView={activeView}
+        onViewChange={(v) => {
+          setActiveView(v);
+          if (v !== "buildings") setSelectedBuildingId(null);
+          if (v !== "settings") setSettingsInitialTab(undefined);
+        }}
+        mobileOpen={sidebarMobileOpen}
+        onMobileClose={() => setSidebarMobileOpen(false)}
+      />
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <TopHeader onNavigate={setActiveView} />
+        <TopHeader
+          onNavigate={setActiveView}
+          onToggleSidebar={() => setSidebarMobileOpen((v) => !v)}
+        />
 
         {billingNotice && (
           <div
