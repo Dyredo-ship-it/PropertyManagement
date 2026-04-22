@@ -274,16 +274,17 @@ export function TeamTab() {
         )}
       </Section>
 
-      {/* Pending invitations — team only. Tenant-portal invites are managed
-          from the Locataires view and shouldn't appear here. */}
+      {/* Pending invitations — all roles (team + tenant-portal). Kept here so
+          super admins have a single place to revoke or copy links; only the
+          seat counter above excludes tenants since they have their own cap. */}
       <Section title="Invitations en attente" description="Les invitations expirées ou déjà acceptées sont masquées.">
-        {teamInvitations.filter((i) => i.status === "pending").length === 0 ? (
+        {invitations.filter((i) => i.status === "pending").length === 0 ? (
           <div style={{ fontSize: 12, color: "var(--muted-foreground)", padding: "8px 0" }}>
             Aucune invitation en attente.
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {teamInvitations.filter((i) => i.status === "pending").map((inv) => (
+            {invitations.filter((i) => i.status === "pending").map((inv) => (
               <InvitationRow
                 key={inv.id}
                 invitation={inv}
