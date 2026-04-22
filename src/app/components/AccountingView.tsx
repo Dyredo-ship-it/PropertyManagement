@@ -308,6 +308,7 @@ export function AccountingView() {
     scope: "all" | "specific";
     buildingIds: string[];
   }>({ num: "", label: "", type: "revenue", scope: "all", buildingIds: [] });
+  const [scopeEditingNum, setScopeEditingNum] = useState<number | null>(null);
 
   // Format CHF fallback
   const fmtCHF = useCallback(
@@ -2473,82 +2474,130 @@ export function AccountingView() {
 
                   {allRows.map((row) => {
                     const disabled = row.entry?.disabled ?? false;
-                    const scoped = (row.entry?.buildingIds?.length ?? 0) > 0;
+                    const selectedBuildingIds = row.entry?.buildingIds ?? [];
+                    const scoped = selectedBuildingIds.length > 0;
+                    const isEditingScope = scopeEditingNum === row.num;
                     return (
-                      <div key={row.num} style={{
-                        display: "flex", alignItems: "center", gap: 8,
-                        padding: "8px 10px", borderRadius: 8,
-                        background: disabled ? "rgba(239,68,68,0.04)" : "var(--background)",
-                        marginBottom: 4, opacity: disabled ? 0.6 : 1,
-                      }}>
-                        <div style={{ fontSize: 12, color: "var(--muted-foreground)", width: 42, fontVariantNumeric: "tabular-nums" }}>
-                          {row.num}
-                        </div>
-                        <input
-                          value={row.label}
-                          onChange={(e) => handleChartRename(row.num, e.target.value, group.type, row.isCustom)}
-                          style={{
-                            flex: 1, padding: "6px 10px", borderRadius: 6,
-                            border: "1px solid var(--border)", background: "var(--card)",
-                            color: "var(--foreground)", fontSize: 13,
-                          }}
-                        />
-                        {scoped && (
-                          <span style={{
-                            fontSize: 10, fontWeight: 600, color: "#4338CA",
-                            background: "rgba(99,102,241,0.12)", padding: "3px 7px", borderRadius: 6,
-                          }}>
-                            {row.entry?.buildingIds.length} immeuble(s)
-                          </span>
-                        )}
-                        <select
-                          value={scoped ? "specific" : "all"}
-                          onChange={(e) => {
-                            if (e.target.value === "all") {
-                              handleChartSetScope(row.num, group.type, row.isCustom, []);
-                            } else {
-                              const picked = prompt(
-                                `Sélectionnez les immeubles (IDs séparés par virgule).\nImmeubles disponibles:\n${buildings.map((b) => `${b.id.slice(0, 8)}… ${b.name}`).join("\n")}`,
-                                row.entry?.buildingIds.join(",") ?? "",
-                              );
-                              if (picked !== null) {
-                                const ids = picked.split(",").map((s) => s.trim()).filter((s) => s && buildings.some((b) => b.id === s));
-                                handleChartSetScope(row.num, group.type, row.isCustom, ids);
-                              }
-                            }
-                          }}
-                          style={{
-                            padding: "6px 8px", borderRadius: 6, fontSize: 12,
-                            border: "1px solid var(--border)", background: "var(--card)", color: "var(--foreground)",
-                          }}
-                        >
-                          <option value="all">Tous</option>
-                          <option value="specific">Spécifiques</option>
-                        </select>
-                        <button
-                          onClick={() => handleChartToggleDisabled(row.num, group.type, row.isCustom)}
-                          title={disabled ? "Activer" : "Désactiver"}
-                          style={{
-                            padding: "5px 9px", borderRadius: 6, fontSize: 11,
-                            border: "1px solid var(--border)",
-                            background: "var(--card)", color: "var(--foreground)", cursor: "pointer",
-                          }}
-                        >
-                          {disabled ? "Activer" : "Masquer"}
-                        </button>
-                        {row.isCustom && row.entry && (
-                          <button
-                            onClick={() => handleChartDeleteCustom(row.entry!.id)}
-                            title="Supprimer ce compte"
+                      <React.Fragment key={row.num}>
+                        <div style={{
+                          display: "flex", alignItems: "center", gap: 8,
+                          padding: "8px 10px", borderRadius: 8,
+                          background: disabled ? "rgba(239,68,68,0.04)" : "var(--background)",
+                          marginBottom: isEditingScope ? 0 : 4, opacity: disabled ? 0.6 : 1,
+                        }}>
+                          <div style={{ fontSize: 12, color: "var(--muted-foreground)", width: 42, fontVariantNumeric: "tabular-nums" }}>
+                            {row.num}
+                          </div>
+                          <input
+                            value={row.label}
+                            onChange={(e) => handleChartRename(row.num, e.target.value, group.type, row.isCustom)}
                             style={{
-                              padding: 5, borderRadius: 6, border: "1px solid rgba(239,68,68,0.2)",
-                              background: "transparent", color: "#DC2626", cursor: "pointer",
+                              flex: 1, padding: "6px 10px", borderRadius: 6,
+                              border: "1px solid var(--border)", background: "var(--card)",
+                              color: "var(--foreground)", fontSize: 13,
+                            }}
+                          />
+                          <div style={{ display: "flex", gap: 0, border: "1px solid var(--border)", borderRadius: 6, overflow: "hidden" }}>
+                            <button
+                              onClick={() => {
+                                handleChartSetScope(row.num, group.type, row.isCustom, []);
+                                if (isEditingScope) setScopeEditingNum(null);
+                              }}
+                              style={{
+                                padding: "6px 10px", fontSize: 12, border: "none", cursor: "pointer",
+                                background: !scoped ? "var(--primary)" : "var(--card)",
+                                color: !scoped ? "var(--primary-foreground)" : "var(--foreground)",
+                              }}
+                            >
+                              Tous
+                            </button>
+                            <button
+                              onClick={() => setScopeEditingNum(isEditingScope ? null : row.num)}
+                              style={{
+                                padding: "6px 10px", fontSize: 12, border: "none", cursor: "pointer",
+                                background: scoped || isEditingScope ? "var(--primary)" : "var(--card)",
+                                color: scoped || isEditingScope ? "var(--primary-foreground)" : "var(--foreground)",
+                                display: "flex", alignItems: "center", gap: 6,
+                              }}
+                            >
+                              Spécifiques
+                              {scoped && (
+                                <span style={{
+                                  fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 8,
+                                  background: "rgba(255,255,255,0.25)",
+                                }}>
+                                  {selectedBuildingIds.length}
+                                </span>
+                              )}
+                            </button>
+                          </div>
+                          <button
+                            onClick={() => handleChartToggleDisabled(row.num, group.type, row.isCustom)}
+                            title={disabled ? "Activer" : "Désactiver"}
+                            style={{
+                              padding: "5px 9px", borderRadius: 6, fontSize: 11,
+                              border: "1px solid var(--border)",
+                              background: "var(--card)", color: "var(--foreground)", cursor: "pointer",
                             }}
                           >
-                            <Trash2 size={13} />
+                            {disabled ? "Activer" : "Masquer"}
                           </button>
+                          {row.isCustom && row.entry && (
+                            <button
+                              onClick={() => handleChartDeleteCustom(row.entry!.id)}
+                              title="Supprimer ce compte"
+                              style={{
+                                padding: 5, borderRadius: 6, border: "1px solid rgba(239,68,68,0.2)",
+                                background: "transparent", color: "#DC2626", cursor: "pointer",
+                              }}
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          )}
+                        </div>
+                        {isEditingScope && (
+                          <div style={{
+                            padding: "10px 12px 12px", marginBottom: 4,
+                            background: "var(--background)", borderRadius: "0 0 8px 8px",
+                            borderTop: "1px dashed var(--border)",
+                          }}>
+                            <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginBottom: 8 }}>
+                              Cochez les immeubles où ce compte doit apparaître :
+                            </div>
+                            {buildings.length === 0 ? (
+                              <div style={{ fontSize: 12, color: "var(--muted-foreground)", fontStyle: "italic" }}>
+                                Aucun immeuble disponible.
+                              </div>
+                            ) : (
+                              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                                {buildings.map((b) => {
+                                  const selected = selectedBuildingIds.includes(b.id);
+                                  return (
+                                    <button
+                                      key={b.id}
+                                      onClick={() => {
+                                        const next = selected
+                                          ? selectedBuildingIds.filter((x) => x !== b.id)
+                                          : [...selectedBuildingIds, b.id];
+                                        handleChartSetScope(row.num, group.type, row.isCustom, next);
+                                      }}
+                                      style={{
+                                        padding: "5px 10px", borderRadius: 14, fontSize: 11,
+                                        border: "1px solid var(--border)",
+                                        background: selected ? "var(--primary)" : "var(--card)",
+                                        color: selected ? "var(--primary-foreground)" : "var(--foreground)",
+                                        cursor: "pointer",
+                                      }}
+                                    >
+                                      {b.name}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
                         )}
-                      </div>
+                      </React.Fragment>
                     );
                   })}
                 </div>
