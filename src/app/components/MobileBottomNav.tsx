@@ -5,6 +5,7 @@ import {
   Users,
   ClipboardList,
   Receipt,
+  Sparkles,
 } from "lucide-react";
 import { useAuth, useCan } from "../context/AuthContext";
 import type { FeatureKey } from "../lib/permissions";
@@ -19,14 +20,18 @@ type NavEntry = {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   feature?: FeatureKey;
+  action?: "open-ai";
 };
 
+// Six-slot layout on mobile — Assistant sits at the far right as a
+// distinctive primary-tinted tab (replaces the old floating bubble).
 const ADMIN_ENTRIES: NavEntry[] = [
   { id: "dashboard", label: "Accueil", icon: LayoutDashboard, feature: "dashboard" },
   { id: "buildings", label: "Immeubles", icon: Building, feature: "buildings" },
   { id: "tenants", label: "Locataires", icon: Users, feature: "tenants" },
   { id: "requests", label: "Demandes", icon: ClipboardList, feature: "requests" },
   { id: "accounting", label: "Compta", icon: Receipt, feature: "accounting" },
+  { id: "ai", label: "Assistant", icon: Sparkles, action: "open-ai" },
 ];
 
 const TENANT_ENTRIES: NavEntry[] = [
@@ -68,10 +73,17 @@ export function MobileBottomNav({ activeView, onViewChange }: MobileBottomNavPro
       {visible.map((e) => {
         const Icon = e.icon;
         const active = activeView === e.id;
+        const isAction = e.action === "open-ai";
         return (
           <button
             key={e.id}
-            onClick={() => onViewChange(e.id)}
+            onClick={() => {
+              if (isAction) {
+                window.dispatchEvent(new CustomEvent("palier:open-ai"));
+              } else {
+                onViewChange(e.id);
+              }
+            }}
             style={{
               flex: 1,
               display: "flex",
@@ -79,10 +91,14 @@ export function MobileBottomNav({ activeView, onViewChange }: MobileBottomNavPro
               alignItems: "center",
               justifyContent: "center",
               gap: 2,
-              padding: "8px 4px",
+              padding: "6px 2px",
               border: "none",
               background: "transparent",
-              color: active ? "var(--primary)" : "var(--muted-foreground)",
+              color: isAction
+                ? "var(--primary)"
+                : active
+                  ? "var(--primary)"
+                  : "var(--muted-foreground)",
               fontSize: 10,
               fontWeight: active ? 700 : 500,
               cursor: "pointer",
@@ -90,11 +106,25 @@ export function MobileBottomNav({ activeView, onViewChange }: MobileBottomNavPro
               position: "relative",
             }}
           >
-            <Icon className="w-5 h-5" />
+            {isAction ? (
+              <span
+                aria-hidden
+                style={{
+                  width: 30, height: 30, borderRadius: 10,
+                  background: "color-mix(in srgb, var(--primary) 12%, transparent)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  color: "var(--primary)",
+                }}
+              >
+                <Icon className="w-[18px] h-[18px]" />
+              </span>
+            ) : (
+              <Icon className="w-5 h-5" />
+            )}
             <span style={{ fontSize: 10, lineHeight: 1.1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%" }}>
               {e.label}
             </span>
-            {active && (
+            {active && !isAction && (
               <span
                 style={{
                   position: "absolute", top: 0, left: "30%", right: "30%", height: 2,

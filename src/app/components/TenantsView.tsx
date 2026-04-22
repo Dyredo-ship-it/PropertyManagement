@@ -511,6 +511,20 @@ function TenantDetailDrawer({
     setShowSendDoc(false);
   };
 
+  // Lock the page behind the drawer so scroll gestures don't leak to
+  // the tenants list. Runs only while the drawer is actually mounted.
+  useEffect(() => {
+    if (!open) return;
+    const prevHtml = document.documentElement.style.overflow;
+    const prevBody = document.body.style.overflow;
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.documentElement.style.overflow = prevHtml;
+      document.body.style.overflow = prevBody;
+    };
+  }, [open]);
+
   if (!tenant || !open) return null;
 
   const rentNet = Number(tenant.rentNet ?? tenant.rent ?? 0) || 0;

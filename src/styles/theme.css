@@ -161,13 +161,17 @@ body {
    Everything in this block must stay scoped to small viewports so
    desktop layouts are not disturbed. */
 @media (max-width: 1023px) {
-  /* Lift the AI floating action button above the bottom nav so it
-     doesn't sit on top of the 5th tab. The nav is ~64px tall plus
-     the iPhone home-indicator safe area. */
-  .ai-fab,
+  /* AI floating button is replaced by a dedicated tab in the bottom
+     nav on mobile. The panel itself (when opened) stays but sits
+     above the nav so the tab bar isn't covered. */
+  .ai-fab {
+    display: none !important;
+  }
   .ai-fab-panel {
     bottom: calc(80px + env(safe-area-inset-bottom)) !important;
-    right: 16px !important;
+    right: 12px !important;
+    left: 12px !important;
+    width: auto !important;
   }
 
   /* BuildingsView — details sub-page */
@@ -190,17 +194,30 @@ body {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
   /* Tabs row becomes a horizontally-scrollable strip so long labels
-     like "Vue d'ensemble" and "Rénovations" stop overlapping. */
+     like "Vue d'ensemble" and "Rénovations" stop overlapping. We kill
+     the overscroll bounce so the strip doesn't rubber-band past its
+     ends or chain-scroll the page vertically when you flick it. */
   .building-tabs {
     overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior: none;
     flex-wrap: nowrap !important;
-    -webkit-overflow-scrolling: touch;
+    -webkit-overflow-scrolling: auto;
     scrollbar-width: none;
+    touch-action: pan-x;
   }
   .building-tabs::-webkit-scrollbar { display: none; }
   .building-tabs > button {
     flex-shrink: 0;
     white-space: nowrap;
+  }
+
+  /* TenantDetailDrawer — prevent scroll-chaining so flicks inside the
+     drawer don't leak to the tenant list behind it. Body overflow is
+     already locked by a useEffect in TenantDetailDrawer. */
+  .tenant-drawer,
+  .tenant-drawer * {
+    overscroll-behavior: contain;
   }
 
   /* RequestsView — page header */

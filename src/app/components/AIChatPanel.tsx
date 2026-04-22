@@ -172,6 +172,15 @@ export function AIChatPanel() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, busy]);
 
+  // Allow the mobile bottom nav (or any other UI) to open the assistant
+  // by dispatching a `palier:open-ai` window event. Keeps the coupling
+  // loose without lifting this component's state into App.tsx.
+  useEffect(() => {
+    const handler = () => setOpen(true);
+    window.addEventListener("palier:open-ai", handler);
+    return () => window.removeEventListener("palier:open-ai", handler);
+  }, []);
+
   useEffect(() => {
     return () => {
       abortRef.current?.abort();
@@ -493,7 +502,9 @@ export function AIChatPanel() {
 
   return (
     <>
-      {/* Floating trigger */}
+      {/* Floating trigger — hidden on mobile (the bottom nav hosts an
+          AI button instead, which dispatches palier:open-ai). Desktop
+          keeps the floating bubble. */}
       {!open && (
         <button
           onClick={() => setOpen(true)}
