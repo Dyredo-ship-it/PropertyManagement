@@ -27,6 +27,11 @@ interface AuthContextType {
     fullName: string;
     organizationName: string;
   }) => Promise<{ ok: boolean; error?: string }>;
+  signupWithInvitation: (params: {
+    email: string;
+    password: string;
+    fullName: string;
+  }) => Promise<{ ok: boolean; error?: string }>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -165,6 +170,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [refreshProfile],
   );
 
+  // Signup branch used when arriving with a pending organization_invitation
+  // token in the URL: we only create the auth user, and let the post-auth
+  // handler in App.tsx call accept_organization_invitation which inserts
+  // the profile tied to the inviter's organization (and tenant row for
+  // tenant-portal invites). No organization is created in this path.
+  const signupWithInvitation = useCallback(
+    async ({
+      email,
+      password,
+      fullName,
+    }: {
+      email: string;
+      password: string;
+      fullName: string;
+    }) => {
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { full_name: fullName } },
+      });
+      if (signUpError) return { ok: false, error: signUpError.message };
+      if (!signUpData.user) return { ok: false, error: "Signup returned no user" };
+
+      if (!signUpData.session) {
+        const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
+        if (signInErr) {
+          return {
+            ok: false,
+            error:
+              "Compte créé. Vérifie ton email pour confirmer puis reconnecte-toi. (" +
+              signInErr.message +
+              ")",
+          };
+        }
+      }
+      return { ok: true };
+    },
+    [],
+  );
+
   const logout = useCallback(async () => {
     await supabase.auth.signOut();
     setUser(null);
@@ -180,6 +225,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAuthenticated: !!user && !!session,
         login,
         signup,
+        signupWithInvitation,
         logout,
         refreshProfile,
       }}

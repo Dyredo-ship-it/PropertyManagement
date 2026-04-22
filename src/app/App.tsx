@@ -8,6 +8,7 @@ import { ThemeProvider } from "./context/ThemeContext";
 import { CurrencyProvider } from "./context/CurrencyContext";
 import { LanguageProvider, useLanguage } from "./i18n/LanguageContext";
 import { LoginPage } from "./components/LoginPage";
+import { AcceptInvitePage } from "./components/AcceptInvitePage";
 import { ModernSidebar } from "./components/ModernSidebar";
 import { TopHeader } from "./components/TopHeader";
 import { DashboardView } from "./components/DashboardView";
@@ -160,6 +161,17 @@ function AppContent() {
   }
 
   if (!isAuthenticated) {
+    // If the URL carries a pending invitation token, show the dedicated
+    // accept flow instead of the generic login/signup screen — it ties
+    // the account creation to the invited email + org, rather than
+    // letting anyone create a fresh organization.
+    const inviteToken =
+      typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search).get("invite_token")
+        : null;
+    if (inviteToken) {
+      return <AcceptInvitePage token={inviteToken} />;
+    }
     return <LoginPage />;
   }
 
