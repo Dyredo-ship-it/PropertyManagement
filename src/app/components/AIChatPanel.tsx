@@ -498,6 +498,7 @@ export function AIChatPanel() {
         <button
           onClick={() => setOpen(true)}
           title="Assistant Palier"
+          className="ai-fab"
           style={{
             position: "fixed",
             right: 24,
@@ -523,6 +524,7 @@ export function AIChatPanel() {
       {/* Panel */}
       {open && (
         <div
+          className="ai-fab-panel"
           style={{
             position: "fixed",
             right: 24,

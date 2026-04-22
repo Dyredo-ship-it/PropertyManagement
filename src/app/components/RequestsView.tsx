@@ -725,8 +725,8 @@ export function RequestsView() {
       <div style={{ padding: "32px 36px 48px", borderLeft: "4px solid var(--primary)" }}>
 
         {/* ── Page header ───────────────────────────────────── */}
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 28 }}>
-          <div>
+        <div className="req-header" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 28, gap: 16, flexWrap: "wrap" }}>
+          <div className="req-header-title" style={{ minWidth: 0, flex: "1 1 200px" }}>
             <h1 style={{ fontSize: 22, fontWeight: 600, lineHeight: 1.3, color: "var(--foreground)", margin: 0 }}>
               {isAdmin ? t("requestsHub") : t("myRequestsTitle")}
             </h1>
@@ -735,16 +735,17 @@ export function RequestsView() {
             </p>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+          <div className="req-header-actions" style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
             {/* Search (maintenance tab only) */}
             {activeTab === "maintenance" && (
-              <div style={{ position: "relative" }}>
+              <div className="req-search-box" style={{ position: "relative" }}>
                 <Search style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", width: 16, height: 16, color: "var(--muted-foreground)" }} />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder={t("search") + "..."}
+                  className="req-search-input"
                   style={{
                     paddingLeft: 38, paddingRight: 16, paddingTop: 10, paddingBottom: 10,
                     borderRadius: 14, fontSize: 13, width: 220,

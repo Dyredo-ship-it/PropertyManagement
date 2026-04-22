@@ -270,7 +270,7 @@ function BuildingDetail({
   return (
     <div style={{ padding: "32px 36px 48px" }}>
       {/* ── Header: back + title + actions ──────────────────── */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 22 }}>
+      <div className="building-detail-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 22, gap: 12, flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           <button
             type="button"
@@ -302,7 +302,7 @@ function BuildingDetail({
             </div>
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div className="building-detail-actions" style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <button
             type="button"
             onClick={() => onEdit(building)}
@@ -331,17 +331,17 @@ function BuildingDetail({
             onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
           >
             <Trash2 style={{ width: 13, height: 13 }} />
-            {t("confirmDeleteBuilding")}
+            {t("deleteBuilding")}
           </button>
         </div>
       </div>
 
       {/* ── Top card: image + stats side by side ────────────── */}
-      <div style={{
+      <div className="building-top-card" style={{
         display: "flex", gap: 16, marginBottom: 16,
       }}>
         {/* Image — compact */}
-        <div style={{
+        <div className="building-image-compact" style={{
           width: 220, height: 160, borderRadius: 14, overflow: "hidden",
           flexShrink: 0, border: "1px solid var(--border)",
           position: "relative",
@@ -354,7 +354,7 @@ function BuildingDetail({
         </div>
 
         {/* Stats strip — horizontal */}
-        <div style={{ flex: 1, display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
+        <div className="building-stats-strip" style={{ flex: 1, display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
           {[
             { label: t("totalUnits"), value: building.units.toString(), icon: Home },
             { label: t("occupiedUnits"), value: building.occupiedUnits.toString(), icon: Users },
@@ -435,7 +435,7 @@ function BuildingTabs({ building, t, occPct, occColor, formattedRevenue }: {
   return (
     <>
       {/* Tab bar */}
-      <div style={{ display: "flex", gap: 4, marginBottom: 20, borderBottom: "1px solid var(--border)", paddingBottom: 0 }}>
+      <div className="building-tabs" style={{ display: "flex", gap: 4, marginBottom: 20, borderBottom: "1px solid var(--border)", paddingBottom: 0 }}>
         {TAB_LIST.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.key;
