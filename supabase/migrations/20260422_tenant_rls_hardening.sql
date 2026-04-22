@@ -90,6 +90,8 @@ create policy "maintenance_requests_select_org" on maintenance_requests
 
 -- Tenants can only create requests for themselves; admins can do anything.
 drop policy if exists "maintenance_requests_write_org" on maintenance_requests;
+
+drop policy if exists "maintenance_requests_insert_self" on maintenance_requests;
 create policy "maintenance_requests_insert_self" on maintenance_requests
   for insert with check (
     organization_id = current_org_id()
@@ -99,6 +101,7 @@ create policy "maintenance_requests_insert_self" on maintenance_requests
     )
   );
 
+drop policy if exists "maintenance_requests_update_org" on maintenance_requests;
 create policy "maintenance_requests_update_org" on maintenance_requests
   for update using (
     organization_id = current_org_id() and current_user_role() = 'admin'
@@ -107,6 +110,7 @@ create policy "maintenance_requests_update_org" on maintenance_requests
     organization_id = current_org_id() and current_user_role() = 'admin'
   );
 
+drop policy if exists "maintenance_requests_delete_org" on maintenance_requests;
 create policy "maintenance_requests_delete_org" on maintenance_requests
   for delete using (
     organization_id = current_org_id() and current_user_role() = 'admin'
