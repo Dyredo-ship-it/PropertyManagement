@@ -212,7 +212,7 @@ export function CalendarView() {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 16 }}>
+      <div className="calendar-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 16 }}>
         {/* ── Calendar grid ─────────────────────────────────── */}
         <div style={{
           borderRadius: 14, border: "1px solid var(--border)",

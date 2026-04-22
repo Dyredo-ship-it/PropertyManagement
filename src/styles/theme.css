@@ -272,6 +272,16 @@ body {
     gap: 14px !important;
   }
 
+  /* ── CalendarView mobile layout ───────────────────────────── */
+  .calendar-two-col {
+    grid-template-columns: 1fr !important;
+  }
+  /* Reduce day-cell min-height so 6 rows × 7 cols fit a phone screen */
+  .calendar-two-col [style*="minHeight: 72"] {
+    min-height: 56px !important;
+    padding: 4px 2px 6px !important;
+  }
+
   /* Fallback: inside the tenant drawer, force ALL 2-col and 4-col
      inline-style grids to wrap responsively. */
   .tenant-drawer [style*="gridTemplateColumns: \"1fr 1fr\""],
