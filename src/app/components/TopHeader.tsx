@@ -15,7 +15,9 @@ import {
   Users,
   ClipboardList,
   ChevronRight,
+  ScanLine,
 } from "lucide-react";
+import { DocumentScanner } from "./DocumentScanner";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { useNotifications } from "../context/NotificationsContext";
@@ -95,6 +97,7 @@ export function TopHeader({ onNavigate }: { onNavigate?: (view: string) => void 
   }, []);
 
   const [isLangOpen, setIsLangOpen] = useState(false);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -436,6 +439,16 @@ export function TopHeader({ onNavigate }: { onNavigate?: (view: string) => void 
           )}
         </div>
 
+        {/* Document scanner */}
+        {user?.role === "admin" && (
+          <IconBtn
+            onClick={() => setIsScannerOpen(true)}
+            title="Scanner un document"
+          >
+            <ScanLine className="w-[17px] h-[17px]" />
+          </IconBtn>
+        )}
+
         {/* Offline indicator */}
         {!isOnline && (
           <span
@@ -619,6 +632,10 @@ export function TopHeader({ onNavigate }: { onNavigate?: (view: string) => void 
         </div>
 
       </div>
+      <DocumentScanner
+        open={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+      />
     </header>
   );
 }

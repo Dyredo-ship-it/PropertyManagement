@@ -52,6 +52,7 @@ import { PlanLimitModal } from "./PlanLimitModal";
 import { generateLeasePdf, generateRentReceiptPdf } from "../lib/pdf";
 import { getLandlordInfo } from "../lib/landlord";
 import { sendRentReminder, sendLeaseEndReminder } from "../lib/email";
+import { SignaturePad } from "./SignaturePad";
 import { FileDown } from "lucide-react";
 
 function currentMonthPeriod(): string {
@@ -427,6 +428,7 @@ function TenantDetailDrawer({
 
   /* PDF generation state */
   const [receiptPeriod, setReceiptPeriod] = useState<string>(currentMonthPeriod);
+  const [showSignatureFor, setShowSignatureFor] = useState<"receipt" | null>(null);
 
   const building = React.useMemo<Building | undefined>(() => {
     if (!tenant?.buildingId) return undefined;
@@ -441,15 +443,16 @@ function TenantDetailDrawer({
     generateLeasePdf(tenant as Tenant, building, getLandlordInfo());
   };
 
-  const handleGenerateReceipt = () => {
+  const handleGenerateReceipt = (signatureDataUrl?: string) => {
     if (!tenant || !building) {
       alert("Le bâtiment lié à ce locataire est introuvable.");
       return;
     }
     const total = (Number(tenant.rentNet) || 0) + (Number(tenant.charges) || 0);
-    generateRentReceiptPdf(tenant as Tenant, building, getLandlordInfo(), {
+    void generateRentReceiptPdf(tenant as Tenant, building, getLandlordInfo(), {
       period: receiptPeriod,
       amount: total,
+      signatureDataUrl,
     });
   };
 
@@ -1060,7 +1063,7 @@ function TenantDetailDrawer({
                   />
                   <button
                     type="button"
-                    onClick={handleGenerateReceipt}
+                    onClick={() => handleGenerateReceipt()}
                     style={{
                       display: "flex", alignItems: "center", gap: 8,
                       padding: "10px 14px", borderRadius: 8, border: "1px solid var(--border)",
@@ -1069,7 +1072,21 @@ function TenantDetailDrawer({
                     }}
                   >
                     <FileDown style={{ width: 14, height: 14, color: "var(--primary)" }} />
-                    Quittance de loyer
+                    Quittance
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowSignatureFor("receipt")}
+                    title="Signer et générer la quittance"
+                    style={{
+                      display: "flex", alignItems: "center", gap: 6,
+                      padding: "10px 14px", borderRadius: 8, border: "1px solid var(--border)",
+                      background: "var(--card)", color: "var(--foreground)",
+                      fontSize: 13, fontWeight: 500, cursor: "pointer",
+                    }}
+                  >
+                    <Edit style={{ width: 14, height: 14, color: "var(--primary)" }} />
+                    Signer
                   </button>
                 </div>
               </div>
@@ -1286,6 +1303,15 @@ function TenantDetailDrawer({
           </div>
         </div>
       )}
+      <SignaturePad
+        open={showSignatureFor === "receipt"}
+        title="Signer la quittance de loyer"
+        onCancel={() => setShowSignatureFor(null)}
+        onConfirm={(dataUrl) => {
+          setShowSignatureFor(null);
+          handleGenerateReceipt(dataUrl);
+        }}
+      />
     </div>,
     document.body
   );

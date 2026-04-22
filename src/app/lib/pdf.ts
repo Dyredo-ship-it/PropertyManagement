@@ -18,6 +18,8 @@ export interface RentReceiptOptions {
   currency?: string;
   /** Optional issue date. Defaults to today. */
   issuedOn?: string;
+  /** Optional PNG data URL of the bailleur's signature to embed above the signature line. */
+  signatureDataUrl?: string;
 }
 
 export interface MonthlyStatementRow {
@@ -111,13 +113,44 @@ function safeFileName(parts: (string | undefined)[]): string {
     .replace(/[^a-zA-Z0-9_-]+/g, "-");
 }
 
+// Save the PDF, and on mobile devices that support the Web Share API
+// with files, offer a native share sheet (email, WhatsApp, AirDrop, …)
+// in addition. Falls back silently to plain download on desktop or
+// browsers without file sharing.
+async function savePdfWithShare(doc: jsPDF, filename: string): Promise<void> {
+  const fullName = filename.endsWith(".pdf") ? filename : `${filename}.pdf`;
+  const blob = doc.output("blob");
+
+  try {
+    const file = new File([blob], fullName, { type: "application/pdf" });
+    const nav = navigator as Navigator & {
+      canShare?: (data: { files?: File[] }) => boolean;
+    };
+    if (nav.canShare && nav.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: fullName });
+      return;
+    }
+  } catch {
+    // User cancelled or sharing failed — fall through to download.
+  }
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fullName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
 /* ─── Lease (bail) ─────────────────────────────────────────────── */
 
-export function generateLeasePdf(
+export async function generateLeasePdf(
   tenant: Tenant,
   building: Building,
   landlord: LandlordInfo,
-): void {
+): Promise<void> {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
 
   header(doc, "Contrat de bail à loyer");
@@ -206,17 +239,17 @@ export function generateLeasePdf(
   doc.line(115, finalY + 65, 185, finalY + 65);
 
   footer(doc);
-  doc.save(`${safeFileName(["bail", tenant.name, building.name])}.pdf`);
+  await savePdfWithShare(doc, `${safeFileName(["bail", tenant.name, building.name])}.pdf`);
 }
 
 /* ─── Rent receipt (quittance de loyer) ────────────────────────── */
 
-export function generateRentReceiptPdf(
+export async function generateRentReceiptPdf(
   tenant: Tenant,
   building: Building,
   landlord: LandlordInfo,
   options: RentReceiptOptions,
-): void {
+): Promise<void> {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
 
   header(doc, "Quittance de loyer");
@@ -276,21 +309,31 @@ export function generateRentReceiptPdf(
   doc.text(`Émis le ${options.issuedOn ?? formatToday()}`, 20, 150);
 
   doc.text("Signature du bailleur", 115, 175);
+  if (options.signatureDataUrl) {
+    try {
+      // Embed the signature PNG just above the signature line.
+      // Target box: 70mm wide x ~18mm tall, positioned on the line area.
+      doc.addImage(options.signatureDataUrl, "PNG", 115, 167, 70, 18);
+    } catch {
+      // Silently ignore if jsPDF can't decode the image.
+    }
+  }
   doc.line(115, 185, 185, 185);
 
   footer(doc);
-  doc.save(
+  await savePdfWithShare(
+    doc,
     `${safeFileName(["quittance", options.period, tenant.name])}.pdf`,
   );
 }
 
 /* ─── Monthly statement (décompte mensuel) ─────────────────────── */
 
-export function generateMonthlyStatementPdf(
+export async function generateMonthlyStatementPdf(
   building: Building,
   landlord: LandlordInfo,
   options: MonthlyStatementOptions,
-): void {
+): Promise<void> {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const currency = options.currency ?? building.currency ?? "CHF";
 
@@ -369,7 +412,8 @@ export function generateMonthlyStatementPdf(
   });
 
   footer(doc);
-  doc.save(
+  await savePdfWithShare(
+    doc,
     `${safeFileName(["decompte", options.period, building.name])}.pdf`,
   );
 }

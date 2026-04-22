@@ -28,6 +28,13 @@ import {
   unsubscribeFromPush,
 } from "../lib/push";
 import {
+  biometricSupported,
+  biometricAvailable,
+  biometricEnabled,
+  enableBiometric,
+  disableBiometric,
+} from "../lib/biometric";
+import {
   PLANS,
   fetchSubscription,
   startCheckout,
@@ -304,6 +311,7 @@ function ProfileTab({ user }: { user: any }) {
 }
 
 function SecurityTab() {
+  const { user } = useAuth();
   const [currentPw, setCurrentPw] = useState("");
   const [newPw, setNewPw] = useState("");
   const [confirmPw, setConfirmPw] = useState("");
@@ -312,6 +320,40 @@ function SecurityTab() {
   const [twoFa, setTwoFa] = useState(false);
   const [sessionAlerts, setSessionAlerts] = useState(true);
   const [saved, setSaved] = useState(false);
+
+  // Biometric app lock
+  const [bioSupported] = useState(biometricSupported());
+  const [bioAvail, setBioAvail] = useState(false);
+  const [bioOn, setBioOn] = useState(user ? biometricEnabled(user.id) : false);
+  const [bioBusy, setBioBusy] = useState(false);
+  const [bioError, setBioError] = useState<string | null>(null);
+
+  useEffect(() => {
+    biometricAvailable().then(setBioAvail).catch(() => setBioAvail(false));
+  }, []);
+
+  const handleToggleBio = async () => {
+    if (!user) return;
+    setBioBusy(true);
+    setBioError(null);
+    try {
+      if (bioOn) {
+        disableBiometric();
+        setBioOn(false);
+      } else {
+        await enableBiometric({
+          userId: user.id,
+          userName: user.email,
+          displayName: user.name || user.email,
+        });
+        setBioOn(true);
+      }
+    } catch (err) {
+      setBioError((err as Error).message);
+    } finally {
+      setBioBusy(false);
+    }
+  };
 
   const handleSave = () => {
     setSaved(true);
@@ -405,6 +447,56 @@ function SecurityTab() {
           checked={sessionAlerts}
           onChange={setSessionAlerts}
         />
+        <div
+          style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: "14px 0", borderBottom: "1px solid var(--border)", gap: 16,
+          }}
+        >
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 550, color: "var(--foreground)" }}>
+              Verrouillage biométrique (cet appareil)
+            </div>
+            <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 2 }}>
+              Exigez Face ID / Touch ID à chaque ouverture de Palier sur cet appareil.
+            </div>
+            <div
+              style={{
+                fontSize: 11, marginTop: 6,
+                color: bioOn ? "#16a34a" : "var(--muted-foreground)",
+              }}
+            >
+              {!bioSupported
+                ? "Non supporté par ce navigateur"
+                : !bioAvail
+                ? "Aucun lecteur biométrique détecté sur cet appareil"
+                : bioOn
+                ? "Activé"
+                : "Désactivé"}
+            </div>
+            {bioError && (
+              <div style={{ fontSize: 11, color: "#DC2626", marginTop: 4 }}>
+                {bioError}
+              </div>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={handleToggleBio}
+            disabled={!bioSupported || !bioAvail || bioBusy}
+            style={{
+              padding: "8px 14px", borderRadius: 8, border: "1px solid var(--border)",
+              background: bioOn ? "var(--background)" : "var(--primary)",
+              color: bioOn ? "var(--foreground)" : "var(--primary-foreground)",
+              fontSize: 12, fontWeight: 600,
+              cursor: (!bioSupported || !bioAvail || bioBusy) ? "not-allowed" : "pointer",
+              opacity: (!bioSupported || !bioAvail || bioBusy) ? 0.6 : 1,
+              minWidth: 100,
+            }}
+          >
+            {bioBusy ? "..." : bioOn ? "Désactiver" : "Activer"}
+          </button>
+        </div>
       </Section>
 
       <SaveButton saved={saved} onClick={handleSave} />

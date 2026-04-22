@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { NotificationsProvider } from "./context/NotificationsContext";
+import { BiometricLock } from "./components/BiometricLock";
+import { biometricEnabled } from "./lib/biometric";
 import { hydrateFromSupabase, clearStorageCache } from "./utils/storage";
 import { ThemeProvider } from "./context/ThemeContext";
 import { CurrencyProvider } from "./context/CurrencyContext";
@@ -27,7 +29,7 @@ import { OnboardingWizard } from "./components/OnboardingWizard";
 import { getBuildings, getTenants } from "./utils/storage";
 
 function AppContent() {
-  const { isAuthenticated, user, loading } = useAuth();
+  const { isAuthenticated, user, loading, logout } = useAuth();
   const { t } = useLanguage();
   const [activeView, setActiveView] = useState<string>("dashboard");
   const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(null);
@@ -37,6 +39,7 @@ function AppContent() {
     "profile" | "security" | "notifications" | "appearance" | "billing" | "company" | undefined
   >(undefined);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [biometricUnlocked, setBiometricUnlocked] = useState(false);
 
   // Hydrate the local cache from Supabase once authenticated. We run this
   // exactly once per login; further auth state changes (token refresh, etc.)
@@ -124,6 +127,21 @@ function AppContent() {
 
   if (!isAuthenticated) {
     return <LoginPage />;
+  }
+
+  // Biometric app lock — only if the user enabled it previously on this
+  // device. Cleared on logout (the lib's storage key stays, but the user
+  // must re-auth via email first to reach this screen).
+  if (user && biometricEnabled(user.id) && !biometricUnlocked) {
+    return (
+      <BiometricLock
+        onUnlock={() => setBiometricUnlocked(true)}
+        onSignOut={() => {
+          setBiometricUnlocked(false);
+          void logout();
+        }}
+      />
+    );
   }
 
   const handleSelectBuilding = (buildingId: string) => {
