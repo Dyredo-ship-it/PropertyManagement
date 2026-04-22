@@ -9,7 +9,9 @@ export interface PlanConfig {
   priceCHF: number;
   period: "mois" | "an";
   features: string[];
-  limits: { buildings: number | null; tenants: number | null };
+  // teamSeats = total members in the organization (super admin + invitees).
+  // null = unlimited. Starter is solo, Pro caps at 5, Business removes the cap.
+  limits: { buildings: number | null; tenants: number | null; teamSeats: number | null };
 }
 
 export const PLANS: PlanConfig[] = [
@@ -18,8 +20,14 @@ export const PLANS: PlanConfig[] = [
     name: "Starter",
     priceCHF: 29,
     period: "mois",
-    features: ["1 bâtiment", "10 locataires max", "Comptabilité basique", "Support email"],
-    limits: { buildings: 1, tenants: 10 },
+    features: [
+      "1 bâtiment",
+      "10 locataires max",
+      "1 utilisateur (solo)",
+      "Comptabilité basique",
+      "Support email",
+    ],
+    limits: { buildings: 1, tenants: 10, teamSeats: 1 },
   },
   {
     id: "pro",
@@ -29,12 +37,13 @@ export const PLANS: PlanConfig[] = [
     features: [
       "5 bâtiments",
       "50 locataires",
+      "Jusqu'à 5 utilisateurs",
       "Comptabilité complète + export Excel",
       "Demandes de location",
       "Interventions & maintenance",
       "Support prioritaire",
     ],
-    limits: { buildings: 5, tenants: 50 },
+    limits: { buildings: 5, tenants: 50, teamSeats: 5 },
   },
   {
     id: "business",
@@ -44,12 +53,13 @@ export const PLANS: PlanConfig[] = [
     features: [
       "Bâtiments illimités",
       "Locataires illimités",
-      "Multi-utilisateurs (à venir)",
+      "Utilisateurs illimités",
+      "Permissions granulaires par membre",
       "Automatisations comptables",
       "API + exports personnalisés",
       "Support dédié",
     ],
-    limits: { buildings: null, tenants: null },
+    limits: { buildings: null, tenants: null, teamSeats: null },
   },
 ];
 
@@ -81,7 +91,7 @@ export interface SubscriptionInfo {
 export interface PlanLimitsState {
   loading: boolean;
   plan: Plan;
-  limits: { buildings: number | null; tenants: number | null };
+  limits: { buildings: number | null; tenants: number | null; teamSeats: number | null };
 }
 
 /**

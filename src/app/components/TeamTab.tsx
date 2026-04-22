@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../lib/supabase";
+import { usePlanLimits, PLANS } from "../lib/billing";
 import {
   FEATURES,
   ROLE_PRESETS,
@@ -51,6 +52,7 @@ const LEVEL_LABEL: Record<PermissionLevel, string> = {
 
 export function TeamTab() {
   const { user } = useAuth();
+  const planState = usePlanLimits();
   const [members, setMembers] = useState<Member[]>([]);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,6 +67,14 @@ export function TeamTab() {
   const [inviteResult, setInviteResult] = useState<{ url: string; emailSent: boolean } | null>(null);
 
   const isSuperAdmin = !!user?.isSuperAdmin;
+
+  // Seats accounting — active admin members + pending invitations count
+  // against the plan's teamSeats limit. null = unlimited (Business).
+  const seatCap = planState.limits.teamSeats;
+  const pendingCount = invitations.filter((i) => i.status === "pending").length;
+  const seatsUsed = members.length + pendingCount;
+  const atLimit = seatCap !== null && seatsUsed >= seatCap;
+  const planConfig = PLANS.find((p) => p.id === planState.plan) ?? PLANS[0];
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -187,18 +197,57 @@ export function TeamTab() {
     <div>
       {/* Members section */}
       <Section title="Membres de la régie" description="Gérez les accès de vos collègues à Palier.">
-        <button
-          onClick={() => setShowInvite(true)}
+        <div
           style={{
-            display: "flex", alignItems: "center", gap: 8,
-            padding: "9px 16px", borderRadius: 10, border: "none",
-            background: "var(--primary)", color: "var(--primary-foreground)",
-            fontSize: 13, fontWeight: 600, cursor: "pointer", marginBottom: 14,
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            gap: 12, flexWrap: "wrap", marginBottom: 14,
           }}
         >
-          <UserPlus size={14} />
-          Inviter un collègue
-        </button>
+          <div
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 8,
+              padding: "6px 12px", borderRadius: 999,
+              background: atLimit ? "rgba(239,68,68,0.10)" : "rgba(99,102,241,0.10)",
+              color: atLimit ? "#DC2626" : "#4338CA",
+              fontSize: 12, fontWeight: 600,
+            }}
+          >
+            <UsersIcon size={13} />
+            Plan {planConfig.name} · {seatsUsed}
+            {seatCap !== null ? ` / ${seatCap}` : ""} siège{seatsUsed > 1 ? "s" : ""} utilisé{seatsUsed > 1 ? "s" : ""}
+            {seatCap === null && " · illimité"}
+          </div>
+          <button
+            onClick={() => setShowInvite(true)}
+            disabled={atLimit}
+            title={atLimit ? "Plan au maximum — passez au plan supérieur" : "Inviter un collègue"}
+            style={{
+              display: "flex", alignItems: "center", gap: 8,
+              padding: "9px 16px", borderRadius: 10, border: "none",
+              background: atLimit ? "var(--border)" : "var(--primary)",
+              color: atLimit ? "var(--muted-foreground)" : "var(--primary-foreground)",
+              fontSize: 13, fontWeight: 600,
+              cursor: atLimit ? "not-allowed" : "pointer",
+              opacity: atLimit ? 0.7 : 1,
+            }}
+          >
+            <UserPlus size={14} />
+            Inviter un collègue
+          </button>
+        </div>
+        {atLimit && (
+          <div
+            style={{
+              padding: 12, borderRadius: 10,
+              background: "rgba(245,158,11,0.10)", color: "#B45309",
+              fontSize: 12, marginBottom: 14,
+            }}
+          >
+            Votre plan <strong>{planConfig.name}</strong> est limité à{" "}
+            <strong>{seatCap}</strong> siège{seatCap && seatCap > 1 ? "s" : ""}.
+            Pour inviter plus de collègues, passez au plan <strong>{planState.plan === "starter" ? "Pro" : "Business"}</strong>.
+          </div>
+        )}
 
         {loading ? (
           <div style={{ fontSize: 12, color: "var(--muted-foreground)", padding: 12 }}>Chargement…</div>

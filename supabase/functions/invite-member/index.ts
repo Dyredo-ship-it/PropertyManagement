@@ -79,6 +79,50 @@ Deno.serve(async (req) => {
       .eq("id", callerProfile.organization_id)
       .maybeSingle();
 
+    // ── Seat limit enforcement ──────────────────────────────────
+    // Starter = 1 seat (no invites), Pro = 5 seats, Business = unlimited.
+    // Seats count admins + pending invitations. Tenants don't count.
+    const SEAT_LIMITS: Record<string, number | null> = {
+      starter: 1,
+      pro: 5,
+      business: null,
+    };
+
+    const { data: sub } = await admin
+      .from("subscriptions")
+      .select("plan, status")
+      .eq("organization_id", callerProfile.organization_id)
+      .maybeSingle();
+    const activePlan = sub && (sub.status === "active" || sub.status === "trialing")
+      ? sub.plan as string
+      : "starter";
+    const seatCap = SEAT_LIMITS[activePlan] ?? null;
+
+    if (seatCap !== null) {
+      // Count current admin members + pending invitations for this org.
+      const [{ count: memberCount }, { count: pendingCount }] = await Promise.all([
+        admin.from("profiles").select("id", { count: "exact", head: true })
+          .eq("organization_id", callerProfile.organization_id)
+          .eq("role", "admin"),
+        admin.from("organization_invitations").select("id", { count: "exact", head: true })
+          .eq("organization_id", callerProfile.organization_id)
+          .eq("status", "pending"),
+      ]);
+      const consumed = (memberCount ?? 0) + (pendingCount ?? 0);
+      if (consumed >= seatCap) {
+        return new Response(
+          JSON.stringify({
+            error: "seat_limit_reached",
+            message: `Votre plan ${activePlan} est limité à ${seatCap} siège(s). Passez au plan supérieur pour inviter plus de collègues.`,
+            plan: activePlan,
+            seatCap,
+            consumed,
+          }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+    }
+
     // Revoke any existing pending invites for the same email+org (clean replay).
     await admin
       .from("organization_invitations")
