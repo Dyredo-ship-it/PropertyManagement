@@ -516,194 +516,316 @@ export function TopHeader({
 
           {isNotifOpen && (
             <div
-              className="fixed rounded-2xl overflow-hidden z-50 flex flex-col"
+              className="fixed z-50 flex flex-col"
               style={{
-                top: 64,
-                right: 16,
-                width: 380,
-                maxWidth: "calc(100vw - 24px)",
-                maxHeight: "calc(100vh - 80px)",
+                top: 68,
+                right: 12,
+                width: 400,
+                maxWidth: "calc(100vw - 20px)",
+                maxHeight: "calc(100vh - 88px)",
                 background: "var(--card)",
                 border: "1px solid var(--border)",
-                boxShadow: "0 12px 40px rgba(0,0,0,0.14)",
+                borderRadius: 18,
+                boxShadow: "0 20px 48px rgba(28, 32, 30, 0.16), 0 4px 12px rgba(28, 32, 30, 0.06)",
+                overflow: "hidden",
               }}
             >
-              {/* Notif header */}
+              {/* ── Header ── */}
               <div
-                className="flex items-center justify-between gap-3 px-4 py-3 border-b shrink-0"
-                style={{ borderColor: "var(--border)" }}
+                className="shrink-0"
+                style={{ padding: "16px 18px 12px" }}
               >
-                <div className="flex items-baseline gap-2 min-w-0">
-                  <p className="text-[14px] font-semibold truncate" style={{ color: "var(--foreground)" }}>
-                    Notifications
-                  </p>
-                  {unreadCount > 0 && (
-                    <span
-                      className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0"
-                      style={{ background: "rgba(239,68,68,0.10)", color: "#DC2626" }}
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <h3
+                      style={{
+                        fontSize: 15,
+                        fontWeight: 700,
+                        color: "var(--foreground)",
+                        margin: 0,
+                        letterSpacing: "-0.01em",
+                      }}
                     >
-                      {unreadCount} {unreadCount > 1 ? "nouvelles" : "nouvelle"}
-                    </span>
+                      Notifications
+                    </h3>
+                    {unreadCount > 0 && (
+                      <span
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 700,
+                          padding: "2px 8px",
+                          borderRadius: 999,
+                          background: "color-mix(in srgb, var(--primary) 12%, transparent)",
+                          color: "var(--primary)",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {unreadCount} {unreadCount > 1 ? "nouvelles" : "nouvelle"}
+                      </span>
+                    )}
+                  </div>
+                  {unreadCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={markAllRead}
+                      title="Marquer tout comme lu"
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 600,
+                        color: "var(--muted-foreground)",
+                        background: "transparent",
+                        border: "none",
+                        cursor: "pointer",
+                        padding: "4px 8px",
+                        borderRadius: 8,
+                        flexShrink: 0,
+                        transition: "color 0.15s, background 0.15s",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.color = "var(--foreground)";
+                        e.currentTarget.style.background = "var(--background)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.color = "var(--muted-foreground)";
+                        e.currentTarget.style.background = "transparent";
+                      }}
+                    >
+                      Tout lire
+                    </button>
                   )}
                 </div>
-                {unreadCount > 0 && (
-                  <button
-                    type="button"
-                    onClick={markAllRead}
-                    className="text-[11px] font-semibold shrink-0 transition-opacity hover:opacity-70"
-                    style={{ color: "var(--primary)", background: "transparent", border: "none", cursor: "pointer" }}
-                  >
-                    Tout lire
-                  </button>
-                )}
               </div>
 
-              {/* Notif list */}
-              <div className="overflow-y-auto flex-1">
+              {/* ── List ── */}
+              <div
+                className="overflow-y-auto flex-1"
+                style={{ padding: notifs.length === 0 ? 0 : "0 12px 4px" }}
+              >
                 {notifs.length === 0 && (
-                  <div className="flex flex-col items-center justify-center py-10 px-6 text-center">
-                    {/* Icon stack: bell inside a soft-tinted disc, green check
-                        badge as an "all clear" signal. */}
-                    <div className="relative mb-4">
-                      <div
-                        className="w-14 h-14 rounded-2xl flex items-center justify-center"
-                        style={{
-                          background: "color-mix(in srgb, var(--primary) 10%, transparent)",
-                          color: "var(--primary)",
-                        }}
-                      >
-                        <Bell className="w-6 h-6" strokeWidth={1.8} />
-                      </div>
-                      <div
-                        className="absolute flex items-center justify-center rounded-full"
-                        style={{
-                          bottom: -4, right: -4,
-                          width: 22, height: 22,
-                          background: "#16A34A",
-                          color: "#fff",
-                          boxShadow: "0 0 0 3px var(--card)",
-                        }}
-                      >
-                        <Check className="w-3 h-3" strokeWidth={3} />
-                      </div>
+                  <div
+                    className="flex flex-col items-center justify-center text-center"
+                    style={{ padding: "28px 24px 36px" }}
+                  >
+                    <div
+                      style={{
+                        width: 56, height: 56, borderRadius: 16,
+                        background: "var(--background)",
+                        border: "1px solid var(--border)",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        color: "var(--muted-foreground)",
+                        marginBottom: 14,
+                      }}
+                    >
+                      <Bell style={{ width: 22, height: 22 }} strokeWidth={1.6} />
                     </div>
-                    <p className="text-[14px] font-semibold" style={{ color: "var(--foreground)" }}>
-                      Tout est à jour
+                    <p
+                      style={{
+                        fontSize: 14, fontWeight: 600, margin: 0,
+                        color: "var(--foreground)", letterSpacing: "-0.01em",
+                      }}
+                    >
+                      Vous êtes à jour
                     </p>
-                    <p className="text-[11.5px] mt-1.5 max-w-[240px] leading-relaxed" style={{ color: "var(--muted-foreground)" }}>
+                    <p
+                      style={{
+                        fontSize: 12, margin: "6px 0 0",
+                        color: "var(--muted-foreground)",
+                        maxWidth: 260, lineHeight: 1.5,
+                      }}
+                    >
                       Les nouvelles demandes, paiements et messages apparaîtront ici.
                     </p>
                   </div>
                 )}
-                {notifs.map((n) => {
+                {notifs.map((n, idx) => {
                   const isUnread = !n.read;
                   const { bg, color } = notifColor(n.category);
                   const isUrgent = n.category === "urgent";
                   return (
                     <div
                       key={n.id}
-                      className="relative flex items-start gap-3 px-4 py-3 cursor-pointer transition-colors border-b"
+                      onClick={() => { if (isUnread) markAsRead(n.id); }}
                       style={{
-                        borderColor: "var(--border)",
-                        background: isUnread ? "var(--sidebar-accent)" : "transparent",
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: 12,
+                        padding: 12,
+                        marginBottom: idx === notifs.length - 1 ? 0 : 6,
+                        borderRadius: 12,
+                        cursor: "pointer",
+                        background: isUnread
+                          ? "color-mix(in srgb, var(--primary) 6%, transparent)"
+                          : "transparent",
+                        border: "1px solid",
+                        borderColor: isUnread
+                          ? "color-mix(in srgb, var(--primary) 14%, transparent)"
+                          : "transparent",
+                        transition: "background 0.15s, border-color 0.15s",
                       }}
-                      onClick={() => {
-                        if (isUnread) markAsRead(n.id);
+                      onMouseEnter={(e) => {
+                        if (!isUnread) {
+                          e.currentTarget.style.background = "var(--background)";
+                          e.currentTarget.style.borderColor = "var(--border)";
+                        } else {
+                          e.currentTarget.style.background = "color-mix(in srgb, var(--primary) 10%, transparent)";
+                        }
                       }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = "var(--background)"; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.background = isUnread ? "var(--sidebar-accent)" : "transparent"; }}
+                      onMouseLeave={(e) => {
+                        if (!isUnread) {
+                          e.currentTarget.style.background = "transparent";
+                          e.currentTarget.style.borderColor = "transparent";
+                        } else {
+                          e.currentTarget.style.background = "color-mix(in srgb, var(--primary) 6%, transparent)";
+                        }
+                      }}
                     >
-                      {/* Unread accent bar */}
-                      {isUnread && (
-                        <span
-                          aria-hidden
-                          style={{
-                            position: "absolute", left: 0, top: 10, bottom: 10, width: 3,
-                            borderRadius: "0 3px 3px 0", background: "var(--primary)",
-                          }}
-                        />
-                      )}
-
                       {/* Category icon */}
                       <div
-                        className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
-                        style={{ background: bg, color }}
+                        style={{
+                          width: 36, height: 36, borderRadius: 10,
+                          background: bg, color,
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          flexShrink: 0,
+                        }}
                       >
                         {notifIcon(n.category)}
                       </div>
 
                       {/* Content */}
-                      <div className="flex-1 min-w-0">
-                        {/* Row 1: title + time */}
-                        <div className="flex items-baseline justify-between gap-2">
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        {/* Row 1: title + time + urgent badge */}
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "flex-start",
+                            justifyContent: "space-between",
+                            gap: 8,
+                          }}
+                        >
                           <p
-                            className="text-[13px] leading-snug min-w-0 truncate"
                             style={{
-                              color: "var(--foreground)",
+                              fontSize: 13,
                               fontWeight: isUnread ? 600 : 500,
+                              color: "var(--foreground)",
+                              margin: 0,
+                              lineHeight: 1.35,
+                              minWidth: 0,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                              letterSpacing: "-0.005em",
                             }}
                           >
                             {n.title}
                           </p>
-                          <span
-                            className="text-[10px] shrink-0 tabular-nums"
-                            style={{ color: "var(--muted-foreground)", opacity: 0.8 }}
-                          >
-                            {formatRelativeTime(n.date)}
-                          </span>
-                        </div>
-
-                        {/* Row 2: message (clamped 2 lines) + urgent badge */}
-                        {(n.message || isUrgent) && (
-                          <div className="flex items-start justify-between gap-2 mt-1">
-                            {n.message && (
-                              <p
-                                className="text-[11.5px] leading-snug"
-                                style={{
-                                  color: "var(--muted-foreground)",
-                                  display: "-webkit-box",
-                                  WebkitLineClamp: 2,
-                                  WebkitBoxOrient: "vertical",
-                                  overflow: "hidden",
-                                }}
-                              >
-                                {n.message}
-                              </p>
-                            )}
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
                             {isUrgent && (
                               <span
-                                className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded shrink-0 tracking-wide"
-                                style={{ background: "rgba(239,68,68,0.12)", color: "#DC2626" }}
+                                style={{
+                                  fontSize: 9,
+                                  fontWeight: 700,
+                                  textTransform: "uppercase",
+                                  letterSpacing: "0.04em",
+                                  padding: "2px 6px",
+                                  borderRadius: 4,
+                                  background: "rgba(239,68,68,0.12)",
+                                  color: "#DC2626",
+                                }}
                               >
                                 Urgent
                               </span>
                             )}
+                            <span
+                              style={{
+                                fontSize: 10,
+                                color: "var(--muted-foreground)",
+                                fontVariantNumeric: "tabular-nums",
+                                lineHeight: 1.35,
+                                marginTop: 2,
+                              }}
+                            >
+                              {formatRelativeTime(n.date)}
+                            </span>
                           </div>
+                        </div>
+
+                        {/* Row 2: message */}
+                        {n.message && (
+                          <p
+                            style={{
+                              fontSize: 12,
+                              color: "var(--muted-foreground)",
+                              margin: "4px 0 0",
+                              lineHeight: 1.45,
+                              display: "-webkit-box",
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: "vertical",
+                              overflow: "hidden",
+                            }}
+                          >
+                            {n.message}
+                          </p>
                         )}
                       </div>
+
+                      {/* Unread dot */}
+                      {isUnread && (
+                        <div
+                          aria-hidden
+                          style={{
+                            width: 7, height: 7, borderRadius: "50%",
+                            background: "var(--primary)",
+                            flexShrink: 0,
+                            marginTop: 14,
+                          }}
+                        />
+                      )}
                     </div>
                   );
                 })}
               </div>
 
-              {/* Footer */}
+              {/* ── Footer ── */}
               <div
-                className="px-4 py-2.5 border-t shrink-0"
-                style={{ borderColor: "var(--border)" }}
+                className="shrink-0"
+                style={{
+                  padding: "8px 12px 12px",
+                  background: "linear-gradient(to top, var(--card) 60%, transparent)",
+                }}
               >
                 <button
                   type="button"
-                  className="w-full flex items-center justify-center gap-1.5 text-[12px] font-semibold py-1.5 rounded-lg transition-colors"
-                  style={{ color: "var(--primary)", background: "transparent", border: "none", cursor: "pointer" }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = "var(--sidebar-accent)"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
                   onClick={() => {
                     setIsNotifOpen(false);
                     onNavigate?.("notifications");
                   }}
+                  style={{
+                    width: "100%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                    padding: "9px 12px",
+                    borderRadius: 10,
+                    background: "var(--background)",
+                    color: "var(--foreground)",
+                    border: "1px solid var(--border)",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    transition: "background 0.15s, border-color 0.15s",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "var(--sidebar-accent)";
+                    e.currentTarget.style.borderColor = "color-mix(in srgb, var(--primary) 24%, transparent)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "var(--background)";
+                    e.currentTarget.style.borderColor = "var(--border)";
+                  }}
                 >
                   Voir toutes les notifications
-                  <ChevronRight style={{ width: 12, height: 12 }} />
+                  <ChevronRight style={{ width: 13, height: 13 }} />
                 </button>
               </div>
             </div>
