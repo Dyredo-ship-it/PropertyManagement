@@ -412,6 +412,19 @@ function TenantDetailDrawer({
   const [sendDocMessage, setSendDocMessage] = useState("");
   const sendDocFileRef = useRef<HTMLInputElement | null>(null);
 
+  /* Inline toast for invite flow (replaces native alert()) */
+  const [inviteToast, setInviteToast] = useState<null | {
+    kind: "success" | "info" | "error";
+    title: string;
+    body?: string;
+    link?: string;
+  }>(null);
+  useEffect(() => {
+    if (!inviteToast) return;
+    const id = setTimeout(() => setInviteToast(null), 6000);
+    return () => clearTimeout(id);
+  }, [inviteToast]);
+
   /* Assigned units from building settings */
   const assignedUnits = React.useMemo(() => {
     if (!tenant?.buildingId) return [];
@@ -796,6 +809,60 @@ function TenantDetailDrawer({
                 </button>
               </div>
 
+              {/* Inline toast for invite flow */}
+              {inviteToast && (
+                <div
+                  role="status"
+                  style={{
+                    display: "flex", alignItems: "flex-start", gap: 10,
+                    padding: "10px 12px", borderRadius: 10,
+                    background:
+                      inviteToast.kind === "success" ? "rgba(22,163,74,0.10)"
+                      : inviteToast.kind === "error" ? "rgba(239,68,68,0.10)"
+                      : "rgba(99,102,241,0.10)",
+                    color:
+                      inviteToast.kind === "success" ? "#166534"
+                      : inviteToast.kind === "error" ? "#991B1B"
+                      : "#4338CA",
+                    fontSize: 12, lineHeight: 1.4,
+                  }}
+                >
+                  {inviteToast.kind === "success" ? (
+                    <CheckCircle2 style={{ width: 16, height: 16, flexShrink: 0, marginTop: 1 }} />
+                  ) : inviteToast.kind === "error" ? (
+                    <AlertCircle style={{ width: 16, height: 16, flexShrink: 0, marginTop: 1 }} />
+                  ) : (
+                    <Send style={{ width: 16, height: 16, flexShrink: 0, marginTop: 1 }} />
+                  )}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700 }}>{inviteToast.title}</div>
+                    {inviteToast.body && (
+                      <div style={{ marginTop: 3, opacity: 0.9 }}>{inviteToast.body}</div>
+                    )}
+                    {inviteToast.link && (
+                      <div
+                        style={{
+                          marginTop: 6, padding: "6px 8px", borderRadius: 6,
+                          background: "rgba(255,255,255,0.6)", fontFamily: "monospace",
+                          fontSize: 11, wordBreak: "break-all", color: "#1F2937",
+                        }}
+                      >
+                        {inviteToast.link}
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => setInviteToast(null)}
+                    style={{
+                      background: "none", border: "none", cursor: "pointer",
+                      color: "inherit", opacity: 0.6, padding: 2, fontSize: 16, lineHeight: 1,
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+
               {/* Automated emails */}
               <div style={{
                 marginTop: 4, padding: 14, borderRadius: 10, background: "var(--background)",
@@ -851,15 +918,28 @@ function TenantDetailDrawer({
                         const url = (data as any)?.acceptUrl;
                         const emailSent = (data as any)?.emailSent;
                         if (emailSent) {
-                          alert(`Invitation envoyée à ${tenant.email}. Le locataire recevra un email avec un lien pour créer son accès.`);
+                          setInviteToast({
+                            kind: "success",
+                            title: "Invitation envoyée",
+                            body: `${tenant.email} recevra un email avec un lien pour créer son accès.`,
+                          });
                         } else if (url) {
-                          await navigator.clipboard.writeText(url);
-                          alert(`Invitation créée. Lien copié dans le presse-papier — partagez-le avec le locataire :\n\n${url}`);
+                          try { await navigator.clipboard.writeText(url); } catch {}
+                          setInviteToast({
+                            kind: "info",
+                            title: "Invitation créée",
+                            body: "Lien copié dans le presse-papier — partagez-le avec le locataire.",
+                            link: url,
+                          });
                         } else {
-                          alert("Invitation créée.");
+                          setInviteToast({ kind: "success", title: "Invitation créée" });
                         }
                       } catch (e: any) {
-                        alert("Erreur : " + (e?.message ?? "invitation impossible"));
+                        setInviteToast({
+                          kind: "error",
+                          title: "Invitation impossible",
+                          body: e?.message ?? "Erreur inconnue",
+                        });
                       }
                     }}
                     disabled={!tenant?.email}
