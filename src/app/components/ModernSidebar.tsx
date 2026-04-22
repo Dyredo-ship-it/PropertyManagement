@@ -468,6 +468,21 @@ export function ModernSidebar({ activeView, onViewChange, mobileOpen = false, on
             <MoreVertical style={{ width: 16, height: 16 }} />
           </button>
         </div>
+        {/* Build id footer — lets the user tell which deploy they're on */}
+        <div
+          style={{
+            padding: "0 20px 10px",
+            fontSize: 9,
+            fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+            color: "var(--muted-foreground)",
+            opacity: 0.6,
+            textAlign: "center",
+            letterSpacing: "0.02em",
+          }}
+          title="Identifiant de build"
+        >
+          v.{typeof __BUILD_ID__ !== "undefined" ? __BUILD_ID__ : "dev"}
+        </div>
       </div>
       </aside>
     </>
