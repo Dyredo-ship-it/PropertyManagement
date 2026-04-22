@@ -140,6 +140,14 @@ body {
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+/* ── Global horizontal-overflow safeguard ─────────────────── */
+@media (max-width: 1023px) {
+  html, body, #root {
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+}
+
 /* ── Responsive sidebar ───────────────────────────────────────
    Desktop (>= lg breakpoint = 1024px): sidebar is a static column.
    Mobile / small: sidebar slides in from the left as an overlay
@@ -193,5 +201,47 @@ body {
      2-column grid on phones so they stay legible. */
   .has-mobile-bottom-nav .grid.grid-cols-1.md\:grid-cols-2.lg\:grid-cols-4 {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  /* DashboardView — collapse the 1fr 340px main grid + 3-col kanban
+     into a single column; let the KPI strip flow-wrap if needed. */
+  .dash-two-col {
+    grid-template-columns: 1fr !important;
+  }
+  .dash-kanban {
+    grid-template-columns: 1fr !important;
+  }
+  .dash-kpi-strip > div {
+    flex: 1 1 50% !important;
+    min-width: 50%;
+  }
+  .dash-kpi-strip > div[style*="background: var(--border)"],
+  .dash-kpi-strip > div[style*="width: 1"] {
+    display: none !important;
+  }
+
+  /* Kill any fixed-pixel side image that blows the viewport
+     (BuildingDetailsView has a 220px cover image we can hide). */
+  .has-mobile-bottom-nav img[style*="width: 220"],
+  .has-mobile-bottom-nav img[style*="width:220"] {
+    display: none !important;
+  }
+
+  /* Prevent nowrap text from forcing parents wider than viewport.
+     Children that truly need ellipsis can opt back in via an explicit
+     overflow:hidden + text-overflow:ellipsis style. */
+  .has-mobile-bottom-nav * {
+    min-width: 0;
+  }
+
+  /* Common responsive wrap for flex rows. Only applies to rows that
+     already set display:flex via inline style — we introduce this
+     via a utility class pattern if needed; most pages already work
+     once min-width:0 is in place. */
+  .has-mobile-bottom-nav table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
   }
 }

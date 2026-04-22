@@ -225,6 +225,7 @@ function AdminDashboard({
 
       {/* ── Compact KPI Strip ─────────────────────────────────── */}
       <div
+        className="dash-kpi-strip"
         style={{
           display: "flex",
           alignItems: "stretch",
@@ -234,6 +235,7 @@ function AdminDashboard({
           border: "1px solid var(--border)",
           background: "var(--card)",
           overflow: "hidden",
+          flexWrap: "wrap",
         }}
       >
         {[
@@ -275,7 +277,7 @@ function AdminDashboard({
       </div>
 
       {/* ── Main content: two-column layout ───────────────────── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 24 }}>
+      <div className="dash-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 24 }}>
 
         {/* ── Left: Kanban Board ── */}
         <div>
@@ -313,7 +315,7 @@ function AdminDashboard({
           </div>
 
           {/* Kanban columns */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+          <div className="dash-kanban" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
             <KanbanColumn icon={Circle} title={t("pending")} count={cols.pending.length} color="#F59E0B" requests={cols.pending} status="pending" onStatusChange={onStatusChange} />
             <KanbanColumn icon={Clock} title={t("inProgress")} count={cols.inProgress.length} color="var(--primary)" requests={cols.inProgress} status="in-progress" onStatusChange={onStatusChange} />
             <KanbanColumn icon={CheckCircle2} title={t("completed")} count={cols.completed.length} color="#22C55E" requests={cols.completed} status="completed" onStatusChange={onStatusChange} />
