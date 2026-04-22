@@ -14,6 +14,8 @@ create table if not exists organizations (
   id uuid primary key default uuid_generate_v4(),
   name text not null,
   plan text not null default 'starter' check (plan in ('starter','pro','business')),
+  rent_due_day int not null default 1 check (rent_due_day between 1 and 28),
+  rent_in_advance boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

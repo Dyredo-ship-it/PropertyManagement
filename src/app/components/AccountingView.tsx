@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
 import {
@@ -14,9 +14,12 @@ import {
   getNotifications, saveNotifications,
   getAccountingSettings, saveAccountingSettings,
   getChartEntries, upsertChartEntry, deleteChartEntry,
+  getOrgRentSettings,
   type AccountingTransaction, type ManualAdjustment, type Building, type Notification,
   type AccountingSettings, type ChartEntry, type ChartEntryType,
+  type OrgRentSettings,
 } from "../utils/storage";
+import { useNotifications } from "../context/NotificationsContext";
 import { useLanguage } from "../i18n/LanguageContext";
 import { useCurrency } from "../context/CurrencyContext";
 
@@ -252,6 +255,9 @@ export function AccountingView() {
   const [transactions, setTransactions] = useState<AccountingTransaction[]>([]);
   const [adjustments, setAdjustments] = useState<ManualAdjustment[]>([]);
   const [chartEntries, setChartEntries] = useState<ChartEntry[]>([]);
+  const [rentSettings, setRentSettings] = useState<OrgRentSettings>(getOrgRentSettings);
+
+  const { addNotification } = useNotifications();
 
   // Import state
   const [showImport, setShowImport] = useState(false);
@@ -345,6 +351,7 @@ export function AccountingView() {
     setTransactions(getAccountingTransactions());
     setAdjustments(getManualAdjustments());
     setChartEntries(getChartEntries());
+    setRentSettings(getOrgRentSettings());
     if (!selectedBuildingId && b.length > 0) {
       setSelectedBuildingId(b[0].id);
     }
@@ -709,6 +716,20 @@ export function AccountingView() {
 
   const rentGrid = useMemo(() => {
     const year = Number(selectedYear);
+    const dueDay = Math.min(28, Math.max(1, rentSettings.rentDueDay));
+    // Compute the deadline for a covered month M:
+    // rentInAdvance=true  → deadline = day D of month M
+    // rentInAdvance=false → deadline = day D of month M+1
+    const computeDeadline = (y: number, m1to12: number): Date => {
+      if (rentSettings.rentInAdvance) {
+        return new Date(y, m1to12 - 1, dueDay);
+      }
+      // arrears — due next month
+      const nextMonth = m1to12 === 12 ? 1 : m1to12 + 1;
+      const yearOfDeadline = m1to12 === 12 ? y + 1 : y;
+      return new Date(yearOfDeadline, nextMonth - 1, dueDay);
+    };
+    const today = new Date();
     return buildingTenants.map((tenant) => {
       const months: Record<string, "paid" | "unpaid" | "late"> = {};
       for (let m = 1; m <= 12; m++) {
@@ -721,30 +742,26 @@ export function AccountingView() {
               (tenant.name.toLowerCase().split(" ").pop() || ""),
             ),
         );
+        const deadline = computeDeadline(year, m);
         if (rentTxs.length > 0) {
-          // Check if late (payment date after 5th)
+          // Paid-but-late: any payment registered after the deadline.
           const isLate = rentTxs.some((tx) => {
-            if (tx.datePayment) {
-              const day = Number(tx.datePayment.split("-")[2]);
-              return day > 5;
-            }
-            return false;
+            if (!tx.datePayment) return false;
+            const paymentDate = new Date(tx.datePayment);
+            return paymentDate > deadline;
           });
           months[monthKey] = isLate ? "late" : "paid";
+        } else if (today > deadline) {
+          // Unpaid past the deadline → late.
+          months[monthKey] = "late";
         } else {
-          // Only mark unpaid if the month is in the past or current
-          const today = new Date();
-          const monthDate = new Date(year, m - 1, 1);
-          if (monthDate <= today) {
-            months[monthKey] = "unpaid";
-          } else {
-            months[monthKey] = "unpaid"; // future: still show as unpaid/pending
-          }
+          // Not yet due or future month.
+          months[monthKey] = "unpaid";
         }
       }
       return { tenant, months };
     });
-  }, [buildingTenants, filteredTx, selectedYear]);
+  }, [buildingTenants, filteredTx, selectedYear, rentSettings]);
 
   // Rent summary for current month
   const rentSummary = useMemo(() => {
@@ -758,6 +775,39 @@ export function AccountingView() {
     });
     return { paid, unpaid };
   }, [rentGrid]);
+
+  // ─── Auto-notification on late rent detection ───
+  // Fire once per (tenant, monthKey) pair per session, deduping against
+  // existing notifications that already reference the tenant+month.
+  const notifiedLateKeys = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!selectedBuildingId) return;
+    const today = new Date();
+    const currentMonthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+    const existingNotifs = getNotifications();
+    for (const row of rentGrid) {
+      const status = row.months[currentMonthKey];
+      if (status !== "late") continue;
+      const key = `${row.tenant.id}::${currentMonthKey}`;
+      if (notifiedLateKeys.current.has(key)) continue;
+      const alreadyNotified = existingNotifs.some(
+        (n) =>
+          n.category === "payment" &&
+          n.title.includes(row.tenant.name) &&
+          n.title.toLowerCase().includes("retard") &&
+          n.message?.includes(currentMonthKey),
+      );
+      notifiedLateKeys.current.add(key);
+      if (alreadyNotified) continue;
+      const monthName = MONTHS_FR[today.getMonth()];
+      addNotification({
+        title: `Retard de paiement — ${row.tenant.name}`,
+        message: `Loyer de ${monthName} ${today.getFullYear()} non reçu au-delà du jour limite. (${currentMonthKey})`,
+        buildingId: selectedBuildingId,
+        category: "payment",
+      });
+    }
+  }, [rentGrid, selectedBuildingId, addNotification]);
 
   /* ─── Send reminder ──────────────────────────────────────── */
 

@@ -19,6 +19,7 @@ import { useCurrency } from "../context/CurrencyContext";
 import { useLanguage } from "../i18n/LanguageContext";
 import { LANGUAGES } from "../i18n/translations";
 import { getLandlordInfo, saveLandlordInfo } from "../lib/landlord";
+import { getOrgRentSettings, saveOrgRentSettings } from "../utils/storage";
 import {
   PLANS,
   fetchSubscription,
@@ -825,14 +826,20 @@ function BillingTab() {
 
 function CompanyTab() {
   const initial = getLandlordInfo();
+  const initialRent = getOrgRentSettings();
   const [companyName, setCompanyName] = useState(initial.name);
   const [address, setAddress] = useState(initial.address);
   const [vatId, setVatId] = useState(initial.vatId);
   const [contactEmail, setContactEmail] = useState(initial.email);
+  const [rentDueDay, setRentDueDay] = useState<number>(initialRent.rentDueDay);
+  const [rentInAdvance, setRentInAdvance] = useState<boolean>(initialRent.rentInAdvance);
   const [saved, setSaved] = useState(false);
 
   const handleSave = () => {
     saveLandlordInfo({ name: companyName, address, email: contactEmail, vatId });
+    const clampedDay = Math.min(28, Math.max(1, Math.round(rentDueDay || 1)));
+    saveOrgRentSettings({ rentDueDay: clampedDay, rentInAdvance });
+    setRentDueDay(clampedDay);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
@@ -876,6 +883,42 @@ function CompanyTab() {
               placeholder="CHE-XXX.XXX.XXX"
               style={inputStyle}
             />
+          </Field>
+        </div>
+      </Section>
+
+      <Section
+        title="Paramètres de loyer"
+        description="Règle utilisée pour détecter automatiquement les retards de paiement."
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-5">
+          <Field label="Jour limite de paiement (1-28)">
+            <input
+              type="number"
+              min={1}
+              max={28}
+              value={rentDueDay}
+              onChange={(e) => setRentDueDay(Number(e.target.value))}
+              style={inputStyle}
+            />
+            <p style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 6 }}>
+              Si le loyer d'un mois n'est pas reçu avant ce jour, il est marqué en retard.
+            </p>
+          </Field>
+          <Field label="Loyer payable">
+            <select
+              value={rentInAdvance ? "advance" : "arrears"}
+              onChange={(e) => setRentInAdvance(e.target.value === "advance")}
+              style={inputStyle}
+            >
+              <option value="advance">Par mois d'avance (convention suisse)</option>
+              <option value="arrears">À terme échu</option>
+            </select>
+            <p style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 6 }}>
+              {rentInAdvance
+                ? "Le loyer du mois M doit arriver avant le jour limite de M."
+                : "Le loyer du mois M doit arriver avant le jour limite du mois suivant."}
+            </p>
           </Field>
         </div>
       </Section>

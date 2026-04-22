@@ -228,6 +228,19 @@ export interface ChartEntry {
   updatedAt: string;
 }
 
+export interface OrgRentSettings {
+  // Day of the month (1..28) by which rent must arrive for the month it covers.
+  rentDueDay: number;
+  // true = Swiss convention: rent for month M is due by day D of M.
+  // false = rent for month M is due by day D of the previous month.
+  rentInAdvance: boolean;
+}
+
+export const DEFAULT_ORG_RENT_SETTINGS: OrgRentSettings = {
+  rentDueDay: 1,
+  rentInAdvance: true,
+};
+
 export type RentalApplicationStatus = "received" | "under-review" | "accepted" | "rejected";
 
 export interface RentalApplication {
@@ -270,6 +283,7 @@ type Cache = {
   chartEntries: ChartEntry[];
   renovations: Renovation[];
   accountingSettings: Record<string, AccountingSettings>; // keyed by buildingId
+  orgRentSettings: OrgRentSettings;
   baseCurrency: Currency;
   exchangeRates: ExchangeRateCache | null;
 };
@@ -290,6 +304,7 @@ const cache: Cache = {
   chartEntries: [],
   renovations: [],
   accountingSettings: {},
+  orgRentSettings: { ...DEFAULT_ORG_RENT_SETTINGS },
   baseCurrency: ((): Currency => {
     const stored =
       localStorage.getItem("palier_baseCurrency") ??
@@ -379,6 +394,7 @@ export function clearStorageCache() {
   cache.chartEntries = [];
   cache.renovations = [];
   cache.accountingSettings = {};
+  cache.orgRentSettings = { ...DEFAULT_ORG_RENT_SETTINGS };
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -741,6 +757,7 @@ export async function hydrateFromSupabase(): Promise<void> {
       { data: tenantAbsences },
       { data: accSettings },
       { data: chartEntries },
+      { data: orgRow },
     ] = await Promise.all([
       supabase.from("buildings").select("*"),
       supabase.from("tenants").select("*"),
@@ -757,6 +774,7 @@ export async function hydrateFromSupabase(): Promise<void> {
       supabase.from("tenant_absences").select("*"),
       supabase.from("accounting_settings").select("*"),
       supabase.from("account_chart_entries").select("*"),
+      supabase.from("organizations").select("rent_due_day, rent_in_advance").maybeSingle(),
     ]);
 
     cache.buildings = (buildings ?? []).map(b2c);
@@ -783,6 +801,12 @@ export async function hydrateFromSupabase(): Promise<void> {
       };
     }
     cache.chartEntries = (chartEntries ?? []).map(ce2c);
+    cache.orgRentSettings = orgRow
+      ? {
+          rentDueDay: (orgRow as any).rent_due_day ?? DEFAULT_ORG_RENT_SETTINGS.rentDueDay,
+          rentInAdvance: (orgRow as any).rent_in_advance ?? DEFAULT_ORG_RENT_SETTINGS.rentInAdvance,
+        }
+      : { ...DEFAULT_ORG_RENT_SETTINGS };
     hydrated = true;
   } catch (err) {
     toastError("hydrate", err);
@@ -1341,6 +1365,27 @@ export const saveAccountingSettings = (buildingId: string, settings: AccountingS
       );
     } catch (err) {
       toastError("sync:accounting_settings", err);
+    }
+  })();
+};
+
+// Organization rent settings (stored on organizations row)
+export const getOrgRentSettings = (): OrgRentSettings => cache.orgRentSettings;
+export const saveOrgRentSettings = (settings: OrgRentSettings) => {
+  cache.orgRentSettings = { ...settings };
+  void (async () => {
+    try {
+      const org = await getOrgId();
+      const { error } = await supabase
+        .from("organizations")
+        .update({
+          rent_due_day: settings.rentDueDay,
+          rent_in_advance: settings.rentInAdvance,
+        })
+        .eq("id", org);
+      if (error) throw error;
+    } catch (err) {
+      toastError("sync:org_rent_settings", err);
     }
   })();
 };
