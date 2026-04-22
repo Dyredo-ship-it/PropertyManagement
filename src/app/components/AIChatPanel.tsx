@@ -13,6 +13,13 @@ import {
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../lib/supabase";
+import { usePlanLimits } from "../lib/billing";
+import {
+  getNotifications,
+  getMaintenanceRequests,
+  getTenants,
+  getBuildings,
+} from "../utils/storage";
 import {
   describeWriteAction,
   executeWriteAction,
@@ -55,12 +62,82 @@ interface PendingAction {
   continuationState: unknown;
 }
 
-const SUGGESTIONS = [
+const DEFAULT_SUGGESTIONS = [
   "Quels locataires n'ont pas payé leur loyer ce mois-ci ?",
   "Résume la comptabilité du dernier mois.",
   "Quels baux expirent dans les 3 prochains mois ?",
   "Liste les demandes de maintenance ouvertes.",
 ];
+
+/**
+ * Computes smart suggestions based on the hydrated cache so the empty
+ * state of a new conversation surfaces the most urgent topics: late
+ * payments, stale maintenance requests, leases ending soon, etc. Falls
+ * back to generic prompts when nothing notable is found.
+ */
+function computeProactiveSuggestions(): { emoji: string; text: string; prompt: string }[] {
+  const out: { emoji: string; text: string; prompt: string }[] = [];
+  const today = new Date();
+
+  try {
+    // Late payment signal — unread "payment" notifications.
+    const lateNotifs = getNotifications().filter(
+      (n) => n.category === "payment" && !n.read,
+    );
+    if (lateNotifs.length > 0) {
+      out.push({
+        emoji: "🔴",
+        text: `${lateNotifs.length} retard${lateNotifs.length > 1 ? "s" : ""} de paiement détecté${lateNotifs.length > 1 ? "s" : ""}`,
+        prompt: "Quels locataires sont en retard de paiement ce mois-ci ? Propose d'envoyer les rappels.",
+      });
+    }
+
+    // Stale maintenance requests — pending for 7+ days.
+    const stale = getMaintenanceRequests().filter((r) => {
+      if (r.status !== "pending") return false;
+      const age = today.getTime() - new Date(r.createdAt).getTime();
+      return age > 7 * 24 * 60 * 60 * 1000;
+    });
+    if (stale.length > 0) {
+      out.push({
+        emoji: "🛠️",
+        text: `${stale.length} demande${stale.length > 1 ? "s" : ""} ouverte${stale.length > 1 ? "s" : ""} depuis +7 jours`,
+        prompt: "Liste les demandes de maintenance en attente depuis plus d'une semaine.",
+      });
+    }
+
+    // Leases ending within 3 months.
+    const threeMonths = new Date(today);
+    threeMonths.setMonth(threeMonths.getMonth() + 3);
+    const endingSoon = getTenants().filter((t) => {
+      if (t.status !== "active" || !t.leaseEnd) return false;
+      const end = new Date(t.leaseEnd);
+      return end >= today && end <= threeMonths;
+    });
+    if (endingSoon.length > 0) {
+      out.push({
+        emoji: "📅",
+        text: `${endingSoon.length} bail${endingSoon.length > 1 ? "s" : ""} expire${endingSoon.length > 1 ? "nt" : ""} dans 3 mois`,
+        prompt: "Liste les locataires dont le bail expire dans les 3 prochains mois et suggère un plan d'action.",
+      });
+    }
+
+    // Portfolio context note.
+    const buildingCount = getBuildings().length;
+    const tenantCount = getTenants().filter((t) => t.status === "active").length;
+    if (buildingCount > 0 && out.length < 2) {
+      out.push({
+        emoji: "📊",
+        text: `Résumé de ${buildingCount} immeuble${buildingCount > 1 ? "s" : ""} · ${tenantCount} locataire${tenantCount > 1 ? "s" : ""}`,
+        prompt: "Donne-moi un résumé rapide de ma régie : nombre d'immeubles, locataires actifs, état global.",
+      });
+    }
+  } catch {
+    /* fall through to defaults */
+  }
+
+  return out;
+}
 
 interface ConversationSummary {
   id: string;
@@ -70,6 +147,7 @@ interface ConversationSummary {
 
 export function AIChatPanel() {
   const { user } = useAuth();
+  const planState = usePlanLimits();
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -79,8 +157,13 @@ export function AIChatPanel() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
+  const [usageThisMonth, setUsageThisMonth] = useState<number>(0);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  const aiQuota = planState.limits.aiQuestionsPerMonth;
+  const quotaReached = aiQuota !== null && usageThisMonth >= aiQuota;
+  const aiDisabled = aiQuota === 0;
 
   // Tenants and non-admins don't get the assistant for now.
   const visible = !!user && user.role !== "tenant";
@@ -104,6 +187,21 @@ export function AIChatPanel() {
     void saveConversation();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, busy, pending]);
+
+  const loadUsage = useCallback(async () => {
+    if (!user) return;
+    try {
+      const { data } = await supabase.rpc("current_ai_usage");
+      setUsageThisMonth(typeof data === "number" ? data : 0);
+    } catch {
+      /* ignore — counter stays stale */
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (!open) return;
+    void loadUsage();
+  }, [open, loadUsage, messages.length]);
 
   const loadConversations = useCallback(async () => {
     if (!user) return;
@@ -208,6 +306,14 @@ export function AIChatPanel() {
   const send = async (text: string) => {
     const trimmed = text.trim();
     if (!trimmed || busy) return;
+    if (aiDisabled) {
+      setError("Votre plan actuel n'inclut pas l'assistant IA. Passez au plan Pro ou Business pour l'activer.");
+      return;
+    }
+    if (quotaReached) {
+      setError(`Quota mensuel atteint (${aiQuota} questions). Passez au plan Business pour un accès illimité, ou attendez le début du mois prochain.`);
+      return;
+    }
     setInput("");
     const history = [...messages, { role: "user" as const, text: trimmed }];
     setMessages([...history, { role: "assistant", text: "", toolEvents: [] }]);
@@ -218,6 +324,8 @@ export function AIChatPanel() {
       })),
     };
     await runStream(body);
+    // Refresh usage count after the call.
+    void loadUsage();
   };
 
   const runStream = async (body: Record<string, unknown>, rollbackOnError = true) => {
@@ -555,15 +663,55 @@ export function AIChatPanel() {
                 <p style={{ fontSize: 13, color: "var(--muted-foreground)", marginBottom: 10 }}>
                   Posez-moi une question sur votre régie.
                 </p>
+                {(() => {
+                  const proactive = computeProactiveSuggestions();
+                  if (proactive.length > 0) {
+                    return (
+                      <>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                          À votre attention
+                        </div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
+                          {proactive.map((s) => (
+                            <button
+                              key={s.prompt}
+                              onClick={() => send(s.prompt)}
+                              disabled={aiDisabled || quotaReached}
+                              style={{
+                                textAlign: "left", padding: "10px 12px", borderRadius: 10,
+                                border: "1px solid var(--border)",
+                                background: "var(--card)",
+                                color: "var(--foreground)", fontSize: 12,
+                                cursor: aiDisabled || quotaReached ? "not-allowed" : "pointer",
+                                opacity: aiDisabled || quotaReached ? 0.6 : 1,
+                                display: "flex", alignItems: "center", gap: 8,
+                              }}
+                            >
+                              <span style={{ fontSize: 14 }}>{s.emoji}</span>
+                              <span>{s.text}</span>
+                            </button>
+                          ))}
+                        </div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                          Ou essayez
+                        </div>
+                      </>
+                    );
+                  }
+                  return null;
+                })()}
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {SUGGESTIONS.map((s) => (
+                  {DEFAULT_SUGGESTIONS.map((s) => (
                     <button
                       key={s}
                       onClick={() => send(s)}
+                      disabled={aiDisabled || quotaReached}
                       style={{
                         textAlign: "left", padding: "9px 12px", borderRadius: 10,
                         border: "1px solid var(--border)", background: "var(--background)",
-                        color: "var(--foreground)", fontSize: 12, cursor: "pointer",
+                        color: "var(--foreground)", fontSize: 12,
+                        cursor: aiDisabled || quotaReached ? "not-allowed" : "pointer",
+                        opacity: aiDisabled || quotaReached ? 0.6 : 1,
                       }}
                     >
                       {s}
@@ -695,43 +843,77 @@ export function AIChatPanel() {
           </div>
 
           <div style={{ borderTop: "1px solid var(--border)", padding: 10 }}>
-            <form
-              onSubmit={(e) => { e.preventDefault(); send(input); }}
-              style={{ display: "flex", gap: 8, alignItems: "flex-end" }}
-            >
-              <textarea
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    send(input);
-                  }
-                }}
-                placeholder="Votre question…"
-                rows={1}
+            {aiDisabled ? (
+              <div
                 style={{
-                  flex: 1, resize: "none", maxHeight: 120,
-                  padding: "9px 12px", borderRadius: 10,
-                  border: "1px solid var(--border)", background: "var(--background)",
-                  color: "var(--foreground)", fontSize: 13, outline: "none",
-                  fontFamily: "inherit",
-                }}
-              />
-              <button
-                type="submit"
-                disabled={busy || !input.trim()}
-                style={{
-                  width: 40, height: 40, borderRadius: 10, border: "none",
-                  background: busy || !input.trim() ? "var(--border)" : "var(--primary)",
-                  color: busy || !input.trim() ? "var(--muted-foreground)" : "var(--primary-foreground)",
-                  cursor: busy || !input.trim() ? "not-allowed" : "pointer",
-                  display: "flex", alignItems: "center", justifyContent: "center",
+                  padding: 12, borderRadius: 10,
+                  background: "rgba(99,102,241,0.08)", color: "#4338CA",
+                  fontSize: 12, textAlign: "center",
                 }}
               >
-                {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-              </button>
-            </form>
+                L'assistant IA n'est pas inclus dans votre plan Starter.{" "}
+                <strong>Passez au plan Pro ou Business</strong> pour l'activer.
+              </div>
+            ) : quotaReached ? (
+              <div
+                style={{
+                  padding: 12, borderRadius: 10,
+                  background: "rgba(245,158,11,0.10)", color: "#B45309",
+                  fontSize: 12, textAlign: "center",
+                }}
+              >
+                Quota mensuel atteint ({usageThisMonth} / {aiQuota}).{" "}
+                Passez au plan <strong>Business</strong> pour un accès illimité.
+              </div>
+            ) : (
+              <form
+                onSubmit={(e) => { e.preventDefault(); send(input); }}
+                style={{ display: "flex", gap: 8, alignItems: "flex-end" }}
+              >
+                <textarea
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      send(input);
+                    }
+                  }}
+                  placeholder="Votre question…"
+                  rows={1}
+                  style={{
+                    flex: 1, resize: "none", maxHeight: 120,
+                    padding: "9px 12px", borderRadius: 10,
+                    border: "1px solid var(--border)", background: "var(--background)",
+                    color: "var(--foreground)", fontSize: 13, outline: "none",
+                    fontFamily: "inherit",
+                  }}
+                />
+                <button
+                  type="submit"
+                  disabled={busy || !input.trim()}
+                  style={{
+                    width: 40, height: 40, borderRadius: 10, border: "none",
+                    background: busy || !input.trim() ? "var(--border)" : "var(--primary)",
+                    color: busy || !input.trim() ? "var(--muted-foreground)" : "var(--primary-foreground)",
+                    cursor: busy || !input.trim() ? "not-allowed" : "pointer",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                  }}
+                >
+                  {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                </button>
+              </form>
+            )}
+            {!aiDisabled && aiQuota !== null && (
+              <div style={{ fontSize: 10, color: "var(--muted-foreground)", textAlign: "right", marginTop: 6 }}>
+                {usageThisMonth} / {aiQuota} questions ce mois
+              </div>
+            )}
+            {!aiDisabled && aiQuota === null && (
+              <div style={{ fontSize: 10, color: "var(--muted-foreground)", textAlign: "right", marginTop: 6 }}>
+                Plan Business — questions illimitées
+              </div>
+            )}
           </div>
         </div>
       )}

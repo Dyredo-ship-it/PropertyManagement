@@ -11,7 +11,13 @@ export interface PlanConfig {
   features: string[];
   // teamSeats = total members in the organization (super admin + invitees).
   // null = unlimited. Starter is solo, Pro caps at 5, Business removes the cap.
-  limits: { buildings: number | null; tenants: number | null; teamSeats: number | null };
+  // aiQuestionsPerMonth = monthly AI assistant quota per user. 0 = no AI access.
+  limits: {
+    buildings: number | null;
+    tenants: number | null;
+    teamSeats: number | null;
+    aiQuestionsPerMonth: number | null;
+  };
 }
 
 export const PLANS: PlanConfig[] = [
@@ -25,9 +31,10 @@ export const PLANS: PlanConfig[] = [
       "10 locataires max",
       "1 utilisateur (solo)",
       "Comptabilité basique",
+      "Assistant IA non inclus",
       "Support email",
     ],
-    limits: { buildings: 1, tenants: 10, teamSeats: 1 },
+    limits: { buildings: 1, tenants: 10, teamSeats: 1, aiQuestionsPerMonth: 0 },
   },
   {
     id: "pro",
@@ -41,9 +48,10 @@ export const PLANS: PlanConfig[] = [
       "Comptabilité complète + export Excel",
       "Demandes de location",
       "Interventions & maintenance",
+      "200 questions IA / mois / utilisateur",
       "Support prioritaire",
     ],
-    limits: { buildings: 5, tenants: 50, teamSeats: 5 },
+    limits: { buildings: 5, tenants: 50, teamSeats: 5, aiQuestionsPerMonth: 200 },
   },
   {
     id: "business",
@@ -55,11 +63,12 @@ export const PLANS: PlanConfig[] = [
       "Locataires illimités",
       "Utilisateurs illimités",
       "Permissions granulaires par membre",
+      "Assistant IA illimité",
       "Automatisations comptables",
       "API + exports personnalisés",
       "Support dédié",
     ],
-    limits: { buildings: null, tenants: null, teamSeats: null },
+    limits: { buildings: null, tenants: null, teamSeats: null, aiQuestionsPerMonth: null },
   },
 ];
 
@@ -91,7 +100,12 @@ export interface SubscriptionInfo {
 export interface PlanLimitsState {
   loading: boolean;
   plan: Plan;
-  limits: { buildings: number | null; tenants: number | null; teamSeats: number | null };
+  limits: {
+    buildings: number | null;
+    tenants: number | null;
+    teamSeats: number | null;
+    aiQuestionsPerMonth: number | null;
+  };
 }
 
 /**

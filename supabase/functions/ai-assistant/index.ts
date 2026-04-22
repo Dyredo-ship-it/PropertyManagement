@@ -658,6 +658,44 @@ Deno.serve(async (req) => {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+
+      // ── Plan quota enforcement ──────────────────────────────
+      // Each new user prompt (not a resume) counts as one question.
+      // Starter = 0 (AI disabled), Pro = 200/mo/user, Business = unlimited.
+      const AI_LIMITS: Record<string, number | null> = {
+        starter: 0,
+        pro: 200,
+        business: null,
+      };
+      const { data: sub } = await supabase
+        .from("subscriptions")
+        .select("plan, status")
+        .eq("organization_id", ctx.organizationId)
+        .maybeSingle();
+      const activePlan = sub && (sub.status === "active" || sub.status === "trialing")
+        ? (sub.plan as string)
+        : "starter";
+      const quota = AI_LIMITS[activePlan] ?? null;
+
+      if (quota !== null) {
+        const { data: usage } = await supabase.rpc("current_ai_usage");
+        const currentCount = typeof usage === "number" ? usage : 0;
+        if (currentCount >= quota) {
+          return new Response(
+            JSON.stringify({
+              error: "ai_quota_reached",
+              message: `Votre plan ${activePlan} est limité à ${quota} question${quota > 1 ? "s" : ""} IA par mois. Passez au plan supérieur pour augmenter la limite.`,
+              plan: activePlan,
+              quota,
+              used: currentCount,
+            }),
+            { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+      }
+
+      // Best-effort increment; a failure shouldn't block the LLM call.
+      await supabase.rpc("increment_ai_usage").catch(() => null);
     }
 
     const stream = new ReadableStream<Uint8Array>({
