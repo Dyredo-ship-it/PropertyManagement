@@ -201,10 +201,13 @@ export function TopHeader({
 
   return (
     <header
-      className="shrink-0 flex items-center gap-2 sm:gap-4"
+      className="top-header shrink-0 flex items-center gap-2 sm:gap-4"
       style={{
-        height: 64,
-        padding: "0 12px",
+        minHeight: 64,
+        paddingTop: "env(safe-area-inset-top)",
+        paddingLeft: 12,
+        paddingRight: 12,
+        boxSizing: "content-box",
         borderBottom: "1px solid var(--border)",
         background: "var(--card)",
       }}

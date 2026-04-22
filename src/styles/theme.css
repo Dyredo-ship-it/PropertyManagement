@@ -268,6 +268,16 @@ body {
     margin-top: 14px !important;
     margin-bottom: 20px !important;
   }
+
+  /* TopHeader — give the hamburger, search and bell some room on
+     phones. Without this the icons hug the screen edges in PWA
+     standalone mode. Safe-area padding for the notch is already set
+     inline. */
+  .top-header {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+    gap: 12px !important;
+  }
 }
 
 /* ── Responsive sidebar ───────────────────────────────────────
