@@ -89,6 +89,9 @@ function buildEffectiveChart(
     if (!selectedBuildingId) return true;
     return ids.includes(selectedBuildingId);
   };
+  // Each call targets a single group (revenue, expense, …) — inferred from
+  // the type of the standards passed in (all standards in a group share a type).
+  const groupType = standards[0]?.type;
 
   const result: AccountDef[] = [];
 
@@ -108,9 +111,10 @@ function buildEffectiveChart(
     }
   }
 
-  // Custom user-added accounts
+  // Custom user-added accounts — only include those matching this group's type.
   for (const e of entries) {
     if (!e.isCustom) continue;
+    if (e.type !== groupType) continue;
     if (e.disabled) continue;
     if (STANDARD_NUMS.has(e.num)) continue; // safety: don't double-count
     if (!buildingScopeOk(e.buildingIds)) continue;
