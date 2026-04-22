@@ -85,26 +85,53 @@ Deno.serve(async (req) => {
       .eq("id", callerProfile.organization_id)
       .maybeSingle();
 
-    // ── Seat limit enforcement (team members only, tenants unlimited) ──
-    if (body.memberRole !== "tenant") {
-      // Starter = 1 seat (no invites), Pro = 5 seats, Business = unlimited.
-      // Seats count admins + pending non-tenant invitations.
-      const SEAT_LIMITS: Record<string, number | null> = {
-        starter: 1,
-        pro: 5,
-        business: null,
-      };
+    // ── Seat limit enforcement ─────────────────────────────────
+    // Team members (admin/manager/accountant/viewer): 1 / 5 / unlimited.
+    // Tenant portal accounts: 10 / 50 / unlimited.
+    const TEAM_SEAT_LIMITS: Record<string, number | null> = {
+      starter: 1, pro: 5, business: null,
+    };
+    const TENANT_PORTAL_LIMITS: Record<string, number | null> = {
+      starter: 10, pro: 50, business: null,
+    };
 
-      const { data: sub } = await admin
-        .from("subscriptions")
-        .select("plan, status")
-        .eq("organization_id", callerProfile.organization_id)
-        .maybeSingle();
-      const activePlan = sub && (sub.status === "active" || sub.status === "trialing")
-        ? sub.plan as string
-        : "starter";
-      const seatCap = SEAT_LIMITS[activePlan] ?? null;
+    const { data: sub } = await admin
+      .from("subscriptions")
+      .select("plan, status")
+      .eq("organization_id", callerProfile.organization_id)
+      .maybeSingle();
+    const activePlan = sub && (sub.status === "active" || sub.status === "trialing")
+      ? (sub.plan as string)
+      : "starter";
 
+    if (body.memberRole === "tenant") {
+      const cap = TENANT_PORTAL_LIMITS[activePlan] ?? null;
+      if (cap !== null) {
+        const [{ count: tenantCount }, { count: pendingCount }] = await Promise.all([
+          admin.from("profiles").select("id", { count: "exact", head: true })
+            .eq("organization_id", callerProfile.organization_id)
+            .eq("role", "tenant"),
+          admin.from("organization_invitations").select("id", { count: "exact", head: true })
+            .eq("organization_id", callerProfile.organization_id)
+            .eq("status", "pending")
+            .eq("member_role", "tenant"),
+        ]);
+        const consumed = (tenantCount ?? 0) + (pendingCount ?? 0);
+        if (consumed >= cap) {
+          return new Response(
+            JSON.stringify({
+              error: "tenant_portal_limit_reached",
+              message: `Votre plan ${activePlan} est limité à ${cap} portails locataires. Passez au plan supérieur pour en inviter plus.`,
+              plan: activePlan,
+              cap,
+              consumed,
+            }),
+            { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+      }
+    } else {
+      const seatCap = TEAM_SEAT_LIMITS[activePlan] ?? null;
       if (seatCap !== null) {
         const [{ count: memberCount }, { count: pendingCount }] = await Promise.all([
           admin.from("profiles").select("id", { count: "exact", head: true })

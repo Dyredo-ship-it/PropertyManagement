@@ -12,11 +12,14 @@ export interface PlanConfig {
   // teamSeats = total members in the organization (super admin + invitees).
   // null = unlimited. Starter is solo, Pro caps at 5, Business removes the cap.
   // aiQuestionsPerMonth = monthly AI assistant quota per user. 0 = no AI access.
+  // tenantPortalSeats = total locataires invités au portail (counted separately
+  // from teamSeats). null = unlimited.
   limits: {
     buildings: number | null;
     tenants: number | null;
     teamSeats: number | null;
     aiQuestionsPerMonth: number | null;
+    tenantPortalSeats: number | null;
   };
 }
 
@@ -30,11 +33,12 @@ export const PLANS: PlanConfig[] = [
       "1 bâtiment",
       "10 locataires max",
       "1 utilisateur (solo)",
+      "Jusqu'à 10 portails locataires",
       "Comptabilité basique",
       "Assistant IA non inclus",
       "Support email",
     ],
-    limits: { buildings: 1, tenants: 10, teamSeats: 1, aiQuestionsPerMonth: 0 },
+    limits: { buildings: 1, tenants: 10, teamSeats: 1, aiQuestionsPerMonth: 0, tenantPortalSeats: 10 },
   },
   {
     id: "pro",
@@ -45,13 +49,14 @@ export const PLANS: PlanConfig[] = [
       "5 bâtiments",
       "50 locataires",
       "Jusqu'à 5 utilisateurs",
+      "Jusqu'à 50 portails locataires",
       "Comptabilité complète + export Excel",
       "Demandes de location",
       "Interventions & maintenance",
       "200 questions IA / mois / utilisateur",
       "Support prioritaire",
     ],
-    limits: { buildings: 5, tenants: 50, teamSeats: 5, aiQuestionsPerMonth: 200 },
+    limits: { buildings: 5, tenants: 50, teamSeats: 5, aiQuestionsPerMonth: 200, tenantPortalSeats: 50 },
   },
   {
     id: "business",
@@ -62,13 +67,14 @@ export const PLANS: PlanConfig[] = [
       "Bâtiments illimités",
       "Locataires illimités",
       "Utilisateurs illimités",
+      "Portails locataires illimités",
       "Permissions granulaires par membre",
       "Assistant IA illimité",
       "Automatisations comptables",
       "API + exports personnalisés",
       "Support dédié",
     ],
-    limits: { buildings: null, tenants: null, teamSeats: null, aiQuestionsPerMonth: null },
+    limits: { buildings: null, tenants: null, teamSeats: null, aiQuestionsPerMonth: null, tenantPortalSeats: null },
   },
 ];
 
@@ -105,6 +111,7 @@ export interface PlanLimitsState {
     tenants: number | null;
     teamSeats: number | null;
     aiQuestionsPerMonth: number | null;
+    tenantPortalSeats: number | null;
   };
 }
 

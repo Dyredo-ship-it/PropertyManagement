@@ -15,8 +15,10 @@ import {
   X,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useNotifications } from "../context/NotificationsContext";
 import {
   getMaintenanceRequests,
+  saveMaintenanceRequests,
   getTenants,
   getBuildings,
   type MaintenanceRequest,
@@ -45,8 +47,11 @@ const ACTION_COLORS = [
    TENANT DASHBOARD
 ═══════════════════════════════════════════════════════════════ */
 
+type TenantRequestKind = "technical" | "administrative" | "rental";
+
 export function TenantDashboardView() {
   const { user } = useAuth();
+  const { addNotification } = useNotifications();
   const { t } = useLanguage();
   const [requests, setRequests] = useState<MaintenanceRequest[]>([]);
   const [myRequests, setMyRequests] = useState<MaintenanceRequest[]>([]);
@@ -56,6 +61,73 @@ export function TenantDashboardView() {
   const [showAbsenceModal, setShowAbsenceModal] = useState(false);
   const [absenceForm, setAbsenceForm] = useState({ startDate: "", endDate: "", comment: "" });
   const [isLoading, setIsLoading] = useState(true);
+
+  // ── Request-submission modal (the 3 quick action buttons) ──
+  const [requestModal, setRequestModal] = useState<null | TenantRequestKind>(null);
+  const [requestForm, setRequestForm] = useState({
+    title: "",
+    description: "",
+    priority: "medium" as "low" | "medium" | "high" | "urgent",
+  });
+  const [requestBusy, setRequestBusy] = useState(false);
+  const [requestSuccess, setRequestSuccess] = useState<string | null>(null);
+
+  const openRequestModal = (kind: TenantRequestKind) => {
+    setRequestForm({ title: "", description: "", priority: "medium" });
+    setRequestSuccess(null);
+    setRequestModal(kind);
+  };
+
+  const submitRequest = async () => {
+    if (!user || !tenant || !requestForm.title.trim() || !requestForm.description.trim()) return;
+    setRequestBusy(true);
+    try {
+      const kind = requestModal!;
+      const prefix = kind === "technical"
+        ? "[Technique]"
+        : kind === "administrative"
+        ? "[Administratif]"
+        : "[Location supplémentaire]";
+      const priority = kind === "rental" ? "low" : requestForm.priority;
+
+      const req: MaintenanceRequest = {
+        id: Date.now().toString(),
+        title: `${prefix} ${requestForm.title.trim()}`,
+        description: requestForm.description.trim(),
+        buildingId: tenant.buildingId,
+        buildingName: tenant.buildingName,
+        unit: tenant.unit,
+        tenantId: tenant.id,
+        tenantName: user.name,
+        status: "pending",
+        priority,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        requestType: kind,
+      };
+      saveMaintenanceRequests([...getMaintenanceRequests(), req]);
+
+      addNotification({
+        title: `${prefix} ${req.title.replace(prefix, "").trim()} — ${user.name}`,
+        message: `${tenant.buildingName ?? ""} · ${tenant.unit ?? ""}`,
+        buildingId: req.buildingId,
+        category: priority === "urgent" ? "urgent" : "maintenance",
+      });
+
+      setRequestSuccess("Demande envoyée à la gérance.");
+      setMyRequests([req, ...myRequests]);
+      setRequests([req, ...requests]);
+      // Auto-close after a brief success display.
+      setTimeout(() => {
+        setRequestModal(null);
+        setRequestSuccess(null);
+      }, 1200);
+    } catch (err) {
+      setRequestSuccess(`Erreur: ${(err as Error).message}`);
+    } finally {
+      setRequestBusy(false);
+    }
+  };
 
   useEffect(() => {
     try {
@@ -128,9 +200,9 @@ export function TenantDashboardView() {
 
   /* ─── Quick action definitions ─── */
   const quickActions = [
-    { icon: Wrench,        title: t("technicalRequest"),  description: t("technicalRequestDesc"),  color: ACTION_COLORS[0], onClick: () => {} },
-    { icon: FileText,      title: t("adminRequest"),      description: t("adminRequestDesc"),      color: ACTION_COLORS[1], onClick: () => {} },
-    { icon: CircleParking, title: t("additionalRental"),  description: t("additionalRentalDesc"),  color: ACTION_COLORS[2], onClick: () => {} },
+    { icon: Wrench,        title: t("technicalRequest"),  description: t("technicalRequestDesc"),  color: ACTION_COLORS[0], onClick: () => openRequestModal("technical") },
+    { icon: FileText,      title: t("adminRequest"),      description: t("adminRequestDesc"),      color: ACTION_COLORS[1], onClick: () => openRequestModal("administrative") },
+    { icon: CircleParking, title: t("additionalRental"),  description: t("additionalRentalDesc"),  color: ACTION_COLORS[2], onClick: () => openRequestModal("rental") },
   ];
 
   return (
@@ -333,6 +405,154 @@ export function TenantDashboardView() {
         onSave={handleSaveAbsence}
         onClose={() => setShowAbsenceModal(false)}
       />}
+
+      {/* ── Request modal (technical / administrative / rental) ── */}
+      {requestModal && createPortal(
+        <div
+          style={{
+            position: "fixed", inset: 0, zIndex: 9999,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)", padding: 16,
+          }}
+          onClick={(e) => { if (e.target === e.currentTarget) setRequestModal(null); }}
+        >
+          <div style={{
+            background: "var(--card)", borderRadius: 16, width: "96vw", maxWidth: 480,
+            border: "1px solid var(--border)", boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
+          }}>
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "16px 20px", borderBottom: "1px solid var(--border)",
+            }}>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground)" }}>
+                  {requestModal === "technical" && "Demande technique"}
+                  {requestModal === "administrative" && "Demande administrative"}
+                  {requestModal === "rental" && "Location supplémentaire"}
+                </div>
+                <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 2 }}>
+                  {requestModal === "technical" && "Un problème à signaler à la gérance (fuite, panne, dégât…)."}
+                  {requestModal === "administrative" && "Une question ou une demande écrite à votre régie."}
+                  {requestModal === "rental" && "Vous souhaitez louer un objet additionnel (place de parc, cave, garage…)."}
+                </div>
+              </div>
+              <button
+                onClick={() => setRequestModal(null)}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted-foreground)", padding: 4 }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 12 }}>
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 600, color: "var(--muted-foreground)" }}>
+                  {requestModal === "rental" ? "Objet souhaité" : "Titre"}
+                </label>
+                <input
+                  type="text"
+                  value={requestForm.title}
+                  onChange={(e) => setRequestForm({ ...requestForm, title: e.target.value })}
+                  placeholder={
+                    requestModal === "technical" ? "Fuite robinet cuisine"
+                    : requestModal === "administrative" ? "Demande de changement d'adresse de correspondance"
+                    : "Place de parc extérieure"
+                  }
+                  style={{
+                    width: "100%", marginTop: 6, padding: "9px 12px", borderRadius: 8,
+                    border: "1px solid var(--border)", background: "var(--background)",
+                    color: "var(--foreground)", fontSize: 13, outline: "none",
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 600, color: "var(--muted-foreground)" }}>
+                  Description
+                </label>
+                <textarea
+                  value={requestForm.description}
+                  onChange={(e) => setRequestForm({ ...requestForm, description: e.target.value })}
+                  rows={5}
+                  placeholder={
+                    requestModal === "technical" ? "Décrivez le problème (quand est-il apparu, à quelle fréquence, urgence…)."
+                    : requestModal === "administrative" ? "Votre demande détaillée."
+                    : "Indiquez votre besoin (taille, localisation, durée souhaitée…)."
+                  }
+                  style={{
+                    width: "100%", marginTop: 6, padding: "9px 12px", borderRadius: 8,
+                    border: "1px solid var(--border)", background: "var(--background)",
+                    color: "var(--foreground)", fontSize: 13, outline: "none", resize: "vertical",
+                    fontFamily: "inherit",
+                  }}
+                />
+              </div>
+
+              {requestModal === "technical" && (
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 600, color: "var(--muted-foreground)" }}>
+                    Priorité
+                  </label>
+                  <select
+                    value={requestForm.priority}
+                    onChange={(e) => setRequestForm({ ...requestForm, priority: e.target.value as any })}
+                    style={{
+                      width: "100%", marginTop: 6, padding: "9px 12px", borderRadius: 8,
+                      border: "1px solid var(--border)", background: "var(--background)",
+                      color: "var(--foreground)", fontSize: 13, outline: "none",
+                    }}
+                  >
+                    <option value="low">Basse</option>
+                    <option value="medium">Moyenne</option>
+                    <option value="high">Haute</option>
+                    <option value="urgent">Urgente</option>
+                  </select>
+                </div>
+              )}
+
+              {requestSuccess && (
+                <div style={{
+                  padding: 10, borderRadius: 8, fontSize: 12,
+                  background: "rgba(22,163,74,0.10)", color: "#166534",
+                  display: "flex", alignItems: "center", gap: 8,
+                }}>
+                  <CheckCircle size={14} /> {requestSuccess}
+                </div>
+              )}
+            </div>
+
+            <div style={{
+              padding: "12px 20px", borderTop: "1px solid var(--border)",
+              display: "flex", gap: 8, justifyContent: "flex-end",
+            }}>
+              <button
+                onClick={() => setRequestModal(null)}
+                disabled={requestBusy}
+                style={{
+                  padding: "8px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600,
+                  border: "1px solid var(--border)", background: "var(--card)",
+                  color: "var(--foreground)", cursor: requestBusy ? "not-allowed" : "pointer",
+                }}
+              >
+                Annuler
+              </button>
+              <button
+                onClick={submitRequest}
+                disabled={requestBusy || !requestForm.title.trim() || !requestForm.description.trim()}
+                style={{
+                  padding: "8px 16px", borderRadius: 8, fontSize: 12, fontWeight: 600,
+                  border: "none", background: "var(--primary)", color: "var(--primary-foreground)",
+                  cursor: requestBusy || !requestForm.title.trim() || !requestForm.description.trim() ? "not-allowed" : "pointer",
+                  opacity: requestBusy || !requestForm.title.trim() || !requestForm.description.trim() ? 0.6 : 1,
+                }}
+              >
+                {requestBusy ? "Envoi…" : "Envoyer"}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
     </div>
   );
 }
