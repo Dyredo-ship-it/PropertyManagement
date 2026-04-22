@@ -21,7 +21,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { useNotifications } from "../context/NotificationsContext";
 import { useLanguage } from "../i18n/LanguageContext";
-import { ImmoStoreLogo } from "./ImmoStoreLogo";
+import { PalierLogo } from "./PalierLogo";
 import { fetchSubscription, PLANS, type SubscriptionInfo } from "../lib/billing";
 
 /* ─── Types ───────────────────────────────────────────────────── */
@@ -194,7 +194,7 @@ export function ModernSidebar({ activeView, onViewChange }: ModernSidebarProps) 
           gap: 11,
         }}
       >
-        <ImmoStoreLogo size={34} />
+        <PalierLogo size={34} />
         <div style={{ minWidth: 0, flex: 1 }}>
           <p
             style={{
@@ -205,7 +205,7 @@ export function ModernSidebar({ activeView, onViewChange }: ModernSidebarProps) 
               margin: 0,
             }}
           >
-            ImmoStore
+            Palier
           </p>
           <p
             style={{

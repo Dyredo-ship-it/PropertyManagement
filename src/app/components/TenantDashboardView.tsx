@@ -271,7 +271,7 @@ export function TenantDashboardView() {
           <ContactButton
             label={t("contactManagement")}
             onClick={() => {
-              window.location.href = `mailto:gerance@immostore.ch?subject=Contact%20depuis%20l'application`;
+              window.location.href = `mailto:gerance@palier.ch?subject=Contact%20depuis%20l'application`;
             }}
           />
         </div>

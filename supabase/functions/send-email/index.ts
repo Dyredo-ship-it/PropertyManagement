@@ -3,7 +3,7 @@
 //
 // Required env (set with `supabase secrets set ...`):
 //   RESEND_API_KEY        re_xxx
-//   EMAIL_FROM            "ImmoStore <noreply@your-domain.com>"
+//   EMAIL_FROM            "Palier <noreply@your-domain.com>"
 //                         (or "onboarding@resend.dev" while testing)
 //
 // Frontend usage (with the user's JWT):

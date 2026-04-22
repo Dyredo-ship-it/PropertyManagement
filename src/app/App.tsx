@@ -67,8 +67,9 @@ function AppContent() {
       setShowOnboarding(true);
       return;
     }
-    const key = `immostore_onboarded_${user.id}`;
-    if (localStorage.getItem(key)) return;
+    const key = `palier_onboarded_${user.id}`;
+    const legacyKey = `immostore_onboarded_${user.id}`;
+    if (localStorage.getItem(key) || localStorage.getItem(legacyKey)) return;
     const hasData = getBuildings().length > 0 || getTenants().length > 0;
     if (hasData) {
       localStorage.setItem(key, "1");
@@ -78,7 +79,7 @@ function AppContent() {
   }, [isAuthenticated, dataReady, user]);
 
   const handleFinishOnboarding = () => {
-    if (user) localStorage.setItem(`immostore_onboarded_${user.id}`, "1");
+    if (user) localStorage.setItem(`palier_onboarded_${user.id}`, "1");
     setShowOnboarding(false);
   };
 

@@ -3,7 +3,7 @@ import { Globe } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../i18n/LanguageContext";
 import { LANGUAGES } from "../i18n/translations";
-import { ImmoStoreLogo } from "./ImmoStoreLogo";
+import { PalierLogo } from "./PalierLogo";
 
 export function LoginPage() {
   const [mode, setMode] = useState<"login" | "signup">("login");
@@ -118,7 +118,7 @@ export function LoginPage() {
             gap: 12,
           }}
         >
-          <ImmoStoreLogo size={40} />
+          <PalierLogo size={40} />
           <div>
             <div style={{ color: "#FFFFFF", fontSize: 15, fontWeight: 600, lineHeight: 1.2 }}>
               {t("appName")}
@@ -193,7 +193,7 @@ export function LoginPage() {
           {/* App name + subtitle */}
           <div style={{ marginBottom: 12 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-              <ImmoStoreLogo size={36} />
+              <PalierLogo size={36} />
               <div>
                 <span style={{ fontSize: 15, fontWeight: 700, color: "#1A1A1A" }}>
                   {t("appName")}

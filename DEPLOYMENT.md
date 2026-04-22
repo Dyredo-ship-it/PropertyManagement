@@ -1,4 +1,4 @@
-# ImmoStore — Déploiement Supabase + Stripe
+# Palier — Déploiement Supabase + Stripe
 
 ## 1. Supabase — Schéma
 

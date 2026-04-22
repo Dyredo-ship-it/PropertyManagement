@@ -291,12 +291,16 @@ const cache: Cache = {
   renovations: [],
   accountingSettings: {},
   baseCurrency: ((): Currency => {
-    const stored = localStorage.getItem("immostore_baseCurrency");
+    const stored =
+      localStorage.getItem("palier_baseCurrency") ??
+      localStorage.getItem("immostore_baseCurrency");
     return stored === "CHF" || stored === "EUR" || stored === "USD" || stored === "GBP" ? stored : "CHF";
   })(),
   exchangeRates: (() => {
     try {
-      const raw = localStorage.getItem("immostore_exchangeRates");
+      const raw =
+        localStorage.getItem("palier_exchangeRates") ??
+        localStorage.getItem("immostore_exchangeRates");
       return raw ? (JSON.parse(raw) as ExchangeRateCache) : null;
     } catch {
       return null;
@@ -1345,11 +1349,11 @@ export const saveAccountingSettings = (buildingId: string, settings: AccountingS
 export const getBaseCurrency = (): Currency => cache.baseCurrency;
 export const saveBaseCurrency = (c: Currency) => {
   cache.baseCurrency = c;
-  localStorage.setItem("immostore_baseCurrency", c);
+  localStorage.setItem("palier_baseCurrency", c);
 };
 
 export const getExchangeRateCache = (): ExchangeRateCache | null => cache.exchangeRates;
 export const saveExchangeRateCache = (c: ExchangeRateCache) => {
   cache.exchangeRates = c;
-  localStorage.setItem("immostore_exchangeRates", JSON.stringify(c));
+  localStorage.setItem("palier_exchangeRates", JSON.stringify(c));
 };

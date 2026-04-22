@@ -1,9 +1,9 @@
 import React from "react";
 
 /**
- * ImmoStore brand logo — renders the actual logo image file.
+ * Palier brand logo — renders the actual logo image file.
  */
-export function ImmoStoreLogo({
+export function PalierLogo({
   size = 36,
   className = "",
 }: {
@@ -13,7 +13,7 @@ export function ImmoStoreLogo({
   return (
     <img
       src="/logo.png"
-      alt="ImmoStore"
+      alt="Palier"
       width={size}
       height={size}
       className={className}

@@ -11,7 +11,9 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 
 function getStoredLanguage(): Language {
   try {
-    const stored = localStorage.getItem("immostore_language");
+    const stored =
+      localStorage.getItem("palier_language") ??
+      localStorage.getItem("immostore_language");
     if (stored && ["fr", "en", "de", "it"].includes(stored)) {
       return stored as Language;
     }
@@ -25,7 +27,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const setLanguage = useCallback((lang: Language) => {
     setLanguageState(lang);
     try {
-      localStorage.setItem("immostore_language", lang);
+      localStorage.setItem("palier_language", lang);
     } catch {}
   }, []);
 

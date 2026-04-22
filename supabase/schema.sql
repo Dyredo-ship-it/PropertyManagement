@@ -1,5 +1,5 @@
 -- ============================================================
--- ImmoStore — Full Schema
+-- Palier — Full Schema
 -- Run this in Supabase → SQL Editor → New query → Run
 -- ============================================================
 

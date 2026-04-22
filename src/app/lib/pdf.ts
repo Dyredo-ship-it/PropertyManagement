@@ -99,7 +99,7 @@ function footer(doc: jsPDF) {
   doc.setFont("helvetica", "italic");
   doc.setFontSize(8);
   doc.setTextColor(150);
-  doc.text("Document généré par ImmoStore — immostore.ch", 20, h - 10);
+  doc.text("Document généré par Palier — palier.ch", 20, h - 10);
 }
 
 function safeFileName(parts: (string | undefined)[]): string {

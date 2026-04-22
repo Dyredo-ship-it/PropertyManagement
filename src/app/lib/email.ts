@@ -51,7 +51,7 @@ function shell(content: string, footerName: string): string {
     ${content}
     <hr style="border:none;border-top:1px solid #E5E7EB;margin:24px 0 12px;" />
     <p style="font-size:11px;color:#9CA3AF;margin:0;">
-      Email envoyé par ${footerName} via ImmoStore.
+      Email envoyé par ${footerName} via Palier.
     </p>
   </div>
 </body></html>`;

@@ -12,7 +12,9 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 function getStoredTheme(): Theme {
   try {
-    const stored = localStorage.getItem("immostore_theme");
+    const stored =
+      localStorage.getItem("palier_theme") ??
+      localStorage.getItem("immostore_theme");
     if (stored === "light" || stored === "dark") return stored;
   } catch {}
   return "light";
@@ -37,7 +39,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const setTheme = useCallback((t: Theme) => {
     setThemeState(t);
     try {
-      localStorage.setItem("immostore_theme", t);
+      localStorage.setItem("palier_theme", t);
     } catch {}
   }, []);
 
