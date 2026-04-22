@@ -541,6 +541,7 @@ function TenantDetailDrawer({
 
   return createPortal(
     <div
+      className="tenant-drawer-backdrop"
       style={{
         position: "fixed", inset: 0, zIndex: 50,
         display: "flex", alignItems: "center", justifyContent: "center",
@@ -549,6 +550,7 @@ function TenantDetailDrawer({
       onClick={onClose}
     >
       <div
+        className="tenant-drawer"
         style={{
           width: "100%", maxWidth: 680, position: "relative",
           maxHeight: "85vh", display: "flex", flexDirection: "column",
@@ -645,7 +647,7 @@ function TenantDetailDrawer({
             <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
               {/* Contact info grid */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div className="tenant-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <div style={{
                   display: "flex", alignItems: "center", gap: 12, padding: 14,
                   borderRadius: 10, background: "var(--background)",
@@ -699,7 +701,7 @@ function TenantDetailDrawer({
               )}
 
               {/* Lease dates & financials — 4 columns */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10 }}>
+              <div className="tenant-grid-4" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10 }}>
                 <div style={{ padding: 12, borderRadius: 10, background: "var(--background)", textAlign: "center" }}>
                   <p style={{ ...labelStyle, marginBottom: 4 }}>{t("leaseStart")}</p>
                   <p style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)", margin: 0 }}>
@@ -723,7 +725,7 @@ function TenantDetailDrawer({
               </div>
 
               {/* Action buttons */}
-              <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 4 }}>
+              <div className="tenant-action-row" style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 4, flexWrap: "wrap" }}>
                 <button
                   onClick={onEmail}
                   style={{
@@ -1709,7 +1711,7 @@ export function TenantsView() {
                 <p style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600, color: "var(--muted-foreground)", margin: 0, marginBottom: 20 }}>
                   {t("selectBuilding")}
                 </p>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 28 }}>
+                <div className="tenant-list-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 28 }}>
                   {buildings.map((b, i) => {
                     const photo = b.imageUrl || BUILDING_PHOTOS[i % BUILDING_PHOTOS.length];
                     const tenantCount = tenants.filter((tn: any) => tn.buildingId === b.id).length;
@@ -2181,7 +2183,7 @@ export function TenantsView() {
                     required
                   />
                   {/* Email + Phone row */}
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <div className="tenant-form-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                     <StyledInput
                       label={t("email")} id="form-email" type="email" value={formData.email}
                       onChange={(v) => setFormData({ ...formData, email: v })}
@@ -2232,7 +2234,7 @@ export function TenantsView() {
                   </span>
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div className="tenant-form-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                   {/* Building select */}
                   <div>
                     <label style={{ display: "block", fontSize: 12, fontWeight: 500, color: "var(--muted-foreground)", marginBottom: 6 }}>
@@ -2277,7 +2279,7 @@ export function TenantsView() {
                   </span>
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div className="tenant-form-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                   <StyledInput
                     label={t("netRentLabel")} id="form-rentNet" type="number"
                     value={String(formData.rentNet)}
@@ -2305,7 +2307,7 @@ export function TenantsView() {
                   </span>
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
+                <div className="tenant-form-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
                   <StyledInput
                     label={t("leaseStartLabel")} id="form-leaseStart" type="date"
                     value={formData.leaseStart}

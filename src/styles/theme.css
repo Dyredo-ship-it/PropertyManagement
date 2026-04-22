@@ -244,4 +244,52 @@ body {
     -webkit-overflow-scrolling: touch;
     max-width: 100%;
   }
+
+  /* ── TenantsView mobile layout ───────────────────────────── */
+  .tenant-drawer-backdrop {
+    padding: 8px !important;
+  }
+  .tenant-drawer {
+    max-width: calc(100vw - 16px) !important;
+    width: calc(100vw - 16px) !important;
+    max-height: 92vh !important;
+  }
+  .tenant-grid-2 {
+    grid-template-columns: 1fr !important;
+  }
+  .tenant-grid-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  .tenant-action-row > button {
+    flex: 1 1 calc(50% - 8px) !important;
+    min-width: 0;
+  }
+  .tenant-form-grid-2 {
+    grid-template-columns: 1fr !important;
+  }
+  .tenant-list-grid {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+
+  /* Fallback: inside the tenant drawer, force ALL 2-col and 4-col
+     inline-style grids to wrap responsively. */
+  .tenant-drawer [style*="gridTemplateColumns: \"1fr 1fr\""],
+  .tenant-drawer [style*="grid-template-columns: 1fr 1fr"] {
+    grid-template-columns: 1fr !important;
+  }
+  .tenant-drawer [style*="gridTemplateColumns: \"1fr 1fr 1fr 1fr\""],
+  .tenant-drawer [style*="grid-template-columns: 1fr 1fr 1fr 1fr"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  /* maxWidth: 50% on selects inside the drawer — full width on mobile */
+  .tenant-drawer [style*="maxWidth: \"50%\""],
+  .tenant-drawer [style*="max-width: 50%"] {
+    max-width: 100% !important;
+  }
+
+  /* Modal overlay padding — shrink so the drawer actually fits */
+  .has-mobile-bottom-nav ~ * [style*="padding: 24px"][style*="overflowY"] {
+    padding: 8px !important;
+  }
 }
