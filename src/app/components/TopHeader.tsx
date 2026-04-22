@@ -561,18 +561,37 @@ export function TopHeader({
               {/* Notif list */}
               <div className="overflow-y-auto flex-1">
                 {notifs.length === 0 && (
-                  <div className="flex flex-col items-center justify-center py-12 px-4">
-                    <div
-                      className="w-12 h-12 rounded-full flex items-center justify-center mb-3"
-                      style={{ background: "var(--sidebar-accent)", color: "var(--muted-foreground)" }}
-                    >
-                      <Bell className="w-5 h-5" />
+                  <div className="flex flex-col items-center justify-center py-10 px-6 text-center">
+                    {/* Icon stack: bell inside a soft-tinted disc, green check
+                        badge as an "all clear" signal. */}
+                    <div className="relative mb-4">
+                      <div
+                        className="w-14 h-14 rounded-2xl flex items-center justify-center"
+                        style={{
+                          background: "color-mix(in srgb, var(--primary) 10%, transparent)",
+                          color: "var(--primary)",
+                        }}
+                      >
+                        <Bell className="w-6 h-6" strokeWidth={1.8} />
+                      </div>
+                      <div
+                        className="absolute flex items-center justify-center rounded-full"
+                        style={{
+                          bottom: -4, right: -4,
+                          width: 22, height: 22,
+                          background: "#16A34A",
+                          color: "#fff",
+                          boxShadow: "0 0 0 3px var(--card)",
+                        }}
+                      >
+                        <Check className="w-3 h-3" strokeWidth={3} />
+                      </div>
                     </div>
-                    <p className="text-[13px] font-semibold" style={{ color: "var(--foreground)" }}>
-                      Aucune notification
+                    <p className="text-[14px] font-semibold" style={{ color: "var(--foreground)" }}>
+                      Tout est à jour
                     </p>
-                    <p className="text-[11px] mt-1 text-center" style={{ color: "var(--muted-foreground)" }}>
-                      Vous serez averti ici des nouvelles activités.
+                    <p className="text-[11.5px] mt-1.5 max-w-[240px] leading-relaxed" style={{ color: "var(--muted-foreground)" }}>
+                      Les nouvelles demandes, paiements et messages apparaîtront ici.
                     </p>
                   </div>
                 )}
