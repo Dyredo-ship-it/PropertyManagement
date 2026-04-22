@@ -1014,13 +1014,14 @@ function CompanyTab() {
   const [companyName, setCompanyName] = useState(initial.name);
   const [address, setAddress] = useState(initial.address);
   const [vatId, setVatId] = useState(initial.vatId);
+  const [iban, setIban] = useState(initial.iban ?? "");
   const [contactEmail, setContactEmail] = useState(initial.email);
   const [rentDueDay, setRentDueDay] = useState<number>(initialRent.rentDueDay);
   const [rentInAdvance, setRentInAdvance] = useState<boolean>(initialRent.rentInAdvance);
   const [saved, setSaved] = useState(false);
 
   const handleSave = () => {
-    saveLandlordInfo({ name: companyName, address, email: contactEmail, vatId });
+    saveLandlordInfo({ name: companyName, address, email: contactEmail, vatId, iban: iban.trim() });
     const clampedDay = Math.min(28, Math.max(1, Math.round(rentDueDay || 1)));
     saveOrgRentSettings({ rentDueDay: clampedDay, rentInAdvance });
     setRentDueDay(clampedDay);
@@ -1067,6 +1068,18 @@ function CompanyTab() {
               placeholder="CHE-XXX.XXX.XXX"
               style={inputStyle}
             />
+          </Field>
+          <Field label="IBAN (pour QR-factures)">
+            <input
+              type="text"
+              value={iban}
+              onChange={(e) => setIban(e.target.value)}
+              placeholder="CH93 0076 2011 6238 5295 7"
+              style={inputStyle}
+            />
+            <p style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 6 }}>
+              IBAN suisse ou QR-IBAN. Activera la QR-facture en bas des quittances générées.
+            </p>
           </Field>
         </div>
       </Section>

@@ -1,6 +1,7 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import type { Building, Tenant } from "../utils/storage";
+import { renderQRBillPng } from "./qrBill";
 
 /* ─── Types ────────────────────────────────────────────────────── */
 
@@ -9,6 +10,7 @@ export interface LandlordInfo {
   address?: string;
   email?: string;
   vatId?: string;
+  iban?: string; // Swiss IBAN or QR-IBAN for QR-bill generation.
 }
 
 export interface RentReceiptOptions {
@@ -321,10 +323,68 @@ export async function generateRentReceiptPdf(
   doc.line(115, 185, 185, 185);
 
   footer(doc);
+
+  // ── Swiss QR-bill at the bottom of the page (210x105mm) ───
+  // Only rendered when the landlord has an IBAN configured; otherwise
+  // we leave the quittance as-is so the PDF still renders end-to-end.
+  if (landlord.iban && landlord.iban.trim().length > 0) {
+    try {
+      const { zip, city, street } = parseSwissAddress(landlord.address ?? "");
+      const currency = (options.currency ?? building.currency ?? "CHF") as "CHF" | "EUR";
+      const qrPng = await renderQRBillPng({
+        creditor: {
+          name: landlord.name || "Bailleur",
+          address: street || "-",
+          zip: zip || "0000",
+          city: city || "—",
+          iban: landlord.iban,
+        },
+        debtor: tenant.name
+          ? {
+              name: tenant.name,
+              address: building.address || undefined,
+              zip: undefined,
+              city: undefined,
+            }
+          : undefined,
+        amount: options.amount,
+        currency,
+        message: `Loyer ${formatPeriod(options.period)} — ${building.name}${tenant.unit ? ` / ${tenant.unit}` : ""}`,
+        referenceSeed: `${tenant.id || ""}${options.period.replace(/\D/g, "")}`,
+      });
+      // QR-bill payment part is 210mm wide × 105mm tall, anchored to the bottom of A4.
+      doc.addImage(qrPng, "PNG", 0, 297 - 105, 210, 105);
+    } catch {
+      // QR-bill failed (invalid IBAN, unexpected error) — continue
+      // without blocking the rent receipt generation.
+    }
+  }
+
   await savePdfWithShare(
     doc,
     `${safeFileName(["quittance", options.period, tenant.name])}.pdf`,
   );
+}
+
+// Parse a free-form Swiss address like "Rue de la Gare 12, 1003 Lausanne"
+// into street / zip / city. Falls back to empty pieces when regex misses,
+// so QR-bill generation still gets a best-effort.
+function parseSwissAddress(raw: string): { street: string; zip: string; city: string } {
+  if (!raw) return { street: "", zip: "", city: "" };
+  // Match "...street..., NNNN City" or "...street... NNNN City".
+  const m = raw.match(/^(.+?)[,\s]+(\d{4})\s+(.+)$/);
+  if (m) return { street: m[1].trim().replace(/,$/, ""), zip: m[2], city: m[3].trim() };
+  // Fallback: split on comma; treat last segment as city if it contains digits, else as city without zip.
+  const parts = raw.split(",").map((p) => p.trim());
+  if (parts.length >= 2) {
+    const last = parts[parts.length - 1];
+    const zipCity = last.match(/(\d{4})\s+(.+)/);
+    if (zipCity) {
+      return { street: parts.slice(0, -1).join(", "), zip: zipCity[1], city: zipCity[2].trim() };
+    }
+    return { street: parts.slice(0, -1).join(", "), zip: "", city: last };
+  }
+  return { street: raw.trim(), zip: "", city: "" };
 }
 
 /* ─── Monthly statement (décompte mensuel) ─────────────────────── */

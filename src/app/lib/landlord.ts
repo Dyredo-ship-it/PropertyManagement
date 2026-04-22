@@ -8,9 +8,10 @@ export interface StoredLandlordInfo extends LandlordInfo {
   address: string;
   email: string;
   vatId: string;
+  iban?: string; // Swiss IBAN or QR-IBAN — enables QR-bill on generated PDFs.
 }
 
-const EMPTY: StoredLandlordInfo = { name: "", address: "", email: "", vatId: "" };
+const EMPTY: StoredLandlordInfo = { name: "", address: "", email: "", vatId: "", iban: "" };
 
 export function getLandlordInfo(): StoredLandlordInfo {
   if (typeof window === "undefined") return EMPTY;
