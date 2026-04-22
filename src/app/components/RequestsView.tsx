@@ -39,6 +39,7 @@ import {
 } from "../utils/storage";
 import { useAuth } from "../context/AuthContext";
 import { useNotifications } from "../context/NotificationsContext";
+import { uploadMaintenancePhoto } from "../lib/mediaUpload";
 import { useLanguage } from "../i18n/LanguageContext";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -531,6 +532,9 @@ export function RequestsView() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isAppDialogOpen, setIsAppDialogOpen] = useState(false);
   const [formData, setFormData] = useState({ title: "", description: "", priority: "medium" as "low" | "medium" | "high" });
+  const [pendingPhotos, setPendingPhotos] = useState<File[]>([]);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
   const [appFormData, setAppFormData] = useState({
     buildingId: "", desiredUnit: "", applicantName: "", applicantEmail: "",
     applicantPhone: "", currentAddress: "", desiredMoveIn: "", monthlyIncome: 0,
@@ -584,13 +588,36 @@ export function RequestsView() {
     new Date(d).toLocaleDateString("fr-CH", { year: "numeric", month: "short", day: "numeric" });
 
   /* ── Handlers ── */
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isAdmin) {
       const tenant = tenants.find((tn: any) => tn.email === user?.email);
       if (!tenant) return;
+      const requestId = Date.now().toString();
+
+      // Upload photos first so URLs are stored on the request.
+      let photoUrls: string[] = [];
+      if (pendingPhotos.length > 0) {
+        if (!user?.organizationId) {
+          setPhotoError("Organisation introuvable.");
+          return;
+        }
+        setPhotoUploading(true);
+        setPhotoError(null);
+        try {
+          photoUrls = await Promise.all(
+            pendingPhotos.map((file) => uploadMaintenancePhoto(file, user.organizationId!, requestId)),
+          );
+        } catch (err) {
+          setPhotoError(`Échec de l'envoi des photos: ${(err as Error).message}`);
+          setPhotoUploading(false);
+          return;
+        }
+        setPhotoUploading(false);
+      }
+
       const req: MaintenanceRequest = {
-        id: Date.now().toString(),
+        id: requestId,
         title: formData.title,
         description: formData.description,
         buildingId: tenant.buildingId,
@@ -602,16 +629,19 @@ export function RequestsView() {
         priority: formData.priority,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        photos: photoUrls.length > 0 ? photoUrls : undefined,
       };
       saveMaintenanceRequests([...getMaintenanceRequests(), req]);
       addNotification({
         title: `Nouvelle demande de maintenance — ${req.title}`,
-        message: `${user!.name} · ${req.buildingName ?? ""} · ${req.unit ?? ""}`,
+        message: `${user!.name} · ${req.buildingName ?? ""} · ${req.unit ?? ""}${photoUrls.length > 0 ? ` · ${photoUrls.length} photo(s)` : ""}`,
         buildingId: req.buildingId,
         category: req.priority === "urgent" ? "urgent" : "maintenance",
       });
       setIsDialogOpen(false);
       setFormData({ title: "", description: "", priority: "medium" });
+      setPendingPhotos([]);
+      setPhotoError(null);
       loadData();
     }
   };
@@ -1329,6 +1359,79 @@ export function RequestsView() {
                       <option value="high">{t("high")}</option>
                     </select>
                   </div>
+
+                  {/* Photo attachments (camera/gallery) */}
+                  <div>
+                    <label style={labelStyle}>Photos (optionnel)</label>
+                    <div
+                      style={{
+                        display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center",
+                        padding: "10px 12px", border: "1px dashed var(--border)",
+                        borderRadius: 10, background: "var(--background)",
+                      }}
+                    >
+                      {pendingPhotos.map((file, idx) => {
+                        const previewUrl = URL.createObjectURL(file);
+                        return (
+                          <div key={`${file.name}-${idx}`} style={{ position: "relative" }}>
+                            <img
+                              src={previewUrl}
+                              alt=""
+                              style={{
+                                width: 64, height: 64, objectFit: "cover",
+                                borderRadius: 8, border: "1px solid var(--border)",
+                              }}
+                              onLoad={() => URL.revokeObjectURL(previewUrl)}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setPendingPhotos((prev) => prev.filter((_, i) => i !== idx))}
+                              style={{
+                                position: "absolute", top: -6, right: -6, width: 20, height: 20,
+                                borderRadius: "50%", border: "none",
+                                background: "#DC2626", color: "white",
+                                fontSize: 12, lineHeight: 1, cursor: "pointer",
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                              }}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        );
+                      })}
+                      <label
+                        style={{
+                          display: "flex", alignItems: "center", gap: 6,
+                          padding: "8px 14px", borderRadius: 8, cursor: "pointer",
+                          background: "var(--card)", border: "1px solid var(--border)",
+                          fontSize: 12, fontWeight: 600, color: "var(--foreground)",
+                        }}
+                      >
+                        <Upload size={14} />
+                        {pendingPhotos.length === 0 ? "Ajouter des photos" : "Ajouter"}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          multiple
+                          onChange={(e) => {
+                            const files = Array.from(e.target.files || []);
+                            setPendingPhotos((prev) => [...prev, ...files].slice(0, 8));
+                            e.target.value = "";
+                          }}
+                          style={{ display: "none" }}
+                        />
+                      </label>
+                    </div>
+                    {photoError && (
+                      <p style={{ fontSize: 11, color: "#DC2626", marginTop: 6 }}>{photoError}</p>
+                    )}
+                    {pendingPhotos.length > 0 && (
+                      <p style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 6 }}>
+                        {pendingPhotos.length} photo(s) prête(s) — compressées à l'envoi.
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -1336,16 +1439,19 @@ export function RequestsView() {
               <div style={{ display: "flex", gap: 12, paddingTop: 8 }}>
                 <button
                   type="submit"
+                  disabled={photoUploading}
                   style={{
                     flex: 1, padding: "11px 0", borderRadius: 12,
                     background: "var(--primary)", color: "var(--primary-foreground)",
-                    fontSize: 13, fontWeight: 600, border: "none", cursor: "pointer",
+                    fontSize: 13, fontWeight: 600, border: "none",
+                    cursor: photoUploading ? "not-allowed" : "pointer",
+                    opacity: photoUploading ? 0.7 : 1,
                     transition: "opacity 0.15s",
                   }}
-                  onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.9"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
+                  onMouseEnter={(e) => { if (!photoUploading) e.currentTarget.style.opacity = "0.9"; }}
+                  onMouseLeave={(e) => { if (!photoUploading) e.currentTarget.style.opacity = "1"; }}
                 >
-                  {t("submit")}
+                  {photoUploading ? "Envoi des photos…" : t("submit")}
                 </button>
                 <button
                   type="button"

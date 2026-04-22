@@ -738,6 +738,67 @@ const abs2c = (r: any): TenantAbsence => ({
 // ──────────────────────────────────────────────────────────────
 // Hydration
 // ──────────────────────────────────────────────────────────────
+const OFFLINE_CACHE_KEY = "palier_offline_cache_v1";
+let lastHydrateSource: "supabase" | "offline" | null = null;
+
+export function getLastHydrateSource(): "supabase" | "offline" | null {
+  return lastHydrateSource;
+}
+
+function persistOfflineSnapshot(): void {
+  try {
+    const snapshot = {
+      savedAt: nowISO(),
+      buildings: cache.buildings,
+      tenants: cache.tenants,
+      notifications: cache.notifications,
+      maintenanceRequests: cache.maintenanceRequests,
+      rentalApplications: cache.rentalApplications,
+      calendarEvents: cache.calendarEvents,
+      accountingTransactions: cache.accountingTransactions,
+      manualAdjustments: cache.manualAdjustments,
+      renovations: cache.renovations,
+      buildingActions: cache.buildingActions,
+      tenantNotes: cache.tenantNotes,
+      tenantDocuments: cache.tenantDocuments,
+      tenantAbsences: cache.tenantAbsences,
+      chartEntries: cache.chartEntries,
+      accountingSettings: cache.accountingSettings,
+      orgRentSettings: cache.orgRentSettings,
+    };
+    localStorage.setItem(OFFLINE_CACHE_KEY, JSON.stringify(snapshot));
+  } catch {
+    // Quota exceeded or storage disabled — ignore, cache still lives in memory.
+  }
+}
+
+function loadOfflineSnapshot(): boolean {
+  try {
+    const raw = localStorage.getItem(OFFLINE_CACHE_KEY);
+    if (!raw) return false;
+    const snap = JSON.parse(raw);
+    cache.buildings = snap.buildings ?? [];
+    cache.tenants = snap.tenants ?? [];
+    cache.notifications = snap.notifications ?? [];
+    cache.maintenanceRequests = snap.maintenanceRequests ?? [];
+    cache.rentalApplications = snap.rentalApplications ?? [];
+    cache.calendarEvents = snap.calendarEvents ?? [];
+    cache.accountingTransactions = snap.accountingTransactions ?? [];
+    cache.manualAdjustments = snap.manualAdjustments ?? [];
+    cache.renovations = snap.renovations ?? [];
+    cache.buildingActions = snap.buildingActions ?? [];
+    cache.tenantNotes = snap.tenantNotes ?? [];
+    cache.tenantDocuments = snap.tenantDocuments ?? [];
+    cache.tenantAbsences = snap.tenantAbsences ?? [];
+    cache.chartEntries = snap.chartEntries ?? [];
+    cache.accountingSettings = snap.accountingSettings ?? {};
+    cache.orgRentSettings = snap.orgRentSettings ?? { ...DEFAULT_ORG_RENT_SETTINGS };
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function hydrateFromSupabase(): Promise<void> {
   hydrated = false;
   try {
@@ -808,9 +869,16 @@ export async function hydrateFromSupabase(): Promise<void> {
         }
       : { ...DEFAULT_ORG_RENT_SETTINGS };
     hydrated = true;
+    lastHydrateSource = "supabase";
+    persistOfflineSnapshot();
   } catch (err) {
     toastError("hydrate", err);
-    hydrated = true; // don't block the app; cache may be empty
+    // Offline fallback — serve the last known snapshot so the app is usable
+    // (read-only) without network. Writes will queue in memory and sync the
+    // next time Supabase calls succeed.
+    const loaded = loadOfflineSnapshot();
+    hydrated = true;
+    lastHydrateSource = loaded ? "offline" : null;
   }
 }
 

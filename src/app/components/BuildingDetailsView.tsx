@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { ArrowLeft, Building2, Users, Wrench, AlertCircle, FileDown } from "lucide-react";
+import { ArrowLeft, Building2, Users, Wrench, AlertCircle, FileDown, MapPin } from "lucide-react";
 import { RenovationTracker } from "./RenovationTracker";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
@@ -112,7 +112,23 @@ export function BuildingDetailsView({ buildingId, onBack }: BuildingDetailsViewP
               <Building2 className="w-7 h-7 text-[#45553A]" />
               {building.name}
             </h1>
-            <p className="text-[#6B6560]">{building.address}</p>
+            <div className="flex items-center gap-3">
+              <p className="text-[#6B6560]">{building.address}</p>
+              {building.address && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(building.address)}`;
+                    window.open(url, "_blank", "noopener");
+                  }}
+                  title="Itinéraire vers cet immeuble"
+                  className="inline-flex items-center gap-1 text-[12px] font-medium text-[#45553A] hover:underline"
+                >
+                  <MapPin className="w-3.5 h-3.5" />
+                  Itinéraire
+                </button>
+              )}
+            </div>
           </div>
         </div>
 

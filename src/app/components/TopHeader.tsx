@@ -80,6 +80,20 @@ export function TopHeader({ onNavigate }: { onNavigate?: (view: string) => void 
   const { t, language, setLanguage } = useLanguage();
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
 
+  // Live network status — surfaces a subtle offline pill when navigator
+  // loses connectivity so users know writes won't sync yet.
+  const [isOnline, setIsOnline] = useState(typeof navigator === "undefined" ? true : navigator.onLine);
+  useEffect(() => {
+    const onUp = () => setIsOnline(true);
+    const onDown = () => setIsOnline(false);
+    window.addEventListener("online", onUp);
+    window.addEventListener("offline", onDown);
+    return () => {
+      window.removeEventListener("online", onUp);
+      window.removeEventListener("offline", onDown);
+    };
+  }, []);
+
   const [isLangOpen, setIsLangOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -421,6 +435,18 @@ export function TopHeader({ onNavigate }: { onNavigate?: (view: string) => void 
             </div>
           )}
         </div>
+
+        {/* Offline indicator */}
+        {!isOnline && (
+          <span
+            title="Mode hors-ligne — les dernières données connues sont affichées"
+            className="hidden sm:inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full"
+            style={{ background: "rgba(245,158,11,0.12)", color: "#B45309" }}
+          >
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#B45309" }} />
+            Hors-ligne
+          </span>
+        )}
 
         {/* Notifications */}
         <div ref={notifRef} className="relative">
