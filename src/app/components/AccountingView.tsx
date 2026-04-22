@@ -2368,13 +2368,34 @@ export function AccountingView() {
       alert(`Le numéro ${numVal} existe déjà`);
       return;
     }
-    if (!chartForm.label.trim()) {
+    const trimmedLabel = chartForm.label.trim();
+    if (!trimmedLabel) {
       alert("Libellé requis");
       return;
     }
+
+    // Warn if another account already has this label (case-insensitive),
+    // but let the user proceed after confirming.
+    const normalized = trimmedLabel.toLowerCase();
+    const standardMatch = ALL_STANDARDS.find((s) => {
+      const entry = chartEntries.find((e) => e.num === s.num);
+      const effective = entry?.customLabel?.trim() || s.label;
+      return effective.toLowerCase() === normalized;
+    });
+    const customMatch = chartEntries.find(
+      (e) => e.isCustom && (e.customLabel?.trim().toLowerCase() === normalized),
+    );
+    if (standardMatch || customMatch) {
+      const conflictNum = standardMatch?.num ?? customMatch?.num;
+      const ok = confirm(
+        `Un compte avec le libellé "${trimmedLabel}" existe déjà (n°${conflictNum}).\n\nContinuer quand même ?`,
+      );
+      if (!ok) return;
+    }
+
     upsertChartEntry({
       num: numVal,
-      customLabel: chartForm.label.trim(),
+      customLabel: trimmedLabel,
       type: chartForm.type,
       buildingIds: chartForm.scope === "specific" ? chartForm.buildingIds : [],
       disabled: false,
