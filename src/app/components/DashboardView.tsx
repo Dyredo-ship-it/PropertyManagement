@@ -282,11 +282,11 @@ function AdminDashboard({
         {/* ── Left: Kanban Board ── */}
         <div>
           {/* Filter pills + section title */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+          <div className="dash-filter-row" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18, gap: 12 }}>
             <h2 style={{ fontSize: 15, fontWeight: 600, color: "var(--foreground)", margin: 0 }}>
               {t("pendingRequests")}
             </h2>
-            <div style={{ display: "flex", gap: 6 }}>
+            <div className="dash-filter-pills" style={{ display: "flex", gap: 6 }}>
               {filters.map((f) => {
                 const active = filter === f.key;
                 return (
@@ -302,6 +302,7 @@ function AdminDashboard({
                       fontSize: 12,
                       fontWeight: 500,
                       cursor: "pointer",
+                      whiteSpace: "nowrap",
                       transition: "all 0.15s",
                     }}
                     onMouseEnter={(e) => { if (!active) e.currentTarget.style.borderColor = "var(--foreground)"; }}

@@ -278,6 +278,55 @@ body {
     padding-right: 16px !important;
     gap: 12px !important;
   }
+
+  /* DashboardView — title + filter pills on their own row, pills
+     scroll horizontally if they exceed the viewport. */
+  .dash-filter-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+  .dash-filter-pills {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    flex-wrap: nowrap !important;
+    padding-bottom: 4px;
+  }
+  .dash-filter-pills::-webkit-scrollbar { display: none; }
+  .dash-filter-pills > button {
+    flex-shrink: 0;
+  }
+
+  /* TenantsView — same header pattern as RequestsView (title block +
+     search + action). Stack vertically, search fills width. */
+  .tenants-header {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+  .tenants-header-title {
+    min-width: 0;
+  }
+  .tenants-header-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  .tenants-search-box {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .tenants-search-box input {
+    width: 100% !important;
+  }
+}
+
+/* ── Global horizontal-overflow safeguard (paranoia level 2) ───
+   Some pages still produce a tiny bit of horizontal scroll from
+   tracked grids/tables. This forces the app container itself to
+   clip rather than chain-scroll the viewport. */
+@media (max-width: 1023px) {
+  .has-mobile-bottom-nav {
+    overflow-x: hidden;
+  }
 }
 
 /* ── Responsive sidebar ───────────────────────────────────────
