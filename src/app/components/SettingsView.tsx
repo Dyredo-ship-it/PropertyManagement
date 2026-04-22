@@ -21,6 +21,13 @@ import { LANGUAGES } from "../i18n/translations";
 import { getLandlordInfo, saveLandlordInfo } from "../lib/landlord";
 import { getOrgRentSettings, saveOrgRentSettings } from "../utils/storage";
 import {
+  pushIsSupported,
+  pushPermission,
+  currentPushSubscription,
+  subscribeToPush,
+  unsubscribeFromPush,
+} from "../lib/push";
+import {
   PLANS,
   fetchSubscription,
   startCheckout,
@@ -406,18 +413,63 @@ function SecurityTab() {
 }
 
 function NotificationsTab() {
+  const { user } = useAuth();
   const [emailNotifs, setEmailNotifs] = useState(true);
-  const [pushNotifs, setPushNotifs] = useState(true);
   const [requestUpdates, setRequestUpdates] = useState(true);
   const [paymentReminders, setPaymentReminders] = useState(true);
   const [maintenanceAlerts, setMaintenanceAlerts] = useState(true);
   const [weeklyReport, setWeeklyReport] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  // Live push state — reflects browser permission + actual subscription
+  const [pushSupported] = useState(pushIsSupported());
+  const [pushPerm, setPushPerm] = useState<NotificationPermission>(pushPermission());
+  const [pushSubscribed, setPushSubscribed] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushError, setPushError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!pushSupported) return;
+    currentPushSubscription()
+      .then((s) => setPushSubscribed(!!s))
+      .catch(() => setPushSubscribed(false));
+  }, [pushSupported]);
+
+  const handleTogglePush = async () => {
+    if (!user?.organizationId) {
+      setPushError("Organisation introuvable.");
+      return;
+    }
+    setPushBusy(true);
+    setPushError(null);
+    try {
+      if (pushSubscribed) {
+        await unsubscribeFromPush();
+        setPushSubscribed(false);
+      } else {
+        await subscribeToPush(user.organizationId, user.id);
+        setPushSubscribed(true);
+      }
+      setPushPerm(pushPermission());
+    } catch (err) {
+      setPushError((err as Error).message);
+    } finally {
+      setPushBusy(false);
+    }
+  };
+
   const handleSave = () => {
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
+
+  const pushStatusLabel = !pushSupported
+    ? "Non supporté par ce navigateur"
+    : pushPerm === "denied"
+    ? "Refusé — autorisez les notifications dans les réglages du navigateur"
+    : pushSubscribed
+    ? "Activé sur cet appareil"
+    : "Désactivé";
 
   return (
     <>
@@ -428,12 +480,50 @@ function NotificationsTab() {
           checked={emailNotifs}
           onChange={setEmailNotifs}
         />
-        <ToggleRow
-          label="Push Notifications"
-          description="Receive browser push notifications"
-          checked={pushNotifs}
-          onChange={setPushNotifs}
-        />
+        <div
+          style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: "14px 0", borderBottom: "1px solid var(--border)", gap: 16,
+          }}
+        >
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 550, color: "var(--foreground)" }}>
+              Notifications push (cet appareil)
+            </div>
+            <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 2 }}>
+              Recevez des alertes même quand l'app est fermée.
+            </div>
+            <div
+              style={{
+                fontSize: 11, marginTop: 6,
+                color: pushSubscribed ? "#16a34a" : "var(--muted-foreground)",
+              }}
+            >
+              {pushStatusLabel}
+            </div>
+            {pushError && (
+              <div style={{ fontSize: 11, color: "#DC2626", marginTop: 4 }}>
+                {pushError}
+              </div>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={handleTogglePush}
+            disabled={!pushSupported || pushPerm === "denied" || pushBusy}
+            style={{
+              padding: "8px 14px", borderRadius: 8, border: "1px solid var(--border)",
+              background: pushSubscribed ? "var(--background)" : "var(--primary)",
+              color: pushSubscribed ? "var(--foreground)" : "var(--primary-foreground)",
+              fontSize: 12, fontWeight: 600,
+              cursor: (!pushSupported || pushPerm === "denied" || pushBusy) ? "not-allowed" : "pointer",
+              opacity: (!pushSupported || pushPerm === "denied" || pushBusy) ? 0.6 : 1,
+              minWidth: 100,
+            }}
+          >
+            {pushBusy ? "..." : pushSubscribed ? "Désactiver" : "Activer"}
+          </button>
+        </div>
       </Section>
 
       <Section title="Notification Types" description="Select which events trigger notifications.">

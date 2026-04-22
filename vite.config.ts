@@ -11,7 +11,11 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
       registerType: 'autoUpdate',
+      injectRegister: 'auto',
       includeAssets: ['apple-touch-icon.png', 'logo.png'],
       manifest: {
         name: 'Palier — Gestion immobilière',
@@ -30,26 +34,9 @@ export default defineConfig({
           { src: '/pwa-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
         ],
       },
-      workbox: {
-        // Cache the built assets for offline shell + faster repeat loads.
+      injectManifest: {
         globPatterns: ['**/*.{js,css,html,png,svg,ico,webmanifest}'],
-        // Don't precache oversized chunks (vendor bundles).
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
-        // Navigation requests always go to index.html so client-side routing works offline.
-        navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/api\//, /^\/functions\//],
-        // Never cache Supabase API calls by default — live data should stay live.
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/[a-z0-9-]+\.supabase\.co\/rest\/.*$/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'supabase-rest-cache',
-              networkTimeoutSeconds: 5,
-              expiration: { maxEntries: 50, maxAgeSeconds: 60 * 5 },
-            },
-          },
-        ],
       },
     }),
   ],

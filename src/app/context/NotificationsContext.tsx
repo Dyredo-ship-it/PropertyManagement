@@ -13,6 +13,7 @@ import {
   type Notification,
 } from "../utils/storage";
 import { useAuth } from "./AuthContext";
+import { supabase } from "../lib/supabase";
 
 interface NotificationsContextType {
   notifications: Notification[];
@@ -85,6 +86,19 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
   const addNotification = useCallback<NotificationsContextType["addNotification"]>((n) => {
     const created = storageAddNotification(n);
     setAll(getNotifications());
+    // Fire-and-forget web push dispatch. If the notification hasn't been
+    // persisted to Supabase yet (async sync), the edge function will still
+    // find it thanks to the later sync — but we give the client a small
+    // window by waiting the next tick. Errors are swallowed so a failed
+    // push never blocks the UI.
+    const idForPush = created.id;
+    setTimeout(() => {
+      supabase.functions
+        .invoke("send-push", { body: { notificationId: idForPush } })
+        .catch(() => {
+          /* ignore — push is best-effort */
+        });
+    }, 1500);
     return created;
   }, []);
 
