@@ -21,6 +21,18 @@ type ToolResult = { ok: true; data: unknown } | { ok: false; error: string };
 
 /* ─── Tool definitions (Anthropic schema) ─────────────────── */
 
+// Write tools are never executed on the server. When the LLM emits one,
+// the server streams a "pending_write_action" event and closes, so the
+// client can prompt the user for explicit confirmation before running it
+// locally (under their own Supabase session, respecting RLS).
+const WRITE_TOOLS = new Set<string>([
+  "send_rent_reminder",
+  "send_custom_email_to_tenant",
+  "create_maintenance_request",
+  "update_request_status",
+  "create_calendar_event",
+]);
+
 const TOOLS = [
   {
     name: "list_late_payments",
@@ -112,6 +124,81 @@ const TOOLS = [
       type: "object",
       required: ["query"],
       properties: { query: { type: "string" } },
+    },
+  },
+
+  /* ── Write tools — require explicit user confirmation ─────── */
+
+  {
+    name: "send_rent_reminder",
+    description:
+      "Envoie un email de rappel de loyer à un locataire pour un mois donné. Nécessite la confirmation explicite de l'utilisateur avant l'envoi.",
+    input_schema: {
+      type: "object",
+      required: ["tenant_id"],
+      properties: {
+        tenant_id: { type: "string", description: "UUID du locataire." },
+        month: { type: "string", description: "Mois YYYY-MM. Défaut = mois courant." },
+      },
+    },
+  },
+  {
+    name: "send_custom_email_to_tenant",
+    description:
+      "Envoie un email libre (sujet + corps) à un locataire. À utiliser quand l'utilisateur demande d'écrire à quelqu'un. Demande une confirmation avant envoi.",
+    input_schema: {
+      type: "object",
+      required: ["tenant_id", "subject", "body"],
+      properties: {
+        tenant_id: { type: "string" },
+        subject: { type: "string" },
+        body: { type: "string", description: "Corps de l'email en texte brut (pas de HTML)." },
+      },
+    },
+  },
+  {
+    name: "create_maintenance_request",
+    description:
+      "Crée une demande de maintenance sur un immeuble (ex. serrure cassée à réparer). Demande confirmation.",
+    input_schema: {
+      type: "object",
+      required: ["building_id", "title", "description"],
+      properties: {
+        building_id: { type: "string" },
+        title: { type: "string" },
+        description: { type: "string" },
+        priority: { type: "string", enum: ["low", "medium", "high", "urgent"], description: "Défaut medium." },
+        unit: { type: "string", description: "Unité concernée (optionnel)." },
+      },
+    },
+  },
+  {
+    name: "update_request_status",
+    description:
+      "Met à jour le statut d'une demande de maintenance existante (pending / in-progress / completed). Demande confirmation.",
+    input_schema: {
+      type: "object",
+      required: ["request_id", "status"],
+      properties: {
+        request_id: { type: "string" },
+        status: { type: "string", enum: ["pending", "in-progress", "completed"] },
+      },
+    },
+  },
+  {
+    name: "create_calendar_event",
+    description:
+      "Crée un événement dans le calendrier (visite, inspection, rendez-vous). Demande confirmation.",
+    input_schema: {
+      type: "object",
+      required: ["title", "date"],
+      properties: {
+        title: { type: "string" },
+        date: { type: "string", description: "Date ISO YYYY-MM-DD. Peut aussi contenir une heure." },
+        type: { type: "string", enum: ["visit", "inspection", "signing", "meeting", "other"] },
+        building_id: { type: "string" },
+        description: { type: "string" },
+      },
     },
   },
 ];
@@ -403,7 +490,8 @@ Règles:
 - Si un outil renvoie "permission manquante", explique-le gentiment à l'utilisateur.
 - Quand tu listes des locataires ou transactions, présente les données lisiblement (listes courtes, tableaux compacts).
 - Pour les montants, utilise toujours le format CHF (ex. "CHF 2'450.00").
-- Si l'utilisateur demande une action d'écriture (envoyer un email, créer une demande, etc.), explique que tu ne peux que consulter des données pour l'instant, et que les actions seront disponibles prochainement.
+- Tu peux effectuer des actions (envoyer un rappel, créer une demande de maintenance, etc.) via les outils d'écriture. L'utilisateur recevra un modal de confirmation avant toute exécution — tu n'as pas à redemander confirmation toi-même avant d'appeler l'outil.
+- Avant d'appeler un outil d'écriture, assure-toi d'avoir les identifiants nécessaires (tenant_id, building_id, request_id) en appelant d'abord les outils de lecture appropriés.
 - Limite-toi à ${MAX_TURNS} tours d'outils par réponse.`;
 }
 
@@ -449,7 +537,28 @@ async function runClaude(
       break;
     }
 
-    // Execute each tool call and append results.
+    // If any of the requested tools is a write action, we bail out of the
+    // loop and hand off to the client: it will prompt the user, run the
+    // action locally under their JWT, then resume by sending the tool
+    // results back in a new request.
+    const writeCall = (response.content as any[]).find(
+      (b) => b.type === "tool_use" && WRITE_TOOLS.has(b.name),
+    );
+    if (writeCall) {
+      // Opaque state the client will send back when resuming after user
+      // confirmation. Contains the full LLM-shape messages so the server
+      // doesn't need to keep any per-user state between requests.
+      send(controller, {
+        type: "pending_write_action",
+        tool_use_id: writeCall.id,
+        name: writeCall.name,
+        input: writeCall.input ?? {},
+        continuation_state: workingMessages,
+      });
+      return;
+    }
+
+    // Execute each read tool call and append results.
     const toolResults: unknown[] = [];
     for (const block of response.content as any[]) {
       if (block.type !== "tool_use") continue;
@@ -512,11 +621,43 @@ Deno.serve(async (req) => {
     };
 
     const body = await req.json();
-    const messages = (body.messages ?? []) as Array<{ role: "user" | "assistant"; content: unknown }>;
-    if (!Array.isArray(messages) || messages.length === 0) {
-      return new Response(JSON.stringify({ error: "messages required" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+
+    // Two entry modes:
+    //   1. Normal: { messages: [...] } — fresh user turn.
+    //   2. Resume after write confirmation:
+    //      { resume: { continuation_state, tool_use_id, result } }
+    //      The server picks up exactly where it left off, injects the
+    //      tool_result the client produced locally, and lets the LLM
+    //      compose its final response.
+    let messages: Array<{ role: "user" | "assistant"; content: unknown }>;
+
+    if (body.resume) {
+      const state = body.resume.continuation_state;
+      if (!Array.isArray(state)) {
+        return new Response(JSON.stringify({ error: "invalid resume state" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      messages = [
+        ...state,
+        {
+          role: "user",
+          content: [
+            {
+              type: "tool_result",
+              tool_use_id: body.resume.tool_use_id,
+              content: JSON.stringify(body.resume.result ?? { ok: false, error: "no result" }),
+            },
+          ],
+        },
+      ];
+    } else {
+      messages = (body.messages ?? []) as typeof messages;
+      if (!Array.isArray(messages) || messages.length === 0) {
+        return new Response(JSON.stringify({ error: "messages required" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     const stream = new ReadableStream<Uint8Array>({

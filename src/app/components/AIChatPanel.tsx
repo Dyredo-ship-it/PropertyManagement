@@ -1,7 +1,23 @@
-import React, { useEffect, useRef, useState } from "react";
-import { Sparkles, X, Send, Wrench, Loader2 } from "lucide-react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import {
+  Sparkles,
+  X,
+  Send,
+  Wrench,
+  Loader2,
+  CheckCircle,
+  AlertTriangle,
+  History,
+  Plus as PlusIcon,
+  Trash2,
+} from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../lib/supabase";
+import {
+  describeWriteAction,
+  executeWriteAction,
+  type WriteActionResult,
+} from "../lib/aiWriteActions";
 
 type Role = "user" | "assistant";
 
@@ -11,16 +27,32 @@ interface ChatMessage {
   // Tool invocations that happened during this assistant turn — rendered
   // as small status lines so the user sees what the agent did.
   toolEvents?: { name: string; ok?: boolean }[];
+  // Terminal status for an assistant message that executed a write tool.
+  writeOutcome?: { ok: boolean; summary: string };
 }
 
 interface StreamEvent {
-  type: "text_delta" | "tool_use" | "tool_result" | "done" | "error";
+  type:
+    | "text_delta"
+    | "tool_use"
+    | "tool_result"
+    | "pending_write_action"
+    | "done"
+    | "error";
   delta?: string;
   message?: string;
   name?: string;
-  input?: unknown;
+  input?: Record<string, unknown>;
   ok?: boolean;
   tool_use_id?: string;
+  continuation_state?: unknown;
+}
+
+interface PendingAction {
+  toolUseId: string;
+  name: string;
+  input: Record<string, any>;
+  continuationState: unknown;
 }
 
 const SUGGESTIONS = [
@@ -30,6 +62,12 @@ const SUGGESTIONS = [
   "Liste les demandes de maintenance ouvertes.",
 ];
 
+interface ConversationSummary {
+  id: string;
+  title: string | null;
+  last_message_at: string;
+}
+
 export function AIChatPanel() {
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
@@ -37,6 +75,10 @@ export function AIChatPanel() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState<PendingAction | null>(null);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -53,23 +95,134 @@ export function AIChatPanel() {
     };
   }, []);
 
+  // Auto-persist the conversation after each completed turn (not busy,
+  // no pending action, at least one user→assistant pair).
+  useEffect(() => {
+    if (busy || pending || !user || messages.length < 2) return;
+    const last = messages[messages.length - 1];
+    if (!last || last.role !== "assistant" || !last.text) return;
+    void saveConversation();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, busy, pending]);
+
+  const loadConversations = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("ai_conversations")
+      .select("id, title, last_message_at")
+      .eq("user_id", user.id)
+      .order("last_message_at", { ascending: false })
+      .limit(20);
+    setConversations((data as ConversationSummary[]) ?? []);
+  }, [user]);
+
+  const saveConversation = async () => {
+    if (!user) return;
+    let id = conversationId;
+    const firstUser = messages.find((m) => m.role === "user");
+    const title = firstUser?.text.slice(0, 60) ?? "Conversation";
+
+    if (!id) {
+      const { data, error: e } = await supabase
+        .from("ai_conversations")
+        .insert({
+          organization_id: user.organizationId!,
+          user_id: user.id,
+          title,
+          last_message_at: new Date().toISOString(),
+        })
+        .select("id")
+        .maybeSingle();
+      if (e || !data) return;
+      id = data.id;
+      setConversationId(id);
+      // Insert every message on first save.
+      await supabase.from("ai_messages").insert(
+        messages.map((m) => ({
+          conversation_id: id,
+          role: m.role,
+          text: m.text,
+          tool_events: m.toolEvents ?? [],
+          write_outcome: m.writeOutcome ?? null,
+        })),
+      );
+    } else {
+      // Only append the messages that aren't yet in the DB. Simplest
+      // reliable approach: count existing rows, insert the delta.
+      const { count } = await supabase
+        .from("ai_messages")
+        .select("id", { count: "exact", head: true })
+        .eq("conversation_id", id);
+      const existing = count ?? 0;
+      if (messages.length > existing) {
+        const delta = messages.slice(existing).map((m) => ({
+          conversation_id: id,
+          role: m.role,
+          text: m.text,
+          tool_events: m.toolEvents ?? [],
+          write_outcome: m.writeOutcome ?? null,
+        }));
+        if (delta.length > 0) {
+          await supabase.from("ai_messages").insert(delta);
+        }
+      }
+      await supabase.from("ai_conversations")
+        .update({ last_message_at: new Date().toISOString() })
+        .eq("id", id);
+    }
+  };
+
+  const openConversation = async (id: string) => {
+    const { data } = await supabase
+      .from("ai_messages")
+      .select("role, text, tool_events, write_outcome, created_at")
+      .eq("conversation_id", id)
+      .order("created_at");
+    const loaded: ChatMessage[] = (data ?? []).map((r: any) => ({
+      role: r.role,
+      text: r.text,
+      toolEvents: Array.isArray(r.tool_events) ? r.tool_events : [],
+      writeOutcome: r.write_outcome ?? undefined,
+    }));
+    setMessages(loaded);
+    setConversationId(id);
+    setHistoryOpen(false);
+    setPending(null);
+  };
+
+  const newConversation = () => {
+    setMessages([]);
+    setConversationId(null);
+    setPending(null);
+    setError(null);
+    setHistoryOpen(false);
+  };
+
+  const deleteConversation = async (id: string) => {
+    if (!confirm("Supprimer cette conversation ?")) return;
+    await supabase.from("ai_conversations").delete().eq("id", id);
+    if (conversationId === id) newConversation();
+    await loadConversations();
+  };
+
   const send = async (text: string) => {
     const trimmed = text.trim();
     if (!trimmed || busy) return;
-    setError(null);
     setInput("");
-
     const history = [...messages, { role: "user" as const, text: trimmed }];
     setMessages([...history, { role: "assistant", text: "", toolEvents: [] }]);
-    setBusy(true);
-
-    // Build the request body — only the textual turns for the LLM.
     const body = {
       messages: history.map((m) => ({
         role: m.role,
         content: [{ type: "text", text: m.text }],
       })),
     };
+    await runStream(body);
+  };
+
+  const runStream = async (body: Record<string, unknown>, rollbackOnError = true) => {
+    setError(null);
+    setBusy(true);
 
     const { data: sess } = await supabase.auth.getSession();
     const token = sess.session?.access_token;
@@ -106,7 +259,7 @@ export function AIChatPanel() {
           msg = j.error || msg;
         } catch {}
         setError(msg);
-        setMessages((prev) => prev.slice(0, -1));
+        if (rollbackOnError) setMessages((prev) => prev.slice(0, -1));
         return;
       }
 
@@ -132,7 +285,7 @@ export function AIChatPanel() {
     } catch (err) {
       if ((err as Error).name !== "AbortError") {
         setError((err as Error).message);
-        setMessages((prev) => prev.slice(0, -1));
+        if (rollbackOnError) setMessages((prev) => prev.slice(0, -1));
       }
     } finally {
       setBusy(false);
@@ -140,6 +293,15 @@ export function AIChatPanel() {
   };
 
   const handleEvent = (event: StreamEvent) => {
+    if (event.type === "pending_write_action" && event.tool_use_id && event.name) {
+      setPending({
+        toolUseId: event.tool_use_id,
+        name: event.name,
+        input: (event.input as Record<string, any>) ?? {},
+        continuationState: event.continuation_state,
+      });
+      return;
+    }
     setMessages((prev) => {
       const next = [...prev];
       const last = next[next.length - 1];
@@ -150,7 +312,6 @@ export function AIChatPanel() {
         last.toolEvents = [...(last.toolEvents ?? []), { name: event.name }];
       } else if (event.type === "tool_result") {
         const ev = last.toolEvents?.slice() ?? [];
-        // Mark the last in-flight tool for this turn as ok/failed.
         for (let i = ev.length - 1; i >= 0; i--) {
           if (ev[i].ok === undefined) {
             ev[i] = { ...ev[i], ok: !!event.ok };
@@ -165,6 +326,59 @@ export function AIChatPanel() {
       }
       return next;
     });
+  };
+
+  const handleConfirmAction = async () => {
+    if (!pending || busy) return;
+    const action = pending;
+    setPending(null);
+
+    const result = await executeWriteAction(action.name, action.input);
+    // Surface the outcome in the current assistant bubble so the user
+    // sees it even before the LLM's continuation arrives.
+    setMessages((prev) => {
+      const next = [...prev];
+      const last = next[next.length - 1];
+      if (last && last.role === "assistant") {
+        last.writeOutcome = { ok: result.ok, summary: result.ok ? result.summary : result.error };
+      }
+      return next;
+    });
+
+    await runStream(
+      {
+        resume: {
+          continuation_state: action.continuationState,
+          tool_use_id: action.toolUseId,
+          result,
+        },
+      },
+      false,
+    );
+  };
+
+  const handleCancelAction = async () => {
+    if (!pending || busy) return;
+    const action = pending;
+    setPending(null);
+    setMessages((prev) => {
+      const next = [...prev];
+      const last = next[next.length - 1];
+      if (last && last.role === "assistant") {
+        last.writeOutcome = { ok: false, summary: "Action annulée" };
+      }
+      return next;
+    });
+    await runStream(
+      {
+        resume: {
+          continuation_state: action.continuationState,
+          tool_use_id: action.toolUseId,
+          result: { ok: false, error: "cancelled by user" },
+        },
+      },
+      false,
+    );
   };
 
   if (!visible) return null;
@@ -241,17 +455,99 @@ export function AIChatPanel() {
               <div>
                 <div style={{ fontSize: 13, fontWeight: 700 }}>Assistant Palier</div>
                 <div style={{ fontSize: 11, color: "var(--muted-foreground)" }}>
-                  Lecture seule pour l'instant
+                  Confirmation requise pour chaque action.
                 </div>
               </div>
             </div>
-            <button
-              onClick={() => setOpen(false)}
-              style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted-foreground)" }}
-            >
-              <X className="w-5 h-5" />
-            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <button
+                onClick={newConversation}
+                title="Nouvelle conversation"
+                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted-foreground)", padding: 6 }}
+              >
+                <PlusIcon className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => {
+                  const next = !historyOpen;
+                  setHistoryOpen(next);
+                  if (next) void loadConversations();
+                }}
+                title="Historique"
+                style={{
+                  background: historyOpen ? "var(--background)" : "none",
+                  borderRadius: 8, border: "none",
+                  cursor: "pointer", color: "var(--muted-foreground)", padding: 6,
+                }}
+              >
+                <History className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setOpen(false)}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted-foreground)", padding: 6 }}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
           </div>
+
+          {historyOpen && (
+            <div
+              style={{
+                borderBottom: "1px solid var(--border)",
+                padding: "10px 16px", maxHeight: 220, overflowY: "auto",
+                background: "var(--background)",
+              }}
+            >
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                Conversations récentes
+              </div>
+              {conversations.length === 0 ? (
+                <div style={{ fontSize: 12, color: "var(--muted-foreground)" }}>Aucune conversation enregistrée.</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  {conversations.map((c) => (
+                    <div
+                      key={c.id}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 6,
+                        padding: "6px 8px", borderRadius: 8,
+                        background: c.id === conversationId ? "var(--primary)" : "var(--card)",
+                        color: c.id === conversationId ? "var(--primary-foreground)" : "var(--foreground)",
+                      }}
+                    >
+                      <button
+                        onClick={() => openConversation(c.id)}
+                        style={{
+                          flex: 1, minWidth: 0, textAlign: "left",
+                          background: "none", border: "none", cursor: "pointer",
+                          color: "inherit", padding: 0,
+                        }}
+                      >
+                        <div style={{ fontSize: 12, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {c.title ?? "Conversation"}
+                        </div>
+                        <div style={{ fontSize: 10, opacity: 0.7 }}>
+                          {new Date(c.last_message_at).toLocaleString("fr-CH")}
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => deleteConversation(c.id)}
+                        title="Supprimer"
+                        style={{
+                          background: "none", border: "none", cursor: "pointer",
+                          color: c.id === conversationId ? "var(--primary-foreground)" : "#DC2626",
+                          padding: 4,
+                        }}
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "14px 16px" }}>
             {messages.length === 0 && !busy && (
@@ -311,8 +607,82 @@ export function AIChatPanel() {
                     ))}
                   </div>
                 )}
+                {m.writeOutcome && (
+                  <div
+                    style={{
+                      marginTop: 6, padding: "6px 10px", borderRadius: 8,
+                      display: "flex", alignItems: "center", gap: 8, fontSize: 11,
+                      background: m.writeOutcome.ok
+                        ? "rgba(22,163,74,0.10)"
+                        : "rgba(239,68,68,0.10)",
+                      color: m.writeOutcome.ok ? "#166534" : "#991B1B",
+                    }}
+                  >
+                    {m.writeOutcome.ok ? (
+                      <CheckCircle className="w-3 h-3" />
+                    ) : (
+                      <AlertTriangle className="w-3 h-3" />
+                    )}
+                    <span>{m.writeOutcome.summary}</span>
+                  </div>
+                )}
               </div>
             ))}
+
+            {pending && (
+              <div
+                style={{
+                  marginTop: 4, padding: 14, borderRadius: 12,
+                  border: "1px solid var(--border)",
+                  background: "rgba(245,158,11,0.08)", color: "var(--foreground)",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                  <AlertTriangle className="w-4 h-4" style={{ color: "#B45309" }} />
+                  <strong style={{ fontSize: 13 }}>Action à confirmer</strong>
+                </div>
+                {(() => {
+                  const d = describeWriteAction(pending.name, pending.input);
+                  return (
+                    <>
+                      <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8 }}>{d.title}</div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12 }}>
+                        {d.bullets.map((b) => (
+                          <div key={b.label} style={{ display: "flex", gap: 6 }}>
+                            <span style={{ color: "var(--muted-foreground)", minWidth: 80 }}>{b.label}:</span>
+                            <span style={{ color: "var(--foreground)" }}>{b.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  );
+                })()}
+                <div style={{ display: "flex", gap: 8, marginTop: 12, justifyContent: "flex-end" }}>
+                  <button
+                    onClick={handleCancelAction}
+                    disabled={busy}
+                    style={{
+                      padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: 600,
+                      border: "1px solid var(--border)", background: "var(--card)",
+                      color: "var(--foreground)", cursor: busy ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    onClick={handleConfirmAction}
+                    disabled={busy}
+                    style={{
+                      padding: "6px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600,
+                      border: "none", background: "var(--primary)", color: "var(--primary-foreground)",
+                      cursor: busy ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    Confirmer
+                  </button>
+                </div>
+              </div>
+            )}
 
             {error && (
               <div style={{
