@@ -13,8 +13,9 @@ import { corsHeaders } from "../_shared/cors.ts";
 
 interface Body {
   email: string;
-  memberRole: "admin" | "manager" | "accountant" | "viewer";
+  memberRole: "admin" | "manager" | "accountant" | "viewer" | "tenant";
   permissions?: Record<string, "none" | "read" | "write">;
+  tenantId?: string; // required when memberRole === "tenant"
 }
 
 function genToken(): string {
@@ -64,8 +65,13 @@ Deno.serve(async (req) => {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    if (!["admin", "manager", "accountant", "viewer"].includes(body.memberRole)) {
+    if (!["admin", "manager", "accountant", "viewer", "tenant"].includes(body.memberRole)) {
       return new Response(JSON.stringify({ error: "rôle invalide" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (body.memberRole === "tenant" && !body.tenantId) {
+      return new Response(JSON.stringify({ error: "tenantId requis pour une invitation locataire" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -79,47 +85,49 @@ Deno.serve(async (req) => {
       .eq("id", callerProfile.organization_id)
       .maybeSingle();
 
-    // ── Seat limit enforcement ──────────────────────────────────
-    // Starter = 1 seat (no invites), Pro = 5 seats, Business = unlimited.
-    // Seats count admins + pending invitations. Tenants don't count.
-    const SEAT_LIMITS: Record<string, number | null> = {
-      starter: 1,
-      pro: 5,
-      business: null,
-    };
+    // ── Seat limit enforcement (team members only, tenants unlimited) ──
+    if (body.memberRole !== "tenant") {
+      // Starter = 1 seat (no invites), Pro = 5 seats, Business = unlimited.
+      // Seats count admins + pending non-tenant invitations.
+      const SEAT_LIMITS: Record<string, number | null> = {
+        starter: 1,
+        pro: 5,
+        business: null,
+      };
 
-    const { data: sub } = await admin
-      .from("subscriptions")
-      .select("plan, status")
-      .eq("organization_id", callerProfile.organization_id)
-      .maybeSingle();
-    const activePlan = sub && (sub.status === "active" || sub.status === "trialing")
-      ? sub.plan as string
-      : "starter";
-    const seatCap = SEAT_LIMITS[activePlan] ?? null;
+      const { data: sub } = await admin
+        .from("subscriptions")
+        .select("plan, status")
+        .eq("organization_id", callerProfile.organization_id)
+        .maybeSingle();
+      const activePlan = sub && (sub.status === "active" || sub.status === "trialing")
+        ? sub.plan as string
+        : "starter";
+      const seatCap = SEAT_LIMITS[activePlan] ?? null;
 
-    if (seatCap !== null) {
-      // Count current admin members + pending invitations for this org.
-      const [{ count: memberCount }, { count: pendingCount }] = await Promise.all([
-        admin.from("profiles").select("id", { count: "exact", head: true })
-          .eq("organization_id", callerProfile.organization_id)
-          .eq("role", "admin"),
-        admin.from("organization_invitations").select("id", { count: "exact", head: true })
-          .eq("organization_id", callerProfile.organization_id)
-          .eq("status", "pending"),
-      ]);
-      const consumed = (memberCount ?? 0) + (pendingCount ?? 0);
-      if (consumed >= seatCap) {
-        return new Response(
-          JSON.stringify({
-            error: "seat_limit_reached",
-            message: `Votre plan ${activePlan} est limité à ${seatCap} siège(s). Passez au plan supérieur pour inviter plus de collègues.`,
-            plan: activePlan,
-            seatCap,
-            consumed,
-          }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
+      if (seatCap !== null) {
+        const [{ count: memberCount }, { count: pendingCount }] = await Promise.all([
+          admin.from("profiles").select("id", { count: "exact", head: true })
+            .eq("organization_id", callerProfile.organization_id)
+            .eq("role", "admin"),
+          admin.from("organization_invitations").select("id", { count: "exact", head: true })
+            .eq("organization_id", callerProfile.organization_id)
+            .eq("status", "pending")
+            .neq("member_role", "tenant"),
+        ]);
+        const consumed = (memberCount ?? 0) + (pendingCount ?? 0);
+        if (consumed >= seatCap) {
+          return new Response(
+            JSON.stringify({
+              error: "seat_limit_reached",
+              message: `Votre plan ${activePlan} est limité à ${seatCap} siège(s). Passez au plan supérieur pour inviter plus de collègues.`,
+              plan: activePlan,
+              seatCap,
+              consumed,
+            }),
+            { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
       }
     }
 
@@ -138,7 +146,8 @@ Deno.serve(async (req) => {
         organization_id: callerProfile.organization_id,
         invited_email: email,
         member_role: body.memberRole,
-        permissions: body.permissions ?? {},
+        permissions: body.memberRole === "tenant" ? {} : (body.permissions ?? {}),
+        tenant_id: body.memberRole === "tenant" ? body.tenantId : null,
         token,
         invited_by: callerProfile.id,
       })
@@ -157,16 +166,28 @@ Deno.serve(async (req) => {
     // not a hard failure — the caller can still copy the link from the UI.
     let emailSent = false;
     if (resendKey && emailFrom) {
-      const inviterName = callerProfile.full_name || callerProfile.email || "Votre collègue";
-      const orgName = org?.name || "leur régie";
+      const inviterName = callerProfile.full_name || callerProfile.email || "Votre régie";
+      const orgName = org?.name || "votre régie";
+      const isTenant = body.memberRole === "tenant";
+      const subject = isTenant
+        ? `Votre accès au portail locataire ${orgName}`
+        : `Invitation à rejoindre ${orgName} sur Palier`;
+      const heading = isTenant
+        ? "Accès à votre portail locataire"
+        : "Invitation à rejoindre Palier";
+      const body1 = isTenant
+        ? `${inviterName} vous invite à accéder à votre portail locataire sur Palier. Vous pourrez y consulter votre dossier, faire des demandes de maintenance et échanger avec votre régie.`
+        : `${inviterName} vous invite à rejoindre <strong>${orgName}</strong> sur Palier.`;
+      const cta = isTenant ? "Créer mon accès" : "Accepter l'invitation";
+
       const html = `<!doctype html><html><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#F4F4F5;padding:24px;color:#1F2937;line-height:1.55;">
   <div style="max-width:560px;margin:0 auto;background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:32px;">
-    <h2 style="margin:0 0 16px;font-size:20px;color:#111827;">Invitation à rejoindre Palier</h2>
-    <p>${inviterName} vous invite à rejoindre <strong>${orgName}</strong> sur Palier.</p>
+    <h2 style="margin:0 0 16px;font-size:20px;color:#111827;">${heading}</h2>
+    <p>${body1}</p>
     <p>Cliquez sur le bouton ci-dessous pour créer votre compte ou lier un compte existant :</p>
     <p style="margin:28px 0;text-align:center;">
       <a href="${acceptUrl}" style="display:inline-block;background:#45553A;color:#fff;text-decoration:none;padding:12px 22px;border-radius:10px;font-weight:600;">
-        Accepter l'invitation
+        ${cta}
       </a>
     </p>
     <p style="font-size:12px;color:#6B7280;">Ce lien expire dans 7 jours.</p>
@@ -182,7 +203,7 @@ Deno.serve(async (req) => {
           body: JSON.stringify({
             from: emailFrom,
             to: email,
-            subject: `Invitation à rejoindre ${orgName} sur Palier`,
+            subject,
             html,
             reply_to: callerProfile.email || undefined,
           }),

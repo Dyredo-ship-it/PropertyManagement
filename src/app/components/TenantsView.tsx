@@ -53,6 +53,7 @@ import { generateLeasePdf, generateRentReceiptPdf } from "../lib/pdf";
 import { getLandlordInfo } from "../lib/landlord";
 import { sendRentReminder, sendLeaseEndReminder } from "../lib/email";
 import { SignaturePad } from "./SignaturePad";
+import { supabase } from "../lib/supabase";
 import { FileDown } from "lucide-react";
 
 function currentMonthPeriod(): string {
@@ -831,6 +832,39 @@ function TenantDetailDrawer({
                   >
                     <Mail style={{ width: 13, height: 13 }} />
                     Rappel fin de bail
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!tenant?.id || !tenant?.email) return;
+                      try {
+                        const { data, error } = await supabase.functions.invoke("invite-member", {
+                          body: {
+                            email: tenant.email,
+                            memberRole: "tenant",
+                            tenantId: tenant.id,
+                          },
+                        });
+                        if (error) throw error;
+                        const url = (data as any)?.acceptUrl;
+                        const emailSent = (data as any)?.emailSent;
+                        if (emailSent) {
+                          alert(`Invitation envoyée à ${tenant.email}. Le locataire recevra un email avec un lien pour créer son accès.`);
+                        } else if (url) {
+                          await navigator.clipboard.writeText(url);
+                          alert(`Invitation créée. Lien copié dans le presse-papier — partagez-le avec le locataire :\n\n${url}`);
+                        } else {
+                          alert("Invitation créée.");
+                        }
+                      } catch (e: any) {
+                        alert("Erreur : " + (e?.message ?? "invitation impossible"));
+                      }
+                    }}
+                    disabled={!tenant?.email}
+                    style={emailActionStyle(!tenant?.email)}
+                  >
+                    <User style={{ width: 13, height: 13 }} />
+                    Inviter au portail
                   </button>
                 </div>
               </div>
