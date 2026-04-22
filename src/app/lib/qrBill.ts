@@ -78,12 +78,19 @@ function splitAddress(raw: string): { street: string; buildingNumber?: string } 
   return { street: trimmed };
 }
 
+export interface RenderedQRBill {
+  png: string;            // PNG data URL
+  reference: string;      // QRR (27 digits) or SCOR (RFxx…)
+  isQRReference: boolean; // true = QRR derived from a QR-IBAN
+}
+
 /**
  * Renders the Swiss QR-bill as a PNG data URL, sized to fit the
  * standard 210x105 mm payment part. The caller embeds it at the bottom
- * of an A4 page via jsPDF's addImage.
+ * of an A4 page via jsPDF's addImage, and persists the reference to
+ * rent_invoices so later CAMT.054 imports can match it back.
  */
-export async function renderQRBillPng(opts: QRBillOptions): Promise<string> {
+export async function renderQRBillPng(opts: QRBillOptions): Promise<RenderedQRBill> {
   if (!isIBANValid(opts.creditor.iban)) {
     throw new Error("IBAN invalide — vérifiez la valeur saisie dans Paramètres → Société.");
   }
@@ -124,6 +131,7 @@ export async function renderQRBillPng(opts: QRBillOptions): Promise<string> {
   }
 
   const svgString = new SwissQRBill(data, { language: "FR" }).toString();
+  const result: RenderedQRBill = { png: "", reference, isQRReference: isQr };
 
   // Rasterize the SVG to PNG via a canvas (2x density for crisper printing).
   const blob = new Blob([svgString], { type: "image/svg+xml" });
@@ -142,7 +150,8 @@ export async function renderQRBillPng(opts: QRBillOptions): Promise<string> {
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, targetW, targetH);
     ctx.drawImage(img, 0, 0, targetW, targetH);
-    return canvas.toDataURL("image/png");
+    result.png = canvas.toDataURL("image/png");
+    return result;
   } finally {
     URL.revokeObjectURL(url);
   }

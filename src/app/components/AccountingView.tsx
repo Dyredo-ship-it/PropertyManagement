@@ -5,8 +5,9 @@ import {
   Upload, FileSpreadsheet, DollarSign, Users, Building2, Calendar,
   CheckCircle, AlertCircle, X, Plus, Trash2, Mail, Download,
   ChevronDown, Filter, Search, Banknote, TrendingUp, TrendingDown,
-  Edit, ArrowUpDown, Save, Pencil, Settings,
+  Edit, ArrowUpDown, Save, Pencil, Settings, Wallet,
 } from "lucide-react";
+import { CamtImportModal } from "./CamtImportModal";
 import {
   getBuildings, getTenants,
   getAccountingTransactions, addAccountingTransactions, saveAccountingTransactions,
@@ -308,6 +309,9 @@ export function AccountingView() {
   const [acctSettings, setAcctSettings] = useState<AccountingSettings>({ units: [], categories: [], subCategories: [] });
   const [settingsNewItem, setSettingsNewItem] = useState("");
   const [settingsTab, setSettingsTab] = useState<"units" | "categories" | "subCategories">("units");
+
+  // CAMT.054 import modal
+  const [showCamtModal, setShowCamtModal] = useState(false);
 
   // Chart-of-accounts modal
   const [showChartModal, setShowChartModal] = useState(false);
@@ -2853,6 +2857,19 @@ export function AccountingView() {
             Importer
           </button>
           <button
+            onClick={() => setShowCamtModal(true)}
+            style={{
+              ...tabBtnBase,
+              background: "var(--background)",
+              color: "var(--foreground)",
+              border: "1px solid var(--border)",
+            }}
+            title="Importer paiements bancaires (CAMT.054)"
+          >
+            <Wallet size={14} />
+            Paiements banque
+          </button>
+          <button
             onClick={() => setShowChartModal(true)}
             style={{
               ...tabBtnBase,
@@ -2923,6 +2940,12 @@ export function AccountingView() {
       {renderImportModal()}
       {renderAdjustmentModal()}
       {renderChartModal()}
+      <CamtImportModal
+        open={showCamtModal}
+        onClose={() => setShowCamtModal(false)}
+        onImported={() => reload()}
+      />
+
 
       {/* Settings Modal */}
       {showSettings && createPortal(

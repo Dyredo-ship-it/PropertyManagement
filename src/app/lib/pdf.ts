@@ -2,6 +2,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import type { Building, Tenant } from "../utils/storage";
 import { renderQRBillPng } from "./qrBill";
+import { recordRentInvoice } from "./rentInvoices";
 
 /* ─── Types ────────────────────────────────────────────────────── */
 
@@ -331,7 +332,7 @@ export async function generateRentReceiptPdf(
     try {
       const { zip, city, street } = parseSwissAddress(landlord.address ?? "");
       const currency = (options.currency ?? building.currency ?? "CHF") as "CHF" | "EUR";
-      const qrPng = await renderQRBillPng({
+      const qr = await renderQRBillPng({
         creditor: {
           name: landlord.name || "Bailleur",
           address: street || "-",
@@ -353,7 +354,20 @@ export async function generateRentReceiptPdf(
         referenceSeed: `${tenant.id || ""}${options.period.replace(/\D/g, "")}`,
       });
       // QR-bill payment part is 210mm wide × 105mm tall, anchored to the bottom of A4.
-      doc.addImage(qrPng, "PNG", 0, 297 - 105, 210, 105);
+      doc.addImage(qr.png, "PNG", 0, 297 - 105, 210, 105);
+
+      // Persist the issuance so a later CAMT.054 import can match the
+      // incoming payment back to this tenant/month. Fire-and-forget —
+      // a DB failure shouldn't block the PDF download.
+      void recordRentInvoice({
+        tenantId: tenant.id,
+        buildingId: building.id,
+        month: options.period,
+        reference: qr.reference,
+        amount: options.amount,
+        currency,
+        iban: landlord.iban,
+      });
     } catch {
       // QR-bill failed (invalid IBAN, unexpected error) — continue
       // without blocking the rent receipt generation.
