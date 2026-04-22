@@ -14,8 +14,8 @@ export default defineConfig({
       strategies: 'injectManifest',
       srcDir: 'src',
       filename: 'sw.ts',
-      registerType: 'autoUpdate',
-      injectRegister: 'auto',
+      registerType: 'prompt',
+      injectRegister: null,
       includeAssets: ['apple-touch-icon.png', 'logo.png'],
       manifest: {
         name: 'Palier — Gestion immobilière',

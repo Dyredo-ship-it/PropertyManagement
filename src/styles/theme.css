@@ -156,4 +156,42 @@ body {
   .modern-sidebar.is-open {
     transform: translateX(0);
   }
+
+  /* Reserve space at the bottom of the main scroll area so the
+     floating MobileBottomNav doesn't hide content or the AI bubble. */
+  .has-mobile-bottom-nav {
+    padding-bottom: calc(64px + env(safe-area-inset-bottom));
+  }
+
+  /* ── Mobile page polish ──────────────────────────────────
+     Most page components use large inline paddings (32-36px) that
+     look great on desktop but waste precious space on a 375px
+     phone. We target the inner scroll area and any page with a
+     leading div[style*="padding: 32px"] pattern to reduce padding.
+     This is additive and only affects small screens. */
+  .has-mobile-bottom-nav > div[style*="padding: 32px"],
+  .has-mobile-bottom-nav > div[style*="padding:32px"],
+  .has-mobile-bottom-nav > div[style*="padding: 36px"],
+  .has-mobile-bottom-nav > div[style*="padding:36px"] {
+    padding: 16px 14px !important;
+  }
+
+  /* Tables that are too wide — allow horizontal scroll inside a
+     constrained container to avoid pushing the layout sideways.
+     Many pages wrap tables in a card, so we target table elements
+     inside the content area. */
+  .has-mobile-bottom-nav table {
+    font-size: 12px;
+  }
+  .has-mobile-bottom-nav .overflow-x-auto,
+  .has-mobile-bottom-nav [data-scroll="x"] {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* KPI grids (e.g. DashboardView 4-column cards) stack into a
+     2-column grid on phones so they stay legible. */
+  .has-mobile-bottom-nav .grid.grid-cols-1.md\:grid-cols-2.lg\:grid-cols-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
 }

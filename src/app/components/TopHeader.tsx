@@ -201,10 +201,10 @@ export function TopHeader({
 
   return (
     <header
-      className="shrink-0 flex items-center gap-4"
+      className="shrink-0 flex items-center gap-2 sm:gap-4"
       style={{
         height: 64,
-        padding: "0 16px",
+        padding: "0 12px",
         borderBottom: "1px solid var(--border)",
         background: "var(--card)",
       }}
@@ -409,13 +409,15 @@ export function TopHeader({
       {/* Right controls */}
       <div className="flex items-center gap-1.5 mr-2">
 
-        {/* Theme toggle */}
-        <IconBtn onClick={toggleTheme} title={theme === "light" ? t("darkMode") : t("lightMode")}>
-          {theme === "light" ? <Moon className="w-[17px] h-[17px]" /> : <Sun className="w-[17px] h-[17px]" />}
-        </IconBtn>
+        {/* Theme toggle — hidden on very narrow screens (< sm) */}
+        <div className="hidden sm:block">
+          <IconBtn onClick={toggleTheme} title={theme === "light" ? t("darkMode") : t("lightMode")}>
+            {theme === "light" ? <Moon className="w-[17px] h-[17px]" /> : <Sun className="w-[17px] h-[17px]" />}
+          </IconBtn>
+        </div>
 
-        {/* Language picker */}
-        <div ref={langRef} className="relative">
+        {/* Language picker — hidden on very narrow screens (< sm) */}
+        <div ref={langRef} className="relative hidden sm:block">
           <IconBtn onClick={() => { setIsLangOpen((v) => !v); setIsNotifOpen(false); }} title="Changer la langue" active={isLangOpen}>
             <Globe className="w-[17px] h-[17px]" />
           </IconBtn>

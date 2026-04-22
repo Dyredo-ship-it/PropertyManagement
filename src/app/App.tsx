@@ -27,6 +27,8 @@ import { CalendarView } from "./components/CalendarView";
 import { AccountingView } from "./components/AccountingView";
 import { OnboardingWizard } from "./components/OnboardingWizard";
 import { AIChatPanel } from "./components/AIChatPanel";
+import { PwaUpdatePrompt } from "./components/PwaUpdatePrompt";
+import { MobileBottomNav } from "./components/MobileBottomNav";
 import { getBuildings, getTenants } from "./utils/storage";
 
 function AppContent() {
@@ -244,7 +246,7 @@ function AppContent() {
           </div>
         )}
 
-        <div className="flex-1 overflow-auto bg-background">
+        <div className="flex-1 overflow-auto bg-background has-mobile-bottom-nav">
           {activeView === "dashboard" && user?.role === "admin" && can("dashboard") && <DashboardView onSelectBuilding={handleSelectBuilding} />}
           {activeView === "dashboard" && user?.role === "tenant" && <TenantDashboardView />}
           {activeView === "buildings" && user?.role === "admin" && can("buildings") && (
@@ -295,6 +297,14 @@ function AppContent() {
         <OnboardingWizard userName={user.name ?? user.email} onFinish={handleFinishOnboarding} />
       )}
       <AIChatPanel />
+      <PwaUpdatePrompt />
+      <MobileBottomNav
+        activeView={activeView}
+        onViewChange={(v) => {
+          setActiveView(v);
+          if (v !== "buildings") setSelectedBuildingId(null);
+        }}
+      />
     </div>
   );
 }
