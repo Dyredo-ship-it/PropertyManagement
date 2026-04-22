@@ -26,6 +26,7 @@ import { SettingsView } from "./components/SettingsView";
 import { CalendarView } from "./components/CalendarView";
 import { AccountingView } from "./components/AccountingView";
 import { OnboardingWizard } from "./components/OnboardingWizard";
+import { AIChatPanel } from "./components/AIChatPanel";
 import { getBuildings, getTenants } from "./utils/storage";
 
 function AppContent() {
@@ -280,6 +281,7 @@ function AppContent() {
       {showOnboarding && user && (
         <OnboardingWizard userName={user.name ?? user.email} onFinish={handleFinishOnboarding} />
       )}
+      <AIChatPanel />
     </div>
   );
 }
