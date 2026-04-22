@@ -182,6 +182,7 @@ export function OnboardingWizard({ userName, onFinish }: OnboardingWizardProps) 
 
         {/* Card */}
         <div
+          className="onboarding-card"
           style={{
             background: "var(--card)",
             borderRadius: 16,

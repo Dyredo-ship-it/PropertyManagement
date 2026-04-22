@@ -207,6 +207,7 @@ export function LoginPage() {
 
           {/* Welcome heading */}
           <h1
+            className="login-heading"
             style={{
               fontSize: 32,
               fontWeight: 400,
@@ -220,7 +221,7 @@ export function LoginPage() {
               ? "Créer un compte"
               : t("loginWelcome") !== "loginWelcome"
                 ? t("loginWelcome")
-                : `Welcome, login to\nyour account.`}
+                : "Welcome, login to your account."}
           </h1>
 
           {/* Form */}

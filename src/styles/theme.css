@@ -236,6 +236,38 @@ body {
   .req-search-input {
     width: 100% !important;
   }
+
+  /* CalendarView — stack the 3-col date/start/end grid vertically so
+     time pickers stay above the 44px minimum tap target. */
+  .calendar-event-times {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* SettingsView — horizontal scroll tab strip; auto-width buttons
+     so they don't fight for flex-basis and clip each other. */
+  .settings-tabs {
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+  .settings-tabs::-webkit-scrollbar { display: none; }
+  .settings-tab-btn {
+    width: auto !important;
+    flex-shrink: 0;
+  }
+
+  /* OnboardingWizard — tighten the card padding so the form stays
+     comfortably above the fold on phones. */
+  .onboarding-card {
+    padding: 20px 16px !important;
+  }
+
+  /* LoginPage — the 32px welcome heading wraps into 3+ lines on
+     iPhone SE; scale down and reduce vertical spacing. */
+  .login-heading {
+    font-size: 22px !important;
+    margin-top: 14px !important;
+    margin-bottom: 20px !important;
+  }
 }
 
 /* ── Responsive sidebar ───────────────────────────────────────
@@ -267,10 +299,14 @@ body {
      phone. We target the inner scroll area and any page with a
      leading div[style*="padding: 32px"] pattern to reduce padding.
      This is additive and only affects small screens. */
-  .has-mobile-bottom-nav > div[style*="padding: 32px"],
-  .has-mobile-bottom-nav > div[style*="padding:32px"],
-  .has-mobile-bottom-nav > div[style*="padding: 36px"],
-  .has-mobile-bottom-nav > div[style*="padding:36px"] {
+  /* Descendant selector (no `>`) so views that wrap their padded
+     content in an extra div — TenantsView, RequestsView — are also
+     reached. Nested modal/card padding is not typically set in inline
+     style, so over-matching risk is low. */
+  .has-mobile-bottom-nav div[style*="padding: 32px"],
+  .has-mobile-bottom-nav div[style*="padding:32px"],
+  .has-mobile-bottom-nav div[style*="padding: 36px"],
+  .has-mobile-bottom-nav div[style*="padding:36px"] {
     padding: 16px 14px !important;
   }
 

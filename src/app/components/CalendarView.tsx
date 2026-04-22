@@ -578,7 +578,7 @@ export function CalendarView() {
                 </div>
 
                 {/* Date + Start + End */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                <div className="calendar-event-times" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
                   <div>
                     <label style={labelStyle}>{t("calendarEventDate")}</label>
                     <input

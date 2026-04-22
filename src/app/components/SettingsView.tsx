@@ -1160,9 +1160,9 @@ export function SettingsView({ initialTab }: { initialTab?: TabId } = {}) {
       </div>
 
       <div className="flex gap-8 flex-col lg:flex-row">
-        {/* Tab nav — vertical on desktop */}
+        {/* Tab nav — vertical on desktop, horizontal scroll on mobile */}
         <div
-          className="shrink-0 lg:w-[200px]"
+          className="settings-tabs shrink-0 lg:w-[200px]"
           style={{
             display: "flex",
             flexDirection: "row",
@@ -1170,7 +1170,7 @@ export function SettingsView({ initialTab }: { initialTab?: TabId } = {}) {
             overflowX: "auto",
           }}
         >
-          <div className="flex lg:flex-col gap-1 w-full">
+          <div className="settings-tabs-inner flex lg:flex-col gap-1 w-full">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               const active = activeTab === tab.id;
@@ -1179,7 +1179,7 @@ export function SettingsView({ initialTab }: { initialTab?: TabId } = {}) {
                   key={tab.id}
                   type="button"
                   onClick={() => setActiveTab(tab.id)}
-                  className="flex items-center gap-2.5 transition-all whitespace-nowrap"
+                  className="settings-tab-btn flex items-center gap-2.5 transition-all whitespace-nowrap"
                   style={{
                     padding: "10px 14px",
                     borderRadius: 10,
