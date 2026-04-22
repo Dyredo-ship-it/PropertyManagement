@@ -13,7 +13,9 @@ import {
   Eye,
   EyeOff,
   Check,
+  Users as UsersIcon,
 } from "lucide-react";
+import { TeamTab } from "./TeamTab";
 import { useAuth } from "../context/AuthContext";
 import { useCurrency } from "../context/CurrencyContext";
 import { useLanguage } from "../i18n/LanguageContext";
@@ -45,7 +47,7 @@ import {
 
 /* ─── Types ────────────────────────────────────────────────────── */
 
-type TabId = "profile" | "security" | "notifications" | "appearance" | "billing" | "company";
+type TabId = "profile" | "security" | "notifications" | "appearance" | "billing" | "company" | "team";
 
 type Tab = {
   id: TabId;
@@ -1126,6 +1128,7 @@ export function SettingsView({ initialTab }: { initialTab?: TabId } = {}) {
     { id: "appearance", labelKey: "Appearance", icon: Palette },
     { id: "billing", labelKey: t("settingsTabBilling"), icon: CreditCard },
     { id: "company", labelKey: "Company", icon: Building },
+    ...(user?.isSuperAdmin ? [{ id: "team" as const, labelKey: "Équipe", icon: UsersIcon }] : []),
   ];
 
   return (
@@ -1193,6 +1196,7 @@ export function SettingsView({ initialTab }: { initialTab?: TabId } = {}) {
           {activeTab === "appearance" && <AppearanceTab />}
           {activeTab === "billing" && <BillingTab />}
           {activeTab === "company" && <CompanyTab />}
+          {activeTab === "team" && <TeamTab />}
         </div>
       </div>
     </div>

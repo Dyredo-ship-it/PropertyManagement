@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { AuthProvider, useAuth } from "./context/AuthContext";
+import { AuthProvider, useAuth, useCan } from "./context/AuthContext";
 import { NotificationsProvider } from "./context/NotificationsContext";
 import { BiometricLock } from "./components/BiometricLock";
 import { biometricEnabled } from "./lib/biometric";
@@ -40,6 +40,7 @@ function AppContent() {
   >(undefined);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [biometricUnlocked, setBiometricUnlocked] = useState(false);
+  const can = useCan();
 
   // Hydrate the local cache from Supabase once authenticated. We run this
   // exactly once per login; further auth state changes (token refresh, etc.)
@@ -116,6 +117,35 @@ function AppContent() {
     const t = setTimeout(() => setBillingNotice(null), 6000);
     return () => clearTimeout(t);
   }, [isAuthenticated, dataReady]);
+
+  // Handle team invitation acceptance via ?invite_token=... in the URL.
+  // Works when the user is already logged in. If unauthenticated, the
+  // token stays in the URL and LoginPage picks it up after signup/login.
+  useEffect(() => {
+    if (!isAuthenticated || !user) return;
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("invite_token");
+    if (!token) return;
+    (async () => {
+      try {
+        const { supabase } = await import("./lib/supabase");
+        const { error } = await supabase.rpc("accept_organization_invitation", { p_token: token });
+        if (error) throw error;
+        // Scrub the token from the URL and refresh the session so the
+        // profile now reflects the new org + permissions.
+        params.delete("invite_token");
+        const newSearch = params.toString();
+        window.history.replaceState({}, "", window.location.pathname + (newSearch ? `?${newSearch}` : ""));
+        alert("Invitation acceptée — vous rejoignez la régie.");
+        window.location.reload();
+      } catch (err) {
+        alert(`Impossible d'accepter l'invitation : ${(err as Error).message}`);
+        params.delete("invite_token");
+        const newSearch = params.toString();
+        window.history.replaceState({}, "", window.location.pathname + (newSearch ? `?${newSearch}` : ""));
+      }
+    })();
+  }, [isAuthenticated, user]);
 
   if (loading || (isAuthenticated && !dataReady)) {
     return (
@@ -201,25 +231,25 @@ function AppContent() {
         )}
 
         <div className="flex-1 overflow-auto bg-background">
-          {activeView === "dashboard" && user?.role === "admin" && <DashboardView onSelectBuilding={handleSelectBuilding} />}
+          {activeView === "dashboard" && user?.role === "admin" && can("dashboard") && <DashboardView onSelectBuilding={handleSelectBuilding} />}
           {activeView === "dashboard" && user?.role === "tenant" && <TenantDashboardView />}
-          {activeView === "buildings" && user?.role === "admin" && (
+          {activeView === "buildings" && user?.role === "admin" && can("buildings") && (
             <BuildingsView onSelectBuilding={handleSelectBuilding} initialSelectedId={selectedBuildingId} />
           )}
-          {activeView === "building-details" && selectedBuildingId && (
+          {activeView === "building-details" && selectedBuildingId && can("buildings") && (
             <BuildingDetailsView
               buildingId={selectedBuildingId}
               onBack={handleBackFromBuilding}
             />
           )}
-          {activeView === "tenants" && user?.role === "admin" && <TenantsView />}
-          {activeView === "interventions" && user?.role === "admin" && <InterventionsView />}
-          {activeView === "requests" && user?.role === "admin" && <RequestsView />}
+          {activeView === "tenants" && user?.role === "admin" && can("tenants") && <TenantsView />}
+          {activeView === "interventions" && user?.role === "admin" && can("interventions") && <InterventionsView />}
+          {activeView === "requests" && user?.role === "admin" && can("requests") && <RequestsView />}
           {activeView === "requests" && user?.role === "tenant" && <TenantRequestsView />}
           {activeView === "services" && <ServicesView />}
-          {activeView === "analytics" && user?.role === "admin" && <AnalyticsDashboard />}
-          {activeView === "calendar" && user?.role === "admin" && <CalendarView />}
-          {activeView === "accounting" && user?.role === "admin" && <AccountingView />}
+          {activeView === "analytics" && user?.role === "admin" && can("analytics") && <AnalyticsDashboard />}
+          {activeView === "calendar" && user?.role === "admin" && can("calendar") && <CalendarView />}
+          {activeView === "accounting" && user?.role === "admin" && can("accounting") && <AccountingView />}
           {activeView === "settings" && <SettingsView initialTab={settingsInitialTab} />}
           {activeView === "notifications" && <NotificationsView onNavigate={setActiveView} />}
           {(activeView === "info" || activeView === "informations") && <InformationsView />}

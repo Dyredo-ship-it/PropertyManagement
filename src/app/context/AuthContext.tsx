@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { supabase } from "../lib/supabase";
 import type { Session } from "@supabase/supabase-js";
+import type { FeatureKey, MemberRole, PermissionLevel } from "../lib/permissions";
 
 export interface User {
   id: string;
@@ -9,6 +10,9 @@ export interface User {
   role: "admin" | "tenant";
   organizationId: string | null;
   tenantId: string | null;
+  isSuperAdmin: boolean;
+  memberRole: MemberRole | null;
+  permissions: Partial<Record<FeatureKey, PermissionLevel>>;
 }
 
 interface AuthContextType {
@@ -32,7 +36,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 async function loadProfile(userId: string): Promise<User | null> {
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, email, full_name, role, organization_id, tenant_id")
+    .select("id, email, full_name, role, organization_id, tenant_id, is_super_admin, member_role, permissions")
     .eq("id", userId)
     .maybeSingle();
 
@@ -45,6 +49,9 @@ async function loadProfile(userId: string): Promise<User | null> {
     role: data.role,
     organizationId: data.organization_id,
     tenantId: data.tenant_id,
+    isSuperAdmin: !!data.is_super_admin,
+    memberRole: (data.member_role ?? null) as MemberRole | null,
+    permissions: (data.permissions ?? {}) as Partial<Record<FeatureKey, PermissionLevel>>,
   };
 }
 
@@ -188,4 +195,51 @@ export function useAuth() {
     throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
+}
+
+/**
+ * Convenience hook for feature-gating UI. Returns a `can(feature, level)`
+ * function bound to the current user. Tenants always fail; if no user is
+ * loaded, returns false everywhere.
+ */
+export function useCan() {
+  const { user } = useAuth();
+  return useCallback(
+    (feature: FeatureKey, level: PermissionLevel = "read"): boolean => {
+      if (!user) return false;
+      if (user.role === "tenant") return false;
+      if (user.isSuperAdmin) return true;
+      const order: Record<PermissionLevel, number> = { none: 0, read: 1, write: 2 };
+      const override = user.permissions[feature];
+      if (override) return order[override] >= order[level];
+      // Fall back to role preset
+      if (!user.memberRole || user.memberRole === "tenant") return false;
+      // Duplicate the role preset here to avoid a circular import.
+      const presets: Record<string, Record<string, PermissionLevel>> = {
+        admin: {
+          dashboard: "write", buildings: "write", tenants: "write", requests: "write",
+          interventions: "write", services: "write", calendar: "write", accounting: "write",
+          analytics: "write", settings: "write", team: "none", billing: "none",
+        },
+        manager: {
+          dashboard: "write", buildings: "write", tenants: "write", requests: "write",
+          interventions: "write", services: "write", calendar: "write", accounting: "none",
+          analytics: "none", settings: "read", team: "none", billing: "none",
+        },
+        accountant: {
+          dashboard: "read", buildings: "read", tenants: "read", requests: "read",
+          interventions: "read", services: "read", calendar: "read", accounting: "write",
+          analytics: "write", settings: "read", team: "none", billing: "none",
+        },
+        viewer: {
+          dashboard: "read", buildings: "read", tenants: "read", requests: "read",
+          interventions: "read", services: "read", calendar: "read", accounting: "read",
+          analytics: "read", settings: "read", team: "none", billing: "none",
+        },
+      };
+      const rolePerm = presets[user.memberRole]?.[feature] ?? "none";
+      return order[rolePerm] >= order[level];
+    },
+    [user],
+  );
 }

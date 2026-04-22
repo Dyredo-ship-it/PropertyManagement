@@ -18,11 +18,12 @@ import {
   MoreVertical,
   Receipt,
 } from "lucide-react";
-import { useAuth } from "../context/AuthContext";
+import { useAuth, useCan } from "../context/AuthContext";
 import { useNotifications } from "../context/NotificationsContext";
 import { useLanguage } from "../i18n/LanguageContext";
 import { PalierLogo } from "./PalierLogo";
 import { fetchSubscription, PLANS, type SubscriptionInfo } from "../lib/billing";
+import type { FeatureKey } from "../lib/permissions";
 
 /* ─── Types ───────────────────────────────────────────────────── */
 
@@ -36,7 +37,8 @@ type MenuItem = {
   labelKey: string;
   icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
   badge?: number;
-  children?: { id: string; labelKey: string }[];
+  feature?: FeatureKey; // if set, the item is hidden when user lacks read on it
+  children?: { id: string; labelKey: string; feature?: FeatureKey }[];
 };
 
 type Section = {
@@ -50,6 +52,7 @@ export function ModernSidebar({ activeView, onViewChange }: ModernSidebarProps) 
   const { user, logout } = useAuth();
   const { unreadCount } = useNotifications();
   const { t } = useLanguage();
+  const can = useCan();
   const [searchQuery, setSearchQuery] = useState("");
   const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null);
 
@@ -90,29 +93,31 @@ export function ModernSidebar({ activeView, onViewChange }: ModernSidebarProps) 
       {
         key: "main",
         items: [
-          { id: "dashboard", labelKey: "navDashboard", icon: LayoutDashboard },
+          { id: "dashboard", labelKey: "navDashboard", icon: LayoutDashboard, feature: "dashboard" },
           {
             id: "buildings",
             labelKey: "navBuildings",
             icon: Building,
+            feature: "buildings",
             children: [
-              { id: "buildings", labelKey: "navBuildings" },
-              { id: "analytics", labelKey: "navAnalytics" },
+              { id: "buildings", labelKey: "navBuildings", feature: "buildings" },
+              { id: "analytics", labelKey: "navAnalytics", feature: "analytics" },
             ],
           },
-          { id: "tenants", labelKey: "navTenants", icon: Users },
+          { id: "tenants", labelKey: "navTenants", icon: Users, feature: "tenants" },
           {
             id: "requests",
             labelKey: "requestsHub",
             icon: ClipboardList,
+            feature: "requests",
             children: [
-              { id: "requests", labelKey: "requestsHub" },
-              { id: "interventions", labelKey: "navInterventions" },
+              { id: "requests", labelKey: "requestsHub", feature: "requests" },
+              { id: "interventions", labelKey: "navInterventions", feature: "interventions" },
             ],
           },
-          { id: "services", labelKey: "navServices", icon: Briefcase },
-          { id: "calendar", labelKey: "navCalendar", icon: CalendarDays },
-          { id: "accounting", labelKey: "navAccounting", icon: Receipt },
+          { id: "services", labelKey: "navServices", icon: Briefcase, feature: "services" },
+          { id: "calendar", labelKey: "navCalendar", icon: CalendarDays, feature: "calendar" },
+          { id: "accounting", labelKey: "navAccounting", icon: Receipt, feature: "accounting" },
         ],
       },
       {
@@ -125,7 +130,7 @@ export function ModernSidebar({ activeView, onViewChange }: ModernSidebarProps) 
       {
         key: "system",
         items: [
-          { id: "settings", labelKey: "navSettings", icon: Settings },
+          { id: "settings", labelKey: "navSettings", icon: Settings, feature: "settings" },
           { id: "support", labelKey: "navSupport", icon: HelpCircle },
         ],
       },
@@ -161,15 +166,31 @@ export function ModernSidebar({ activeView, onViewChange }: ModernSidebarProps) 
     ? user.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
     : "AD";
 
-  // Filter nav items by search
+  // Filter nav items by search, then gate by permissions.
   const filterItems = (items: MenuItem[]) => {
-    if (!searchQuery.trim()) return items;
-    const q = searchQuery.toLowerCase();
-    return items.filter(
-      (item) =>
-        t(item.labelKey).toLowerCase().includes(q) ||
-        item.children?.some((c) => t(c.labelKey).toLowerCase().includes(q))
-    );
+    const matchSearch = searchQuery.trim()
+      ? items.filter(
+          (item) =>
+            t(item.labelKey).toLowerCase().includes(searchQuery.toLowerCase()) ||
+            item.children?.some((c) => t(c.labelKey).toLowerCase().includes(searchQuery.toLowerCase())),
+        )
+      : items;
+    // Admin items may declare a `feature` key; if the user lacks at least
+    // read access, the item is hidden. Children are filtered the same way;
+    // if every child is gated out, the parent disappears too.
+    return matchSearch
+      .map((item) => {
+        if (item.children) {
+          const visibleChildren = item.children.filter((c) => !c.feature || can(c.feature, "read"));
+          return { ...item, children: visibleChildren };
+        }
+        return item;
+      })
+      .filter((item) => {
+        if (item.children) return item.children.length > 0;
+        if (!item.feature) return true;
+        return can(item.feature, "read");
+      });
   };
 
   return (
