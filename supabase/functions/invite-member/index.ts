@@ -203,9 +203,10 @@ Deno.serve(async (req) => {
         ? "Accès à votre portail locataire"
         : "Invitation à rejoindre Palier";
       const body1 = isTenant
-        ? `${inviterName} vous invite à accéder à votre portail locataire sur Palier. Vous pourrez y consulter votre dossier, faire des demandes de maintenance et échanger avec votre régie.`
+        ? `<strong>${orgName}</strong> vous invite à accéder à votre portail locataire sur Palier. Vous pourrez y consulter votre dossier, faire des demandes de maintenance et échanger avec votre régie.`
         : `${inviterName} vous invite à rejoindre <strong>${orgName}</strong> sur Palier.`;
       const cta = isTenant ? "Créer mon accès" : "Accepter l'invitation";
+      const footerSender = isTenant ? orgName : inviterName;
 
       const html = `<!doctype html><html><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#F4F4F5;padding:24px;color:#1F2937;line-height:1.55;">
   <div style="max-width:560px;margin:0 auto;background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:32px;">
@@ -219,16 +220,23 @@ Deno.serve(async (req) => {
     </p>
     <p style="font-size:12px;color:#6B7280;">Ce lien expire dans 7 jours.</p>
     <hr style="border:none;border-top:1px solid #E5E7EB;margin:24px 0 12px;" />
-    <p style="font-size:11px;color:#9CA3AF;margin:0;">Envoyé par ${inviterName} via Palier.</p>
+    <p style="font-size:11px;color:#9CA3AF;margin:0;">Envoyé par ${footerSender} via Palier.</p>
   </div>
 </body></html>`;
+
+      // Rebrand the sender display name with the organization's name so the
+      // email reads "F&F Gestion Sàrl <onboarding@…>" rather than the default.
+      const addrMatch = emailFrom.match(/<([^>]+)>/);
+      const fromAddress = addrMatch ? addrMatch[1] : emailFrom.trim();
+      const displayName = orgName.replace(/"/g, '\\"');
+      const fromHeader = `"${displayName}" <${fromAddress}>`;
 
       try {
         const resp = await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
           body: JSON.stringify({
-            from: emailFrom,
+            from: fromHeader,
             to: email,
             subject,
             html,

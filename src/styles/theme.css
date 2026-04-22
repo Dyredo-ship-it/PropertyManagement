@@ -148,6 +148,15 @@ body {
   }
 }
 
+/* ── MobileBottomNav — force-hide on desktop ──────────────────
+   The nav's inline `display: flex` would otherwise beat Tailwind's
+   `.lg\:hidden` utility, leaving the phone tab bar visible on desktop. */
+@media (min-width: 1024px) {
+  .mobile-bottom-nav {
+    display: none !important;
+  }
+}
+
 /* ── Responsive sidebar ───────────────────────────────────────
    Desktop (>= lg breakpoint = 1024px): sidebar is a static column.
    Mobile / small: sidebar slides in from the left as an overlay

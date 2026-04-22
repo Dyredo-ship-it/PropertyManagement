@@ -68,10 +68,15 @@ export function TeamTab() {
 
   const isSuperAdmin = !!user?.isSuperAdmin;
 
-  // Seats accounting — active admin members + pending invitations count
-  // against the plan's teamSeats limit. null = unlimited (Business).
+  // Seats accounting — active admin members + pending *team* invitations count
+  // against the plan's teamSeats limit. Tenant-portal invites have their own
+  // cap and must not inflate this counter. null = unlimited (Business).
   const seatCap = planState.limits.teamSeats;
-  const pendingCount = invitations.filter((i) => i.status === "pending").length;
+  const teamInvitations = useMemo(
+    () => invitations.filter((i) => i.member_role !== "tenant"),
+    [invitations],
+  );
+  const pendingCount = teamInvitations.filter((i) => i.status === "pending").length;
   const seatsUsed = members.length + pendingCount;
   const atLimit = seatCap !== null && seatsUsed >= seatCap;
   const planConfig = PLANS.find((p) => p.id === planState.plan) ?? PLANS[0];
@@ -269,15 +274,16 @@ export function TeamTab() {
         )}
       </Section>
 
-      {/* Pending invitations */}
+      {/* Pending invitations — team only. Tenant-portal invites are managed
+          from the Locataires view and shouldn't appear here. */}
       <Section title="Invitations en attente" description="Les invitations expirées ou déjà acceptées sont masquées.">
-        {invitations.filter((i) => i.status === "pending").length === 0 ? (
+        {teamInvitations.filter((i) => i.status === "pending").length === 0 ? (
           <div style={{ fontSize: 12, color: "var(--muted-foreground)", padding: "8px 0" }}>
             Aucune invitation en attente.
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {invitations.filter((i) => i.status === "pending").map((inv) => (
+            {teamInvitations.filter((i) => i.status === "pending").map((inv) => (
               <InvitationRow
                 key={inv.id}
                 invitation={inv}

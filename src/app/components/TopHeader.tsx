@@ -520,52 +520,55 @@ export function TopHeader({
               style={{
                 top: 64,
                 right: 16,
-                width: 340,
+                width: 380,
+                maxWidth: "calc(100vw - 24px)",
                 maxHeight: "calc(100vh - 80px)",
                 background: "var(--card)",
                 border: "1px solid var(--border)",
-                boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+                boxShadow: "0 12px 40px rgba(0,0,0,0.14)",
               }}
             >
               {/* Notif header */}
               <div
-                className="flex items-center justify-between px-4 py-3 border-b shrink-0"
+                className="flex items-center justify-between gap-3 px-4 py-3 border-b shrink-0"
                 style={{ borderColor: "var(--border)" }}
               >
-                <div className="flex items-center gap-2">
-                  <p className="text-[13px] font-semibold" style={{ color: "var(--foreground)" }}>
+                <div className="flex items-baseline gap-2 min-w-0">
+                  <p className="text-[14px] font-semibold truncate" style={{ color: "var(--foreground)" }}>
                     Notifications
                   </p>
                   {unreadCount > 0 && (
                     <span
-                      className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                      className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0"
                       style={{ background: "rgba(239,68,68,0.10)", color: "#DC2626" }}
                     >
-                      {unreadCount} nouvelles
+                      {unreadCount} {unreadCount > 1 ? "nouvelles" : "nouvelle"}
                     </span>
                   )}
                 </div>
-                <button
-                  type="button"
-                  onClick={markAllRead}
-                  className="text-[11px] font-medium transition-colors"
-                  style={{ color: "var(--primary)" }}
-                >
-                  Tout lire
-                </button>
+                {unreadCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={markAllRead}
+                    className="text-[11px] font-semibold shrink-0 transition-opacity hover:opacity-70"
+                    style={{ color: "var(--primary)", background: "transparent", border: "none", cursor: "pointer" }}
+                  >
+                    Tout lire
+                  </button>
+                )}
               </div>
 
               {/* Notif list */}
               <div className="overflow-y-auto flex-1">
                 {notifs.length === 0 && (
-                  <div className="flex flex-col items-center justify-center py-10 px-4">
+                  <div className="flex flex-col items-center justify-center py-12 px-4">
                     <div
-                      className="w-10 h-10 rounded-full flex items-center justify-center mb-3"
+                      className="w-12 h-12 rounded-full flex items-center justify-center mb-3"
                       style={{ background: "var(--sidebar-accent)", color: "var(--muted-foreground)" }}
                     >
                       <Bell className="w-5 h-5" />
                     </div>
-                    <p className="text-[12px] font-medium" style={{ color: "var(--foreground)" }}>
+                    <p className="text-[13px] font-semibold" style={{ color: "var(--foreground)" }}>
                       Aucune notification
                     </p>
                     <p className="text-[11px] mt-1 text-center" style={{ color: "var(--muted-foreground)" }}>
@@ -580,7 +583,7 @@ export function TopHeader({
                   return (
                     <div
                       key={n.id}
-                      className="flex items-start gap-3 px-4 py-3 cursor-pointer transition-colors border-b"
+                      className="relative flex items-start gap-3 px-4 py-3 cursor-pointer transition-colors border-b"
                       style={{
                         borderColor: "var(--border)",
                         background: isUnread ? "var(--sidebar-accent)" : "transparent",
@@ -591,47 +594,74 @@ export function TopHeader({
                       onMouseEnter={(e) => { e.currentTarget.style.background = "var(--background)"; }}
                       onMouseLeave={(e) => { e.currentTarget.style.background = isUnread ? "var(--sidebar-accent)" : "transparent"; }}
                     >
+                      {/* Unread accent bar */}
+                      {isUnread && (
+                        <span
+                          aria-hidden
+                          style={{
+                            position: "absolute", left: 0, top: 10, bottom: 10, width: 3,
+                            borderRadius: "0 3px 3px 0", background: "var(--primary)",
+                          }}
+                        />
+                      )}
+
+                      {/* Category icon */}
                       <div
-                        className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
+                        className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
                         style={{ background: bg, color }}
                       >
                         {notifIcon(n.category)}
                       </div>
+
+                      {/* Content */}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
+                        {/* Row 1: title + time */}
+                        <div className="flex items-baseline justify-between gap-2">
                           <p
-                            className="text-[12px] leading-snug"
+                            className="text-[13px] leading-snug min-w-0 truncate"
                             style={{
                               color: "var(--foreground)",
-                              fontWeight: isUnread ? 600 : 400,
+                              fontWeight: isUnread ? 600 : 500,
                             }}
                           >
                             {n.title}
                           </p>
-                          {isUrgent && (
-                            <span
-                              className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded shrink-0"
-                              style={{ background: "rgba(239,68,68,0.10)", color: "#DC2626" }}
-                            >
-                              Urgent
-                            </span>
-                          )}
+                          <span
+                            className="text-[10px] shrink-0 tabular-nums"
+                            style={{ color: "var(--muted-foreground)", opacity: 0.8 }}
+                          >
+                            {formatRelativeTime(n.date)}
+                          </span>
                         </div>
-                        {n.message && (
-                          <p className="text-[11px] mt-0.5 truncate" style={{ color: "var(--muted-foreground)" }}>
-                            {n.message}
-                          </p>
+
+                        {/* Row 2: message (clamped 2 lines) + urgent badge */}
+                        {(n.message || isUrgent) && (
+                          <div className="flex items-start justify-between gap-2 mt-1">
+                            {n.message && (
+                              <p
+                                className="text-[11.5px] leading-snug"
+                                style={{
+                                  color: "var(--muted-foreground)",
+                                  display: "-webkit-box",
+                                  WebkitLineClamp: 2,
+                                  WebkitBoxOrient: "vertical",
+                                  overflow: "hidden",
+                                }}
+                              >
+                                {n.message}
+                              </p>
+                            )}
+                            {isUrgent && (
+                              <span
+                                className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded shrink-0 tracking-wide"
+                                style={{ background: "rgba(239,68,68,0.12)", color: "#DC2626" }}
+                              >
+                                Urgent
+                              </span>
+                            )}
+                          </div>
                         )}
-                        <p className="text-[10px] mt-1" style={{ color: "var(--muted-foreground)", opacity: 0.7 }}>
-                          {formatRelativeTime(n.date)}
-                        </p>
                       </div>
-                      {isUnread && (
-                        <div
-                          className="w-2 h-2 rounded-full shrink-0 mt-1.5"
-                          style={{ background: "var(--primary)" }}
-                        />
-                      )}
                     </div>
                   );
                 })}
@@ -639,19 +669,22 @@ export function TopHeader({
 
               {/* Footer */}
               <div
-                className="px-4 py-2.5 border-t text-center shrink-0"
+                className="px-4 py-2.5 border-t shrink-0"
                 style={{ borderColor: "var(--border)" }}
               >
                 <button
                   type="button"
-                  className="text-[12px] font-medium transition-colors"
-                  style={{ color: "var(--primary)" }}
+                  className="w-full flex items-center justify-center gap-1.5 text-[12px] font-semibold py-1.5 rounded-lg transition-colors"
+                  style={{ color: "var(--primary)", background: "transparent", border: "none", cursor: "pointer" }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = "var(--sidebar-accent)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
                   onClick={() => {
                     setIsNotifOpen(false);
                     onNavigate?.("notifications");
                   }}
                 >
                   Voir toutes les notifications
+                  <ChevronRight style={{ width: 12, height: 12 }} />
                 </button>
               </div>
             </div>
