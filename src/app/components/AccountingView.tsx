@@ -188,6 +188,7 @@ const thStyle: React.CSSProperties = {
   position: "sticky" as const,
   top: 0,
   zIndex: 1,
+  whiteSpace: "nowrap" as const,
 };
 
 const tdStyle: React.CSSProperties = {
@@ -1091,8 +1092,8 @@ export function AccountingView() {
             <div style={{ fontSize: 13 }}>Importez ou ajoutez manuellement vos transactions.</div>
           </div>
         ) : (
-          <div style={{ ...cardStyle, overflow: "auto", maxHeight: "calc(100vh - 360px)" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <div className="accounting-tx-scroll" style={{ ...cardStyle, overflowX: "auto", overflowY: "auto", maxHeight: "calc(100vh - 360px)", WebkitOverflowScrolling: "touch" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1040 }}>
               <thead>
                 <tr>
                   <th style={thStyle}>{t("transactionDate")}</th>
@@ -1168,26 +1169,28 @@ export function AccountingView() {
                         ) : <span style={{ color: "var(--muted-foreground)" }}>-</span>}
                       </td>
                       {/* Actions: edit / delete */}
-                      <td style={{ ...tdStyle, display: "flex", gap: 4, alignItems: "center" }}>
-                        <button
-                          onClick={() => setEditingTxId(editing ? null : tx.id)}
-                          title={editing ? "Fermer" : "Modifier"}
-                          style={{ width: 24, height: 24, borderRadius: 6, border: "none", background: "transparent", color: editing ? "var(--primary)" : "var(--muted-foreground)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "color 0.15s" }}
-                          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--primary)"; }}
-                          onMouseLeave={(e) => { if (!editing) (e.currentTarget as HTMLElement).style.color = "var(--muted-foreground)"; }}
-                        >
-                          <Pencil size={12} />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteTx(tx.id)}
-                          title="Supprimer"
-                          className="opacity-0 group-hover:opacity-100"
-                          style={{ width: 24, height: 24, borderRadius: 6, border: "none", background: "transparent", color: "var(--muted-foreground)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s" }}
-                          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "#DC2626"; }}
-                          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--muted-foreground)"; }}
-                        >
-                          <Trash2 size={12} />
-                        </button>
+                      <td style={tdStyle}>
+                        <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                          <button
+                            onClick={() => setEditingTxId(editing ? null : tx.id)}
+                            title={editing ? "Fermer" : "Modifier"}
+                            style={{ width: 24, height: 24, borderRadius: 6, border: "none", background: "transparent", color: editing ? "var(--primary)" : "var(--muted-foreground)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "color 0.15s" }}
+                            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--primary)"; }}
+                            onMouseLeave={(e) => { if (!editing) (e.currentTarget as HTMLElement).style.color = "var(--muted-foreground)"; }}
+                          >
+                            <Pencil size={12} />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteTx(tx.id)}
+                            title="Supprimer"
+                            className="opacity-0 group-hover:opacity-100"
+                            style={{ width: 24, height: 24, borderRadius: 6, border: "none", background: "transparent", color: "var(--muted-foreground)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s" }}
+                            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "#DC2626"; }}
+                            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--muted-foreground)"; }}
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );

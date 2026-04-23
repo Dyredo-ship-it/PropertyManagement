@@ -190,6 +190,21 @@ body {
   }
 }
 
+/* BuildingDetail quick-stats row — "CHF 12'114" overflowed the revenue
+   card on iPhone because 3 cards × 14px horizontal padding left <80px for
+   a 100px-wide number. Shrink padding + fit the number on one line. */
+@media (max-width: 767px) {
+  .building-quick-stats {
+    gap: 8px !important;
+  }
+  .building-quick-stats > div {
+    padding: 10px 10px !important;
+  }
+  .building-quick-stats-revenue-value {
+    font-size: 15px !important;
+  }
+}
+
 /* ── Mobile-only layout fixes ─────────────────────────────────
    Everything in this block must stay scoped to small viewports so
    desktop layouts are not disturbed. */

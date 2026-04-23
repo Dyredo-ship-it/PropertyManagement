@@ -542,14 +542,14 @@ function BuildingTabs({ building, t, occPct, occColor, formattedRevenue }: {
           </div>
 
           {/* Quick stats */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
-            <div style={{ padding: "14px 16px", borderRadius: 12, background: "var(--card)", border: "1px solid var(--border)" }}>
+          <div className="building-quick-stats" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12 }}>
+            <div style={{ padding: "14px 16px", borderRadius: 12, background: "var(--card)", border: "1px solid var(--border)", minWidth: 0 }}>
               <span style={{ fontSize: 10, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--muted-foreground)" }}>
                 {t("tenants") || "Locataires"}
               </span>
               <div style={{ fontSize: 20, fontWeight: 700, color: "var(--foreground)", marginTop: 4 }}>{bTenants.length}</div>
             </div>
-            <div style={{ padding: "14px 16px", borderRadius: 12, background: "var(--card)", border: "1px solid var(--border)" }}>
+            <div style={{ padding: "14px 16px", borderRadius: 12, background: "var(--card)", border: "1px solid var(--border)", minWidth: 0 }}>
               <span style={{ fontSize: 10, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--muted-foreground)" }}>
                 Demandes ouvertes
               </span>
@@ -557,11 +557,16 @@ function BuildingTabs({ building, t, occPct, occColor, formattedRevenue }: {
                 {bRequests.filter(r => r.status !== "completed").length}
               </div>
             </div>
-            <div style={{ padding: "14px 16px", borderRadius: 12, background: "var(--card)", border: "1px solid var(--border)" }}>
+            <div className="building-quick-stats-revenue" style={{ padding: "14px 16px", borderRadius: 12, background: "var(--card)", border: "1px solid var(--border)", minWidth: 0 }}>
               <span style={{ fontSize: 10, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--primary)" }}>
                 {t("monthlyRevenue")}
               </span>
-              <div style={{ fontSize: 18, fontWeight: 700, color: "var(--primary)", marginTop: 4 }}>{formattedRevenue}</div>
+              <div
+                className="building-quick-stats-revenue-value"
+                style={{ fontSize: 18, fontWeight: 700, color: "var(--primary)", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+              >
+                {formattedRevenue}
+              </div>
             </div>
           </div>
         </div>
