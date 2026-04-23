@@ -25,7 +25,7 @@ import {
   getOrgRentSettings,
   type AccountingTransaction, type ManualAdjustment, type Building, type Notification,
   type AccountingSettings, type ChartEntry, type ChartEntryType,
-  type OrgRentSettings,
+  type OrgRentSettings, type Tenant,
 } from "../utils/storage";
 import { useNotifications } from "../context/NotificationsContext";
 import { useLanguage } from "../i18n/LanguageContext";
@@ -933,11 +933,33 @@ export function AccountingView() {
     );
     const solde = acomptesTotal - chargeExpenses;
 
-    // Per-apartment breakdown
+    // Pro-rata: a tenant who moved in mid-year (or moved out) only owes the
+    // portion of the charges that overlaps with their occupation. Period is
+    // the calendar year currently filtered.
+    const year = Number(selectedYear) || new Date().getFullYear();
+    const periodStart = new Date(year, 0, 1);
+    const periodEnd = new Date(year, 11, 31);
+    const MS_PER_DAY = 24 * 60 * 60 * 1000;
+    const periodDays = Math.round((periodEnd.getTime() - periodStart.getTime()) / MS_PER_DAY) + 1;
+
+    const daysOccupied = (tenant: Tenant): { days: number; from: Date; to: Date } => {
+      const leaseStart = tenant.leaseStart ? new Date(tenant.leaseStart) : periodStart;
+      const leaseEnd = tenant.leaseEnd ? new Date(tenant.leaseEnd) : periodEnd;
+      const from = leaseStart > periodStart ? leaseStart : periodStart;
+      const to = leaseEnd < periodEnd ? leaseEnd : periodEnd;
+      if (to < from) return { days: 0, from, to };
+      const days = Math.round((to.getTime() - from.getTime()) / MS_PER_DAY) + 1;
+      return { days, from, to };
+    };
+
+    // Per-apartment breakdown. m² share uses the building-wide total (all
+    // active tenants summed) — matches how Swiss décomptes allocate costs.
     const totalM2 = buildingTenants.reduce((s, t) => s + (Number(t.unit?.match(/\d+/)?.[0]) || 50), 0) || 1;
     const breakdown = buildingTenants.map((tenant) => {
       const m2 = Number(tenant.unit?.match(/\d+/)?.[0]) || 50;
       const pct = m2 / totalM2;
+      const { days, from, to } = daysOccupied(tenant);
+      const proRata = periodDays > 0 ? days / periodDays : 0;
       const acomptesPaid = scopedTx
         .filter(
           (tx) =>
@@ -947,13 +969,18 @@ export function AccountingView() {
             ),
         )
         .reduce((s, tx) => s + (tx.credit || 0), 0);
-      const amountDue = chargeExpenses * pct;
+      const amountDue = chargeExpenses * pct * proRata;
       const difference = acomptesPaid - amountDue;
-      return { tenant, m2, pct, acomptesPaid, amountDue, difference };
+      return {
+        tenant, m2, pct, acomptesPaid, amountDue, difference,
+        daysOccupied: days, proRata,
+        periodFrom: from.toISOString().slice(0, 10),
+        periodTo: to.toISOString().slice(0, 10),
+      };
     });
 
-    return { acomptesTotal, chargeExpenses, solde, breakdown };
-  }, [accountTotals, buildingTenants, scopedTx]);
+    return { acomptesTotal, chargeExpenses, solde, breakdown, periodDays, year };
+  }, [accountTotals, buildingTenants, scopedTx, selectedYear]);
 
   /* ─── Input focus handler ────────────────────────────────── */
 
@@ -1936,47 +1963,70 @@ export function AccountingView() {
             >
               Répartition par appartement
             </div>
-            <div style={{ overflow: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <div style={{ padding: "6px 24px 10px", fontSize: 11, color: "var(--muted-foreground)" }}>
+              Période : 01.01.{chargesStatement.year} – 31.12.{chargesStatement.year} ({chargesStatement.periodDays} jours). Pro-rata = jours d'occupation ÷ {chargesStatement.periodDays}.
+            </div>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 980 }}>
                 <thead>
                   <tr>
                     <th style={thStyle}>Locataire</th>
                     <th style={thStyle}>Unité</th>
                     <th style={{ ...thStyle, textAlign: "right" }}>m²</th>
                     <th style={{ ...thStyle, textAlign: "right" }}>%</th>
+                    <th style={thStyle}>Occupation</th>
+                    <th style={{ ...thStyle, textAlign: "right" }}>Jours</th>
+                    <th style={{ ...thStyle, textAlign: "right" }}>Pro-rata</th>
                     <th style={{ ...thStyle, textAlign: "right" }}>Acomptes payés</th>
                     <th style={{ ...thStyle, textAlign: "right" }}>Charges dues</th>
                     <th style={{ ...thStyle, textAlign: "right" }}>Différence</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {chargesStatement.breakdown.map(({ tenant, m2, pct, acomptesPaid, amountDue, difference }) => (
-                    <tr key={tenant.id}>
-                      <td style={{ ...tdStyle, fontWeight: 600, fontSize: 13 }}>{tenant.name}</td>
-                      <td style={{ ...tdStyle, fontSize: 12, color: "var(--muted-foreground)" }}>{tenant.unit}</td>
-                      <td style={{ ...tdStyle, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{m2}</td>
-                      <td style={{ ...tdStyle, textAlign: "right", fontVariantNumeric: "tabular-nums", color: "var(--muted-foreground)" }}>
-                        {(pct * 100).toFixed(1)}%
-                      </td>
-                      <td style={{ ...tdStyle, textAlign: "right", fontVariantNumeric: "tabular-nums", color: "#16a34a", fontWeight: 600 }}>
-                        {fmtCHF(acomptesPaid)}
-                      </td>
-                      <td style={{ ...tdStyle, textAlign: "right", fontVariantNumeric: "tabular-nums", color: "#ef4444", fontWeight: 600 }}>
-                        {fmtCHF(amountDue)}
-                      </td>
-                      <td
-                        style={{
-                          ...tdStyle,
-                          textAlign: "right",
-                          fontVariantNumeric: "tabular-nums",
-                          fontWeight: 700,
-                          color: difference >= 0 ? "#16a34a" : "#ef4444",
-                        }}
-                      >
-                        {difference >= 0 ? "+" : ""}{fmtCHF(difference)}
-                      </td>
-                    </tr>
-                  ))}
+                  {chargesStatement.breakdown.map(({ tenant, m2, pct, acomptesPaid, amountDue, difference, daysOccupied, proRata, periodFrom, periodTo }) => {
+                    const fmtDate = (iso: string) => {
+                      const [y, m, d] = iso.split("-");
+                      return `${d}.${m}.${y.slice(2)}`;
+                    };
+                    return (
+                      <tr key={tenant.id}>
+                        <td style={{ ...tdStyle, fontWeight: 600, fontSize: 13 }}>{tenant.name}</td>
+                        <td style={{ ...tdStyle, fontSize: 12, color: "var(--muted-foreground)" }}>{tenant.unit}</td>
+                        <td style={{ ...tdStyle, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{m2}</td>
+                        <td style={{ ...tdStyle, textAlign: "right", fontVariantNumeric: "tabular-nums", color: "var(--muted-foreground)" }}>
+                          {(pct * 100).toFixed(1)}%
+                        </td>
+                        <td style={{ ...tdStyle, fontSize: 11, color: "var(--muted-foreground)", whiteSpace: "nowrap" }}>
+                          {daysOccupied > 0 ? `${fmtDate(periodFrom)} → ${fmtDate(periodTo)}` : "—"}
+                        </td>
+                        <td style={{ ...tdStyle, textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 12 }}>{daysOccupied}</td>
+                        <td style={{
+                          ...tdStyle, textAlign: "right", fontVariantNumeric: "tabular-nums",
+                          color: proRata < 1 ? "#B45309" : "var(--muted-foreground)",
+                          fontWeight: proRata < 1 ? 600 : 400,
+                        }}>
+                          {(proRata * 100).toFixed(2)}%
+                        </td>
+                        <td style={{ ...tdStyle, textAlign: "right", fontVariantNumeric: "tabular-nums", color: "#16a34a", fontWeight: 600 }}>
+                          {fmtCHF(acomptesPaid)}
+                        </td>
+                        <td style={{ ...tdStyle, textAlign: "right", fontVariantNumeric: "tabular-nums", color: "#ef4444", fontWeight: 600 }}>
+                          {fmtCHF(amountDue)}
+                        </td>
+                        <td
+                          style={{
+                            ...tdStyle,
+                            textAlign: "right",
+                            fontVariantNumeric: "tabular-nums",
+                            fontWeight: 700,
+                            color: difference >= 0 ? "#16a34a" : "#ef4444",
+                          }}
+                        >
+                          {difference >= 0 ? "+" : ""}{fmtCHF(difference)}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

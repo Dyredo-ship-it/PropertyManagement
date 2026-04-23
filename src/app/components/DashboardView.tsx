@@ -623,12 +623,14 @@ function AddTodoModal({
   t: (key: any) => string;
 }) {
   const [title, setTitle] = useState("");
-  const [buildingId, setBuildingId] = useState("");
+  // Default to the first building — the DB requires building_id NOT NULL on
+  // building_actions, so a task without a building silently fails to sync.
+  const [buildingId, setBuildingId] = useState<string>(buildings[0]?.id ?? "");
   const [priority, setPriority] = useState<"low" | "medium" | "high">("medium");
   const [dueDate, setDueDate] = useState("");
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
-  const canSubmit = title.trim().length > 0;
+  const canSubmit = title.trim().length > 0 && !!buildingId;
 
   const handleSubmit = () => {
     if (!canSubmit) return;
@@ -737,15 +739,18 @@ function AddTodoModal({
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
-              <label style={labelStyle}>{t("navBuildings")}</label>
+              <label style={labelStyle}>
+                {t("navBuildings")} <span style={{ color: "#DC2626" }}>*</span>
+              </label>
               <select
                 value={buildingId}
                 onChange={(e) => setBuildingId(e.target.value)}
                 onFocus={() => setFocusedField("building")}
                 onBlur={() => setFocusedField(null)}
                 style={{ ...focusStyle("building"), cursor: "pointer" }}
+                required
               >
-                <option value="">{t("allBuildings")}</option>
+                {buildings.length === 0 && <option value="">— Aucun immeuble —</option>}
                 {buildings.map((b) => (
                   <option key={b.id} value={b.id}>{b.name}</option>
                 ))}

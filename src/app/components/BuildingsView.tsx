@@ -904,7 +904,7 @@ export function BuildingsView({ onSelectBuilding, initialSelectedId }: Buildings
     units: 0,
     occupiedUnits: 0,
     monthlyRevenue: 0,
-    currency: "" as string, // "" means use base currency
+    currency: "CHF" as string,
   });
 
   useEffect(() => { loadBuildings(); }, []);
@@ -912,7 +912,7 @@ export function BuildingsView({ onSelectBuilding, initialSelectedId }: Buildings
   const loadBuildings = () => setBuildings(getBuildings());
 
   const resetForm = () =>
-    setFormData({ name: "", address: "", units: 0, occupiedUnits: 0, monthlyRevenue: 0, currency: "" });
+    setFormData({ name: "", address: "", units: 0, occupiedUnits: 0, monthlyRevenue: 0, currency: "CHF" });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
