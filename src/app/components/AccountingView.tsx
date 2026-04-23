@@ -365,20 +365,15 @@ export function AccountingView() {
   }, [selectedBuildingId]);
 
   // Filter transactions by building + search + year
-  const filteredTx = useMemo(() => {
+  // Scope: building + year only. This is the source of truth for the
+  // Compte de gérance, charges statement and rent-tracking views — none of
+  // which should ever be narrowed by a text search typed on the Transactions
+  // tab (that used to silently zero out the rest of the income statement
+  // when the user had left "102" or similar in the search box).
+  const scopedTx = useMemo(() => {
     let result = selectedBuildingId
       ? transactions.filter((tx) => tx.buildingId === selectedBuildingId)
       : transactions;
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter(
-        (tx) =>
-          tx.description?.toLowerCase().includes(q) ||
-          tx.category?.toLowerCase().includes(q) ||
-          tx.unit?.toLowerCase().includes(q) ||
-          String(tx.accountNumber).includes(q),
-      );
-    }
     if (selectedYear) {
       result = result.filter((tx) => tx.dateInvoice?.startsWith(selectedYear));
     }
@@ -388,7 +383,21 @@ export function AccountingView() {
       return sortDir === "asc" ? da.localeCompare(db) : db.localeCompare(da);
     });
     return result;
-  }, [transactions, selectedBuildingId, searchQuery, selectedYear, sortDir]);
+  }, [transactions, selectedBuildingId, selectedYear, sortDir]);
+
+  // Search-filtered view, used only by the Transactions tab table + its CSV
+  // export. Stacked on top of scopedTx so search + year stay in sync.
+  const filteredTx = useMemo(() => {
+    if (!searchQuery.trim()) return scopedTx;
+    const q = searchQuery.toLowerCase();
+    return scopedTx.filter(
+      (tx) =>
+        tx.description?.toLowerCase().includes(q) ||
+        tx.category?.toLowerCase().includes(q) ||
+        tx.unit?.toLowerCase().includes(q) ||
+        String(tx.accountNumber).includes(q),
+    );
+  }, [scopedTx, searchQuery]);
 
   // Filtered adjustments by building
   const filteredAdj = useMemo(
@@ -636,7 +645,7 @@ export function AccountingView() {
     ALL_ACCOUNTS.forEach((a) => {
       totals[a.num] = { debit: 0, credit: 0 };
     });
-    filteredTx.forEach((tx) => {
+    scopedTx.forEach((tx) => {
       if (totals[tx.accountNumber]) {
         totals[tx.accountNumber].debit += tx.debit || 0;
         totals[tx.accountNumber].credit += tx.credit || 0;
@@ -650,7 +659,7 @@ export function AccountingView() {
       }
     });
     return totals;
-  }, [filteredTx, filteredAdj]);
+  }, [scopedTx, filteredAdj, ALL_ACCOUNTS]);
 
   /* ─── Export CSV ──────────────────────────────────────────── */
 
@@ -756,7 +765,7 @@ export function AccountingView() {
       const months: Record<string, "paid" | "unpaid" | "late"> = {};
       for (let m = 1; m <= 12; m++) {
         const monthKey = `${year}-${String(m).padStart(2, "0")}`;
-        const rentTxs = filteredTx.filter(
+        const rentTxs = scopedTx.filter(
           (tx) =>
             tx.accountNumber === 101 &&
             tx.month === monthKey &&
@@ -783,7 +792,7 @@ export function AccountingView() {
       }
       return { tenant, months };
     });
-  }, [buildingTenants, filteredTx, selectedYear, rentSettings]);
+  }, [buildingTenants, scopedTx, selectedYear, rentSettings]);
 
   // Rent summary for current month
   const rentSummary = useMemo(() => {
@@ -888,13 +897,13 @@ export function AccountingView() {
     const soldeApres = solde - ownerPayment;
 
     // Verification
-    const totalDebit = filteredTx.reduce((s, tx) => s + (tx.debit || 0), 0) +
+    const totalDebit = scopedTx.reduce((s, tx) => s + (tx.debit || 0), 0) +
       filteredAdj.filter((a) => a.type === "debit").reduce((s, a) => s + a.amount, 0);
-    const totalCredit = filteredTx.reduce((s, tx) => s + (tx.credit || 0), 0) +
+    const totalCredit = scopedTx.reduce((s, tx) => s + (tx.credit || 0), 0) +
       filteredAdj.filter((a) => a.type === "credit").reduce((s, a) => s + a.amount, 0);
 
     return { revenueTotal, expenseTotal, investTotal, totalExpenses, solde, ownerPayment, soldeApres, totalDebit, totalCredit };
-  }, [accountTotals, filteredTx, filteredAdj]);
+  }, [accountTotals, scopedTx, filteredAdj, REVENUE_ACCOUNTS, EXPENSE_ACCOUNTS, INVESTMENT_ACCOUNTS, OWNER_ACCOUNTS]);
 
   /* ─── Charges statement ──────────────────────────────────── */
 
@@ -916,7 +925,7 @@ export function AccountingView() {
     const breakdown = buildingTenants.map((tenant) => {
       const m2 = Number(tenant.unit?.match(/\d+/)?.[0]) || 50;
       const pct = m2 / totalM2;
-      const acomptesPaid = filteredTx
+      const acomptesPaid = scopedTx
         .filter(
           (tx) =>
             tx.accountNumber === 103 &&
@@ -931,7 +940,7 @@ export function AccountingView() {
     });
 
     return { acomptesTotal, chargeExpenses, solde, breakdown };
-  }, [accountTotals, buildingTenants, filteredTx]);
+  }, [accountTotals, buildingTenants, scopedTx]);
 
   /* ─── Input focus handler ────────────────────────────────── */
 
