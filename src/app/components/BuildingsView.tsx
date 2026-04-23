@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { getBuildings, saveBuildings, getTenants, getMaintenanceRequests, getAccountingSettings, saveAccountingSettings, type Building, type Currency, type Tenant, type MaintenanceRequest, type AccountingSettings } from "../utils/storage";
 import { computeNetIncome, formatRatio } from "../utils/financialMetrics";
+import { BuildingUnitsGrid } from "./BuildingUnitsGrid";
 import { OwnerFichePanel } from "./OwnerFichePanel";
 import { RentIncreaseCalculator } from "./RentIncreaseCalculator";
 import { useLanguage } from "../i18n/LanguageContext";
@@ -523,6 +524,13 @@ function BuildingTabs({ building, t, occPct, occColor, formattedRevenue }: {
       {/* Tab content */}
       {activeTab === "overview" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* Visual unit status grid — live payment heatmap */}
+          <BuildingUnitsGrid
+            building={building}
+            tenants={bTenants}
+            acctSettings={acctSettings}
+          />
+
           {/* Occupancy bar */}
           <div style={{ padding: "14px 18px", borderRadius: 12, background: "var(--card)", border: "1px solid var(--border)" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
