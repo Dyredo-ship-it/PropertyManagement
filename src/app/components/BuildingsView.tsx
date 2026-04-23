@@ -27,6 +27,7 @@ import {
   User,
 } from "lucide-react";
 import { getBuildings, saveBuildings, getTenants, getMaintenanceRequests, getAccountingSettings, saveAccountingSettings, type Building, type Currency, type Tenant, type MaintenanceRequest, type AccountingSettings } from "../utils/storage";
+import { computeNetIncome, formatRatio } from "../utils/financialMetrics";
 import { OwnerFichePanel } from "./OwnerFichePanel";
 import { RentIncreaseCalculator } from "./RentIncreaseCalculator";
 import { useLanguage } from "../i18n/LanguageContext";
@@ -61,6 +62,8 @@ function BuildingBubble({
   onDelete,
   t,
   formattedRevenue,
+  netIncomeRatio,
+  netIncomePositive,
 }: {
   building: Building;
   index: number;
@@ -69,6 +72,8 @@ function BuildingBubble({
   onDelete: (id: string) => void;
   t: (k: string) => string;
   formattedRevenue: string;
+  netIncomeRatio: string;
+  netIncomePositive: boolean | null;
 }) {
   const photo = building.imageUrl || BUILDING_PHOTOS[index % BUILDING_PHOTOS.length];
   const occPct =
@@ -173,7 +178,7 @@ function BuildingBubble({
           </p>
 
           {/* Stats row */}
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <Home style={{ width: 14, height: 14, color: "rgba(255,255,255,0.6)" }} />
               <span style={{ fontSize: 13, fontWeight: 600, color: "#FFFFFF" }}>
@@ -184,6 +189,27 @@ function BuildingBubble({
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{ fontSize: 13, fontWeight: 600, color: "#FFFFFF" }}>
                 {formattedRevenue}
+              </span>
+            </div>
+            <div style={{ width: 1, height: 16, background: "rgba(255,255,255,0.25)" }} />
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <TrendingUp style={{
+                width: 14, height: 14,
+                color: netIncomePositive === null
+                  ? "rgba(255,255,255,0.6)"
+                  : netIncomePositive
+                    ? "#86efac"
+                    : "#fca5a5",
+              }} />
+              <span style={{
+                fontSize: 13, fontWeight: 600,
+                color: netIncomePositive === null
+                  ? "rgba(255,255,255,0.7)"
+                  : netIncomePositive
+                    ? "#bbf7d0"
+                    : "#fecaca",
+              }}>
+                {netIncomeRatio}
               </span>
             </div>
           </div>
@@ -934,6 +960,26 @@ export function BuildingsView({ onSelectBuilding, initialSelectedId }: Buildings
   const totalRevenue = buildings.reduce((s, b) => s + convertToBase(b.monthlyRevenue, getBuildingCurrency(b)), 0);
   const globalOcc = totalUnits > 0 ? Math.round((totalOccupied / totalUnits) * 100) : 0;
 
+  const perBuildingMetrics = React.useMemo(() => {
+    const map: Record<string, ReturnType<typeof computeNetIncome>> = {};
+    for (const b of buildings) map[b.id] = computeNetIncome({ buildingId: b.id });
+    return map;
+  }, [buildings]);
+
+  const overallMetrics = React.useMemo(() => {
+    const totals = Object.values(perBuildingMetrics).reduce(
+      (acc, m) => ({
+        revenue: acc.revenue + m.revenue,
+        expenses: acc.expenses + m.expenses,
+        hasData: acc.hasData || m.hasData,
+      }),
+      { revenue: 0, expenses: 0, hasData: false },
+    );
+    const netIncome = totals.revenue - totals.expenses;
+    const netIncomeRatio = totals.revenue > 0 ? (netIncome / totals.revenue) * 100 : 0;
+    return { ...totals, netIncome, netIncomeRatio };
+  }, [perBuildingMetrics]);
+
   const selectedBuilding = selectedId
     ? buildings.find((b) => b.id === selectedId) ?? null
     : null;
@@ -1016,7 +1062,7 @@ export function BuildingsView({ onSelectBuilding, initialSelectedId }: Buildings
       {/* Summary strip */}
       {buildings.length > 0 && (
         <div
-          className="flex items-center justify-between gap-4 flex-wrap"
+          className="flex items-stretch justify-between gap-4 flex-wrap"
           style={{
             padding: "16px 24px",
             borderRadius: 16,
@@ -1030,21 +1076,22 @@ export function BuildingsView({ onSelectBuilding, initialSelectedId }: Buildings
             { label: t("totalUnits"), value: totalUnits.toString() },
             { label: t("occupancyRate"), value: `${globalOcc}%` },
             { label: t("monthlyRevenue"), value: formatAmount(totalRevenue) },
+            { label: t("netIncomeRatio"), value: formatRatio(overallMetrics.netIncomeRatio, overallMetrics.hasData) },
           ].map((m, i, arr) => (
             <React.Fragment key={m.label}>
-              <div className="text-center">
-                <p className="text-[18px] font-bold" style={{ color: "var(--foreground)" }}>
+              <div className="text-center flex flex-col">
+                <p className="text-[18px] font-bold" style={{ color: "var(--foreground)", lineHeight: 1.2 }}>
                   {m.value}
                 </p>
                 <p
                   className="text-[10px] uppercase mt-0.5"
-                  style={{ color: "var(--muted-foreground)", letterSpacing: "0.06em" }}
+                  style={{ color: "var(--muted-foreground)", letterSpacing: "0.06em", lineHeight: 1.3, minHeight: "2.6em" }}
                 >
                   {m.label}
                 </p>
               </div>
               {i < arr.length - 1 && (
-                <div className="h-8 w-px hidden sm:block" style={{ background: "var(--border)" }} />
+                <div className="h-8 w-px hidden sm:block self-center" style={{ background: "var(--border)" }} />
               )}
             </React.Fragment>
           ))}
@@ -1060,18 +1107,23 @@ export function BuildingsView({ onSelectBuilding, initialSelectedId }: Buildings
             gap: 28,
           }}
         >
-          {buildings.map((b, i) => (
-            <BuildingBubble
-              key={b.id}
-              building={b}
-              index={i}
-              onClick={() => setSelectedId(b.id)}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-              t={t}
-              formattedRevenue={formatAmount(b.monthlyRevenue, getBuildingCurrency(b))}
-            />
-          ))}
+          {buildings.map((b, i) => {
+            const m = perBuildingMetrics[b.id];
+            return (
+              <BuildingBubble
+                key={b.id}
+                building={b}
+                index={i}
+                onClick={() => setSelectedId(b.id)}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+                t={t}
+                formattedRevenue={formatAmount(b.monthlyRevenue, getBuildingCurrency(b))}
+                netIncomeRatio={m ? formatRatio(m.netIncomeRatio, m.hasData) : "—"}
+                netIncomePositive={m ? m.hasData && m.netIncome >= 0 : null}
+              />
+            );
+          })}
         </div>
       ) : (
         <div

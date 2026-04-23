@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Calculator, Download, Plus, Trash2 } from "lucide-react";
+import { Calculator, Download, Plus, Trash2, AlertTriangle, TrendingDown, TrendingUp } from "lucide-react";
 
 /**
  * Swiss rent-increase calculator following the SVIT / HEV methodology
@@ -117,7 +117,12 @@ export function RentIncreaseCalculator() {
   const removeApt = (id: string) => setApartments((p) => p.filter((a) => a.id !== id));
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+      <RentAdjustmentCalculator />
+
+      {/* ═══ Séparateur ═══ */}
+      <div style={{ height: 1, background: "var(--border)" }} />
+
       {/* ── Header ── */}
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <div style={{
@@ -130,7 +135,7 @@ export function RentIncreaseCalculator() {
         </div>
         <div>
           <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: "var(--foreground)" }}>
-            Calculateur d'augmentation de loyer
+            Calculateur d'augmentation de loyer — travaux à plus-value
           </h2>
           <p style={{ fontSize: 12, color: "var(--muted-foreground)", margin: "2px 0 0" }}>
             Méthodes SVIT & HEV après travaux à plus-value
@@ -361,4 +366,223 @@ const inlineInput: React.CSSProperties = {
 const iconBtn: React.CSSProperties = {
   padding: 4, borderRadius: 6, border: "1px solid var(--border)", background: "transparent",
   cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+};
+
+/* ═══════════════════════════════════════════════════════════════
+   Rent adjustment calculator — from reference rate + CPI changes
+
+   - Rate variation:  ((oldRate - newRate) / 0.25) × stepFactor
+   - CPI variation:   (newCPI / oldCPI - 1) × 40%
+   - Charges:         user-entered percentage applied on reference rent
+   The three variations are additive (applied on the reference rent).
+═══════════════════════════════════════════════════════════════ */
+
+const CPI_BASES = [
+  "Décembre 2020 = 100",
+  "Mai 2000 = 100",
+  "Décembre 2015 = 100",
+  "Décembre 2010 = 100",
+  "Décembre 2005 = 100",
+  "Mai 1993 = 100",
+];
+
+function RentAdjustmentCalculator() {
+  const [referenceRent, setReferenceRent] = useState<number>(695);
+
+  // Reference rate
+  const [oldRate, setOldRate] = useState<number>(1.5);
+  const [newRate, setNewRate] = useState<number>(1.25);
+  const [stepFactor, setStepFactor] = useState<number>(2.91); // % per 0.25% step
+  const [oldRateDate, setOldRateDate] = useState<string>("");
+  const [newRateDate, setNewRateDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+
+  // CPI (IPC)
+  const [oldCpi, setOldCpi] = useState<number>(125.7);
+  const [newCpi, setNewCpi] = useState<number>(169);
+  const [cpiBase, setCpiBase] = useState<string>(CPI_BASES[0]);
+
+  // Charges evolution
+  const [chargesPct, setChargesPct] = useState<number>(0);
+
+  const rateVariationPct = useMemo(() => {
+    // ((oldRate - newRate) / 0.25) × stepFactor  → gives a %
+    const steps = (oldRate - newRate) / 0.25;
+    return steps * stepFactor;
+  }, [oldRate, newRate, stepFactor]);
+
+  const cpiVariationPct = useMemo(() => {
+    if (!oldCpi) return 0;
+    return (newCpi / oldCpi - 1) * 40;
+  }, [oldCpi, newCpi]);
+
+  const totalVariationPct = rateVariationPct + cpiVariationPct + chargesPct;
+
+  const rateAmount = (referenceRent * rateVariationPct) / 100;
+  const cpiAmount = (referenceRent * cpiVariationPct) / 100;
+  const chargesAmount = (referenceRent * chargesPct) / 100;
+  const totalAmount = rateAmount + cpiAmount + chargesAmount;
+  const newRent = referenceRent + totalAmount;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{
+          width: 36, height: 36, borderRadius: 10,
+          background: "color-mix(in srgb, var(--primary) 12%, transparent)",
+          color: "var(--primary)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <Calculator style={{ width: 18, height: 18 }} />
+        </div>
+        <div>
+          <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: "var(--foreground)" }}>
+            Calculateur de variation de loyer
+          </h2>
+          <p style={{ fontSize: 12, color: "var(--muted-foreground)", margin: "2px 0 0" }}>
+            Variation due au taux d'intérêt de référence et à l'IPC
+          </p>
+        </div>
+      </div>
+
+      {/* Reference rent */}
+      <div style={cardStyle}>
+        <div style={cardHeader}>Loyer net de référence</div>
+        <div style={{ padding: 14, display: "grid", gridTemplateColumns: "1fr", gap: 10 }}>
+          <Field label="Loyer de référence (CHF / mois)">
+            <NumInput value={referenceRent} onChange={setReferenceRent} />
+          </Field>
+        </div>
+      </div>
+
+      {/* Reference rate block */}
+      <div style={cardStyle}>
+        <div style={cardHeader}>
+          <span>Taux d'intérêt de référence</span>
+          <span style={{
+            fontSize: 11, color: rateVariationPct >= 0 ? "#16A34A" : "#DC2626",
+            display: "flex", alignItems: "center", gap: 4,
+          }}>
+            {rateVariationPct >= 0 ? <TrendingUp style={{ width: 12, height: 12 }} /> : <TrendingDown style={{ width: 12, height: 12 }} />}
+            {rateVariationPct >= 0 ? "+" : ""}{rateVariationPct.toFixed(2)}%
+          </span>
+        </div>
+        <div style={{ padding: 14, display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
+          <Field label="Date (Ancien)">
+            <input type="date" value={oldRateDate} onChange={(e) => setOldRateDate(e.target.value)} style={dateInput} />
+          </Field>
+          <Field label="Date (Nouveau)">
+            <input type="date" value={newRateDate} onChange={(e) => setNewRateDate(e.target.value)} style={dateInput} />
+          </Field>
+          <Field label="Ancien taux (%)">
+            <NumInput value={oldRate} onChange={setOldRate} step={0.25} />
+          </Field>
+          <Field label="Nouveau taux (%)">
+            <NumInput value={newRate} onChange={setNewRate} step={0.25} />
+          </Field>
+          <Field label="Variation par 0.25% (%)">
+            <NumInput value={stepFactor} onChange={setStepFactor} step={0.01} />
+          </Field>
+          <Field label="Impact mensuel (CHF)">
+            <div style={readonlyValue}>{fmt(rateAmount)}</div>
+          </Field>
+        </div>
+      </div>
+
+      {/* CPI block */}
+      <div style={cardStyle}>
+        <div style={cardHeader}>
+          <span>Indice des prix à la consommation (IPC)</span>
+          <span style={{
+            fontSize: 11, color: cpiVariationPct >= 0 ? "#16A34A" : "#DC2626",
+            display: "flex", alignItems: "center", gap: 4,
+          }}>
+            {cpiVariationPct >= 0 ? <TrendingUp style={{ width: 12, height: 12 }} /> : <TrendingDown style={{ width: 12, height: 12 }} />}
+            {cpiVariationPct >= 0 ? "+" : ""}{cpiVariationPct.toFixed(2)}%
+          </span>
+        </div>
+        <div style={{ padding: 14, display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
+          <Field label="Ancien indice">
+            <NumInput value={oldCpi} onChange={setOldCpi} step={0.1} />
+          </Field>
+          <Field label="Nouvel indice">
+            <NumInput value={newCpi} onChange={setNewCpi} step={0.1} />
+          </Field>
+          <div style={{ gridColumn: "1 / -1" }}>
+            <Field label="Base de référence (doit être identique pour les deux indices)">
+              <select
+                value={cpiBase}
+                onChange={(e) => setCpiBase(e.target.value)}
+                style={{
+                  width: "100%", padding: "7px 10px", borderRadius: 8,
+                  border: "1px solid var(--border)", background: "var(--card)",
+                  color: "var(--foreground)", fontSize: 12, outline: "none",
+                }}
+              >
+                {CPI_BASES.map((b) => <option key={b} value={b}>{b}</option>)}
+              </select>
+            </Field>
+          </div>
+          <Field label="Impact mensuel (CHF)">
+            <div style={readonlyValue}>{fmt(cpiAmount)}</div>
+          </Field>
+        </div>
+        <div style={{
+          margin: "0 14px 14px", padding: "8px 12px", borderRadius: 8,
+          background: "color-mix(in srgb, #F59E0B 10%, transparent)",
+          border: "1px solid color-mix(in srgb, #F59E0B 35%, transparent)",
+          display: "flex", alignItems: "flex-start", gap: 8,
+          fontSize: 11, color: "var(--foreground)",
+        }}>
+          <AlertTriangle style={{ width: 13, height: 13, color: "#B45309", flexShrink: 0, marginTop: 1 }} />
+          <span>
+            Les deux indices IPC doivent utiliser la <b>même base de référence</b> (sélectionnée ci-dessus).
+            Sinon, convertissez-les via l'OFS avant de saisir. Seuls 40% de la variation IPC se répercute sur le loyer (Art. 269a CO).
+          </span>
+        </div>
+      </div>
+
+      {/* Charges block */}
+      <div style={cardStyle}>
+        <div style={cardHeader}>
+          <span>Travaux à plus-value / évolution des charges</span>
+          <span style={{
+            fontSize: 11, color: chargesPct >= 0 ? "#16A34A" : "#DC2626",
+          }}>
+            {chargesPct >= 0 ? "+" : ""}{chargesPct.toFixed(2)}%
+          </span>
+        </div>
+        <div style={{ padding: 14, display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
+          <Field label="Variation (%)">
+            <NumInput value={chargesPct} onChange={setChargesPct} step={0.1} />
+          </Field>
+          <Field label="Impact mensuel (CHF)">
+            <div style={readonlyValue}>{fmt(chargesAmount)}</div>
+          </Field>
+        </div>
+      </div>
+
+      {/* Summary */}
+      <div style={{
+        display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12,
+      }}>
+        <KpiCard label="Variation totale" value={`${totalVariationPct >= 0 ? "+" : ""}${totalVariationPct.toFixed(2)} %`} />
+        <KpiCard label="Variation du loyer" value={`${totalAmount >= 0 ? "+" : ""}CHF ${fmt(totalAmount)}`} />
+        <KpiCard label="Nouveau loyer" value={`CHF ${fmt(newRent)}`} highlight />
+      </div>
+    </div>
+  );
+}
+
+const dateInput: React.CSSProperties = {
+  width: "100%", padding: "7px 10px", borderRadius: 8,
+  border: "1px solid var(--border)", background: "var(--card)",
+  color: "var(--foreground)", fontSize: 12, outline: "none",
+};
+const readonlyValue: React.CSSProperties = {
+  width: "100%", padding: "7px 10px", borderRadius: 8,
+  border: "1px solid var(--border)", background: "var(--background)",
+  color: "var(--foreground)", fontSize: 12,
+  fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+  fontWeight: 600,
 };

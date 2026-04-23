@@ -1768,7 +1768,7 @@ export function TenantsView() {
         {tenants.length > 0 && (
           <div
             style={{
-              display: "flex", alignItems: "center", justifyContent: "space-between",
+              display: "flex", alignItems: "stretch", justifyContent: "space-between",
               gap: 16, flexWrap: "wrap",
               padding: "16px 24px",
               borderRadius: 16,
@@ -1783,16 +1783,16 @@ export function TenantsView() {
               { label: t("navBuildings"), value: String(buildings.length) },
             ].map((m, i, arr) => (
               <React.Fragment key={m.label}>
-                <div style={{ textAlign: "center" }}>
-                  <p style={{ fontSize: 18, fontWeight: 700, color: "var(--foreground)", margin: 0 }}>
+                <div style={{ textAlign: "center", display: "flex", flexDirection: "column", justifyContent: "flex-start" }}>
+                  <p style={{ fontSize: 18, fontWeight: 700, color: "var(--foreground)", margin: 0, lineHeight: 1.2 }}>
                     {m.value}
                   </p>
-                  <p style={{ fontSize: 10, textTransform: "uppercase", marginTop: 2, color: "var(--muted-foreground)", letterSpacing: "0.06em", fontWeight: 500, margin: 0 }}>
+                  <p style={{ fontSize: 10, textTransform: "uppercase", marginTop: 2, color: "var(--muted-foreground)", letterSpacing: "0.06em", fontWeight: 500, margin: 0, lineHeight: 1.3, minHeight: "2.6em" }}>
                     {m.label}
                   </p>
                 </div>
                 {i < arr.length - 1 && (
-                  <div style={{ height: 32, width: 1, background: "var(--border)" }} />
+                  <div style={{ alignSelf: "center", height: 32, width: 1, background: "var(--border)" }} />
                 )}
               </React.Fragment>
             ))}

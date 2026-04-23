@@ -94,7 +94,7 @@ const TOOLS = [
   {
     name: "get_accounting_summary",
     description:
-      "Résumé comptable: total des recettes, dépenses et solde pour une période donnée (mois ou année). Requiert l'accès Comptabilité.",
+      "Résumé comptable: total des recettes, dépenses et solde pour une période donnée (mois ou année). Si compare_period est fourni, renvoie aussi les totaux de la période de comparaison et la variation en pourcentage — utile pour répondre à des questions du type 'combien de revenus en mars 2026 vs mars 2025'. Requiert l'accès Comptabilité.",
     input_schema: {
       type: "object",
       required: ["period"],
@@ -103,6 +103,10 @@ const TOOLS = [
         period: {
           type: "string",
           description: "YYYY-MM pour un mois, YYYY pour une année entière.",
+        },
+        compare_period: {
+          type: "string",
+          description: "Période de comparaison (même format que period). Typiquement l'équivalent an -1. Optionnel.",
         },
       },
     },
@@ -395,38 +399,71 @@ async function executeTool(
       case "get_accounting_summary": {
         if (!can(ctx, "accounting")) return { ok: false, error: "Permission accounting manquante." };
         const period = input.period as string;
-        let q = supabase.from("accounting_transactions").select("account_number, debit, credit, month");
+        const comparePeriod = (input.compare_period as string | undefined) || null;
+
+        let buildingId: string | null = null;
         if (input.building) {
           const b = await findBuilding(supabase, input.building as string);
-          if (b) q = q.eq("building_id", b.id);
+          if (b) buildingId = b.id;
         }
-        if (period.length === 4) q = q.like("month", `${period}-%`); // year
-        else q = q.eq("month", period); // month
-        const { data, error } = await q;
-        if (error) return { ok: false, error: error.message };
 
-        let revenues = 0, expenses = 0, investments = 0, ownerPayments = 0;
-        for (const tx of data ?? []) {
-          const num = tx.account_number as number;
-          const netCredit = (tx.credit ?? 0) - (tx.debit ?? 0);
-          const netDebit = (tx.debit ?? 0) - (tx.credit ?? 0);
-          if (num >= 101 && num < 200) revenues += netCredit;
-          else if (num >= 201 && num < 300) expenses += netDebit;
-          else if (num >= 301 && num < 400) investments += netDebit;
-          else if (num >= 401 && num < 500) ownerPayments += netDebit;
-        }
-        return {
-          ok: true,
-          data: {
-            period,
-            currency: "CHF",
-            revenues: Math.round(revenues * 100) / 100,
-            expenses: Math.round(expenses * 100) / 100,
-            investments: Math.round(investments * 100) / 100,
-            owner_payments: Math.round(ownerPayments * 100) / 100,
-            net: Math.round((revenues - expenses - investments) * 100) / 100,
-          },
+        const fetchTotals = async (p: string) => {
+          let q = supabase.from("accounting_transactions").select("account_number, debit, credit, month");
+          if (buildingId) q = q.eq("building_id", buildingId);
+          if (p.length === 4) q = q.like("month", `${p}-%`);
+          else q = q.eq("month", p);
+          const { data, error } = await q;
+          if (error) throw new Error(error.message);
+          let revenues = 0, expenses = 0, investments = 0, ownerPayments = 0;
+          for (const tx of data ?? []) {
+            const num = tx.account_number as number;
+            const netCredit = (tx.credit ?? 0) - (tx.debit ?? 0);
+            const netDebit = (tx.debit ?? 0) - (tx.credit ?? 0);
+            if (num >= 101 && num < 200) revenues += netCredit;
+            else if (num >= 201 && num < 300) expenses += netDebit;
+            else if (num >= 301 && num < 400) investments += netDebit;
+            else if (num >= 401 && num < 500) ownerPayments += netDebit;
+          }
+          const round = (v: number) => Math.round(v * 100) / 100;
+          return {
+            period: p,
+            revenues: round(revenues),
+            expenses: round(expenses),
+            investments: round(investments),
+            owner_payments: round(ownerPayments),
+            net: round(revenues - expenses - investments),
+          };
         };
+
+        try {
+          const current = await fetchTotals(period);
+          if (!comparePeriod) {
+            return { ok: true, data: { currency: "CHF", ...current } };
+          }
+          const prior = await fetchTotals(comparePeriod);
+          const pctChange = (cur: number, p: number) => {
+            if (!p) return null;
+            return Math.round(((cur - p) / Math.abs(p)) * 1000) / 10; // 1 decimal
+          };
+          return {
+            ok: true,
+            data: {
+              currency: "CHF",
+              current,
+              compare: prior,
+              delta: {
+                revenues_pct: pctChange(current.revenues, prior.revenues),
+                expenses_pct: pctChange(current.expenses, prior.expenses),
+                net_pct: pctChange(current.net, prior.net),
+                revenues_abs: Math.round((current.revenues - prior.revenues) * 100) / 100,
+                expenses_abs: Math.round((current.expenses - prior.expenses) * 100) / 100,
+                net_abs: Math.round((current.net - prior.net) * 100) / 100,
+              },
+            },
+          };
+        } catch (err) {
+          return { ok: false, error: (err as Error).message };
+        }
       }
 
       case "list_upcoming_lease_ends": {

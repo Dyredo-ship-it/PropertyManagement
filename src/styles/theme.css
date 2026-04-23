@@ -177,6 +177,19 @@ body {
   }
 }
 
+/* iOS Safari auto-zooms on focus when an input's font-size is < 16px.
+   Force 16px on all editable controls at phone/tablet widths so focusing
+   a field (or opening a modal that autoFocuses one) doesn't trigger the
+   viewport zoom. Keeps the rendered caret box stable without touching
+   desktop styles. */
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
 /* ── Mobile-only layout fixes ─────────────────────────────────
    Everything in this block must stay scoped to small viewports so
    desktop layouts are not disturbed. */

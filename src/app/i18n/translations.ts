@@ -81,6 +81,7 @@ type TranslationSet = {
   occupancyRate: string;
   occupiedOf: string;
   monthlyRevenue: string;
+  netIncomeRatio: string;
   combinedTotal: string;
   pendingRequests: string;
   totalRequests: string;
@@ -667,6 +668,7 @@ export const translations: Record<Language, TranslationSet> = {
     occupancyRate: "Taux d'occupation",
     occupiedOf: "occupées sur",
     monthlyRevenue: "Revenus mensuels",
+    netIncomeRatio: "Marge nette",
     combinedTotal: "Total combiné",
     pendingRequests: "Demandes en attente",
     totalRequests: "demandes au total",
@@ -1230,6 +1232,7 @@ export const translations: Record<Language, TranslationSet> = {
     occupancyRate: "Occupancy Rate",
     occupiedOf: "occupied of",
     monthlyRevenue: "Monthly Revenue",
+    netIncomeRatio: "Net margin",
     combinedTotal: "Combined total",
     pendingRequests: "Pending Requests",
     totalRequests: "total requests",
@@ -1793,6 +1796,7 @@ export const translations: Record<Language, TranslationSet> = {
     occupancyRate: "Belegungsrate",
     occupiedOf: "belegt von",
     monthlyRevenue: "Monatliche Einnahmen",
+    netIncomeRatio: "Nettomarge",
     combinedTotal: "Gesamtsumme",
     pendingRequests: "Offene Anfragen",
     totalRequests: "Anfragen gesamt",
@@ -2356,6 +2360,7 @@ export const translations: Record<Language, TranslationSet> = {
     occupancyRate: "Tasso di occupazione",
     occupiedOf: "occupate su",
     monthlyRevenue: "Entrate mensili",
+    netIncomeRatio: "Margine netto",
     combinedTotal: "Totale combinato",
     pendingRequests: "Richieste in sospeso",
     totalRequests: "richieste totali",
