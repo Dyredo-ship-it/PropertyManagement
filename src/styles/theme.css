@@ -205,6 +205,15 @@ body {
   }
 }
 
+/* Rent-increase sub-tabs — on iPhone the two tabs side-by-side squeeze
+   the subtitles into ellipsis; stack vertically so each row gets full
+   width and the label + subtitle stay readable. */
+@media (max-width: 767px) {
+  .rent-subtabs {
+    grid-template-columns: 1fr !important;
+  }
+}
+
 /* ── Mobile-only layout fixes ─────────────────────────────────
    Everything in this block must stay scoped to small viewports so
    desktop layouts are not disturbed. */

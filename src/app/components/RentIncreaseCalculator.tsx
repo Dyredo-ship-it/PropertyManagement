@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Calculator, Download, Plus, Trash2, AlertTriangle, TrendingDown, TrendingUp } from "lucide-react";
+import { Calculator, Download, Plus, Trash2, AlertTriangle, TrendingDown, TrendingUp, Wrench } from "lucide-react";
 
 /**
  * Swiss rent-increase calculator following the SVIT / HEV methodology
@@ -50,6 +50,7 @@ function fmt(n: number): string {
 }
 
 export function RentIncreaseCalculator() {
+  const [activeSubTab, setActiveSubTab] = useState<"variation" | "travaux">("variation");
   const [rows, setRows] = useState<Row[]>(DEFAULT_ROWS);
   const [subventions, setSubventions] = useState<number>(0);
   const [rateRef, setRateRef] = useState<number>(1.25);     // taux hypothécaire de référence, %
@@ -116,13 +117,80 @@ export function RentIncreaseCalculator() {
   const addApt = () => setApartments((p) => [...p, { id: `apt${Date.now()}`, label: "Appartement", rooms: 3 }]);
   const removeApt = (id: string) => setApartments((p) => p.filter((a) => a.id !== id));
 
+  const subTabs = [
+    {
+      key: "variation" as const,
+      label: "Variation taux + IPC",
+      sub: "Taux d'intérêt de référence & indice des prix",
+      icon: TrendingUp,
+    },
+    {
+      key: "travaux" as const,
+      label: "Travaux à plus-value",
+      sub: "Méthodes SVIT / HEV après rénovation",
+      icon: Wrench,
+    },
+  ];
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
-      <RentAdjustmentCalculator />
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      {/* ── Sub-tab switcher ── */}
+      <div
+        className="rent-subtabs"
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+          gap: 8,
+          padding: 4,
+          borderRadius: 12,
+          background: "var(--background)",
+          border: "1px solid var(--border)",
+        }}
+      >
+        {subTabs.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeSubTab === tab.key;
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setActiveSubTab(tab.key)}
+              style={{
+                display: "flex", alignItems: "center", gap: 10,
+                padding: "12px 14px", borderRadius: 9,
+                background: isActive ? "var(--card)" : "transparent",
+                color: isActive ? "var(--foreground)" : "var(--muted-foreground)",
+                boxShadow: isActive ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+                border: "none", cursor: "pointer", textAlign: "left",
+                transition: "all 0.15s",
+                minWidth: 0,
+              }}
+            >
+              <div style={{
+                width: 32, height: 32, borderRadius: 8, flexShrink: 0,
+                background: isActive ? "color-mix(in srgb, var(--primary) 12%, transparent)" : "transparent",
+                color: isActive ? "var(--primary)" : "var(--muted-foreground)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}>
+                <Icon style={{ width: 16, height: 16 }} />
+              </div>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {tab.label}
+                </div>
+                <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {tab.sub}
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
 
-      {/* ═══ Séparateur ═══ */}
-      <div style={{ height: 1, background: "var(--border)" }} />
+      {activeSubTab === "variation" && <RentAdjustmentCalculator />}
 
+      {activeSubTab === "travaux" && (
+      <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
       {/* ── Header ── */}
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <div style={{
@@ -290,6 +358,8 @@ export function RentIncreaseCalculator() {
         <Download style={{ width: 13, height: 13 }} />
         Astuce : Cmd/Ctrl+P pour exporter cette page en PDF et l'envoyer avec les avis d'augmentation officiels.
       </div>
+      </div>
+      )}
     </div>
   );
 }
