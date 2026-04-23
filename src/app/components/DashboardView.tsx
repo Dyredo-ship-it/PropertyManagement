@@ -163,13 +163,6 @@ function AdminDashboard({
     setTodos(getBuildingActions());
   };
 
-  /* ─── Late payment tenants ─── */
-  const latePaymentTenants = useMemo(() => {
-    return (tenants as any[]).filter((tn) =>
-      tn.status === "active" && (tn.paymentStatus === "late" || tn.paymentStatus === "very-late")
-    ).sort((a: any, b: any) => (b.latePaymentMonths ?? 1) - (a.latePaymentMonths ?? 1));
-  }, [tenants]);
-
   /* ─── Overdue rents live-computed from transactions ─── */
   const [overdueThisMonth, setOverdueThisMonth] = useState<TenantRentMonth[]>(() => listOverdueThisMonth());
   const [sendingReminderId, setSendingReminderId] = useState<string | null>(null);
@@ -450,84 +443,8 @@ function AdminDashboard({
           </div>
         </div>
 
-        {/* ── Right sidebar: Late Payments + To-Do + Buildings ── */}
+        {/* ── Right sidebar: To-Do + Buildings ── */}
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-
-          {/* ═══ LATE PAYMENTS ═══ */}
-          <div style={{
-            borderRadius: 14, border: "1px solid var(--border)",
-            background: "var(--card)", padding: "18px 20px",
-          }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-              <CreditCard style={{ width: 15, height: 15, color: "#DC2626" }} />
-              <h3 style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)", margin: 0 }}>
-                {t("latePayments")}
-              </h3>
-              {latePaymentTenants.length > 0 && (
-                <span style={{
-                  minWidth: 20, height: 20, borderRadius: 10,
-                  background: "rgba(239,68,68,0.10)", color: "#DC2626",
-                  fontSize: 11, fontWeight: 700,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  padding: "0 6px", marginLeft: "auto",
-                }}>
-                  {latePaymentTenants.length}
-                </span>
-              )}
-            </div>
-
-            {latePaymentTenants.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "16px 0" }}>
-                <CheckCircle2 style={{ width: 20, height: 20, color: "#22C55E", margin: "0 auto 6px", opacity: 0.6 }} />
-                <p style={{ fontSize: 12, color: "var(--muted-foreground)", margin: 0 }}>
-                  {t("allPaymentsUpToDate")}
-                </p>
-              </div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {latePaymentTenants.slice(0, 5).map((tn: any) => {
-                  const isVeryLate = tn.paymentStatus === "very-late";
-                  const months = tn.latePaymentMonths ?? 1;
-                  const total = (Number(tn.rentNet ?? 0) || 0) + (Number(tn.charges ?? 0) || 0);
-                  return (
-                    <div
-                      key={tn.id}
-                      style={{
-                        display: "flex", alignItems: "center", gap: 10,
-                        padding: "10px 12px", borderRadius: 10,
-                        background: isVeryLate ? "rgba(239,68,68,0.04)" : "var(--background)",
-                        border: isVeryLate ? "1px solid rgba(239,68,68,0.15)" : "1px solid transparent",
-                      }}
-                    >
-                      <div style={{
-                        width: 32, height: 32, borderRadius: 8,
-                        background: isVeryLate ? "rgba(239,68,68,0.10)" : "rgba(245,158,11,0.10)",
-                        color: isVeryLate ? "#DC2626" : "#B45309",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        fontSize: 11, fontWeight: 700, flexShrink: 0,
-                      }}>
-                        {months}m
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <p style={{ fontSize: 12, fontWeight: 600, color: "var(--foreground)", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {tn.name}
-                        </p>
-                        <p style={{ fontSize: 11, color: "var(--muted-foreground)", margin: 0, marginTop: 1 }}>
-                          {tn.buildingName} · {t("unit")} {tn.unit}
-                        </p>
-                      </div>
-                      <span style={{
-                        fontSize: 12, fontWeight: 600, flexShrink: 0,
-                        color: isVeryLate ? "#DC2626" : "#B45309",
-                      }}>
-                        {formatAmount(total * months)}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
 
           {/* ═══ TO-DO LIST ═══ */}
           <div style={{
