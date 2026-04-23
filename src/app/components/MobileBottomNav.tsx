@@ -106,21 +106,7 @@ export function MobileBottomNav({ activeView, onViewChange }: MobileBottomNavPro
               position: "relative",
             }}
           >
-            {isAction ? (
-              <span
-                aria-hidden
-                style={{
-                  width: 30, height: 30, borderRadius: 10,
-                  background: "color-mix(in srgb, var(--primary) 12%, transparent)",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  color: "var(--primary)",
-                }}
-              >
-                <Icon className="w-[18px] h-[18px]" />
-              </span>
-            ) : (
-              <Icon className="w-5 h-5" />
-            )}
+            <Icon className="w-5 h-5" />
             <span style={{ fontSize: 10, lineHeight: 1.1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%" }}>
               {e.label}
             </span>
