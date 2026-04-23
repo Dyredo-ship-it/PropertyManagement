@@ -254,18 +254,34 @@ function ProfileTab({ user }: { user: any }) {
     <>
       <Section title="Personal Information" description="Update your personal details.">
         {/* Avatar */}
-        <div className="flex items-center gap-4 mb-6">
+        <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
           <div
-            className="w-16 h-16 rounded-full flex items-center justify-center text-[18px] font-bold shrink-0"
-            style={{ background: "var(--primary)", color: "var(--primary-foreground)" }}
+            style={{
+              width: 56,
+              height: 56,
+              minWidth: 56,
+              borderRadius: "50%",
+              flexShrink: 0,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "var(--primary)",
+              color: "var(--primary-foreground)",
+              fontSize: 18,
+              fontWeight: 700,
+              lineHeight: 1,
+              letterSpacing: "0.02em",
+              userSelect: "none",
+            }}
+            aria-hidden
           >
             {(user?.name ?? "A").split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()}
           </div>
-          <div>
-            <p className="text-[14px] font-semibold" style={{ color: "var(--foreground)" }}>
+          <div style={{ minWidth: 0 }}>
+            <p style={{ fontSize: 14, fontWeight: 600, color: "var(--foreground)", margin: 0 }}>
               {user?.name}
             </p>
-            <p className="text-[12px]" style={{ color: "var(--muted-foreground)" }}>
+            <p style={{ fontSize: 12, color: "var(--muted-foreground)", margin: "2px 0 0" }}>
               {user?.role === "admin" ? "Administrator" : "Tenant"}
             </p>
           </div>
