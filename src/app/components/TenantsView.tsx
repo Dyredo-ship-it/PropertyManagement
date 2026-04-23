@@ -1900,8 +1900,8 @@ export function TenantsView() {
             {selectedBuilding && (
               <div>
                 {/* Back + building header */}
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 24 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: 1 }}>
                     <button
                       type="button"
                       onClick={() => { setSelectedBuildingId(null); setSortAlpha(false); }}
@@ -1911,17 +1911,18 @@ export function TenantsView() {
                         color: "var(--muted-foreground)", cursor: "pointer",
                         display: "flex", alignItems: "center", justifyContent: "center",
                         transition: "background 0.15s",
+                        flexShrink: 0,
                       }}
                       onMouseEnter={(e) => { e.currentTarget.style.background = "var(--background)"; }}
                       onMouseLeave={(e) => { e.currentTarget.style.background = "var(--card)"; }}
                     >
                       <ChevronRight style={{ width: 16, height: 16, transform: "rotate(180deg)" }} />
                     </button>
-                    <div>
-                      <h2 style={{ fontSize: 20, fontWeight: 700, color: "var(--foreground)", margin: 0 }}>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <h2 style={{ fontSize: 20, fontWeight: 700, color: "var(--foreground)", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {selectedBuilding.name}
                       </h2>
-                      <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: 0, marginTop: 2 }}>
+                      <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: 0, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {selectedBuilding.address} &middot; {selectedBuildingTenants.length} {t("tenantCount").toLowerCase()}
                       </p>
                     </div>
@@ -1939,10 +1940,12 @@ export function TenantsView() {
                       color: sortAlpha ? "var(--primary)" : "var(--muted-foreground)",
                       cursor: "pointer", fontSize: 13, fontWeight: 500,
                       transition: "all 0.15s",
+                      whiteSpace: "nowrap",
+                      flexShrink: 0,
                     }}
                   >
-                    <ArrowUpDown style={{ width: 14, height: 14 }} />
-                    A → Z
+                    <ArrowUpDown style={{ width: 14, height: 14, flexShrink: 0 }} />
+                    <span style={{ whiteSpace: "nowrap" }}>A → Z</span>
                   </button>
                 </div>
 
