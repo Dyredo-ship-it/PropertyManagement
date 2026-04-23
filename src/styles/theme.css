@@ -214,6 +214,26 @@ body {
   }
 }
 
+/* Reminder-chain kanban — the 4 columns cram at < 900px and become
+   unreadable. Below tablet, switch to a horizontally-scrollable row so
+   each column retains a usable width. Below phone, stack vertically. */
+@media (max-width: 1023px) {
+  .reminder-kanban {
+    grid-template-columns: repeat(4, minmax(180px, 1fr)) !important;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+  }
+  .reminder-kanban > div {
+    scroll-snap-align: start;
+  }
+}
+@media (max-width: 639px) {
+  .reminder-kanban {
+    grid-template-columns: 1fr !important;
+    overflow-x: visible;
+  }
+}
+
 /* ── Mobile-only layout fixes ─────────────────────────────────
    Everything in this block must stay scoped to small viewports so
    desktop layouts are not disturbed. */
