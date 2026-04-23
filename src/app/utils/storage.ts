@@ -26,6 +26,17 @@ export interface Building {
   monthlyRevenue: number;
   imageUrl?: string;
   currency?: Currency;
+  ownerId?: string;
+}
+
+export interface Owner {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  iban?: string;
+  notes?: string;
 }
 
 export interface ExchangeRateCache {
@@ -409,6 +420,7 @@ const b2c = (r: any): Building => ({
   monthlyRevenue: Number(r.monthly_revenue ?? 0),
   imageUrl: r.image_url ?? undefined,
   currency: r.currency ?? undefined,
+  ownerId: r.owner_id ?? undefined,
 });
 
 const b2r = (b: Partial<Building>, org: string) => ({
@@ -421,7 +433,26 @@ const b2r = (b: Partial<Building>, org: string) => ({
   monthly_revenue: b.monthlyRevenue ?? 0,
   image_url: b.imageUrl ?? null,
   currency: b.currency ?? "CHF",
+  ...(b.ownerId ? { owner_id: b.ownerId } : {}),
 });
+
+export async function getOwner(ownerId: string): Promise<Owner | null> {
+  const { data, error } = await supabase
+    .from("owners")
+    .select("id, name, email, phone, address, iban, notes")
+    .eq("id", ownerId)
+    .maybeSingle();
+  if (error || !data) return null;
+  return {
+    id: data.id,
+    name: data.name,
+    email: data.email ?? undefined,
+    phone: data.phone ?? undefined,
+    address: data.address ?? undefined,
+    iban: data.iban ?? undefined,
+    notes: data.notes ?? undefined,
+  };
+}
 
 const t2c = (r: any): Tenant => ({
   id: r.id,

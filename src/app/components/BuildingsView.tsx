@@ -24,8 +24,11 @@ import {
   Settings,
   Car,
   Warehouse,
+  User,
 } from "lucide-react";
 import { getBuildings, saveBuildings, getTenants, getMaintenanceRequests, getAccountingSettings, saveAccountingSettings, type Building, type Currency, type Tenant, type MaintenanceRequest, type AccountingSettings } from "../utils/storage";
+import { OwnerFichePanel } from "./OwnerFichePanel";
+import { RentIncreaseCalculator } from "./RentIncreaseCalculator";
 import { useLanguage } from "../i18n/LanguageContext";
 import { useCurrency } from "../context/CurrencyContext";
 import { usePlanLimits } from "../lib/billing";
@@ -266,6 +269,7 @@ function BuildingDetail({
       ? Math.round((building.occupiedUnits / building.units) * 100)
       : 0;
   const occColor = occPct >= 90 ? "#15803D" : occPct >= 70 ? "var(--primary)" : "#B45309";
+  const [ownerOpen, setOwnerOpen] = useState(false);
 
   return (
     <div style={{ padding: "32px 36px 48px" }}>
@@ -303,6 +307,25 @@ function BuildingDetail({
           </div>
         </div>
         <div className="building-detail-actions" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {building.ownerId && (
+            <button
+              type="button"
+              onClick={() => setOwnerOpen(true)}
+              title="Voir la fiche propriétaire"
+              style={{
+                display: "flex", alignItems: "center", gap: 6,
+                padding: "7px 14px", borderRadius: 8, fontSize: 12, fontWeight: 550,
+                border: "1px solid color-mix(in srgb, var(--primary) 20%, transparent)",
+                background: "color-mix(in srgb, var(--primary) 8%, transparent)",
+                color: "var(--primary)", cursor: "pointer", transition: "background 0.15s",
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "color-mix(in srgb, var(--primary) 14%, transparent)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "color-mix(in srgb, var(--primary) 8%, transparent)"; }}
+            >
+              <User style={{ width: 13, height: 13 }} />
+              Propriétaire
+            </button>
+          )}
           <button
             type="button"
             onClick={() => onEdit(building)}
@@ -399,6 +422,13 @@ function BuildingDetail({
 
       {/* ── Tabs ──────────────────────────────────────────── */}
       <BuildingTabs building={building} t={t} occPct={occPct} occColor={occColor} formattedRevenue={formattedRevenue} />
+
+      {/* Owner fiche modal */}
+      <OwnerFichePanel
+        ownerId={building.ownerId ?? null}
+        open={ownerOpen}
+        onClose={() => setOwnerOpen(false)}
+      />
     </div>
   );
 }
@@ -410,6 +440,7 @@ const TAB_LIST = [
   { key: "tenants", label: "Locataires", icon: Users },
   { key: "renovations", label: "Rénovations", icon: Wrench },
   { key: "maintenance", label: "Maintenance", icon: AlertCircle },
+  { key: "rent-increase", label: "Augmentation loyer", icon: TrendingUp },
   { key: "settings", label: "Paramètres", icon: Settings },
 ] as const;
 
@@ -630,6 +661,10 @@ function BuildingTabs({ building, t, occPct, occColor, formattedRevenue }: {
             })
           )}
         </div>
+      )}
+
+      {activeTab === "rent-increase" && (
+        <RentIncreaseCalculator />
       )}
 
       {activeTab === "settings" && (
