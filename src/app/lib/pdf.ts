@@ -491,3 +491,106 @@ export async function generateMonthlyStatementPdf(
     `${safeFileName(["decompte", options.period, building.name])}.pdf`,
   );
 }
+
+/* ─── Décompte de charges (per-tenant apportionment) ───────────── */
+
+export interface ChargesStatementRow {
+  tenantName: string;
+  unit: string;
+  m2: number;
+  pctShare: number;         // 0..1
+  periodFrom: string;        // YYYY-MM-DD
+  periodTo: string;          // YYYY-MM-DD
+  daysOccupied: number;
+  proRata: number;           // 0..1
+  acomptesPaid: number;
+  amountDue: number;
+  difference: number;
+}
+
+export interface ChargesStatementOptions {
+  periodStart: string;       // ISO YYYY-MM-DD
+  periodEnd: string;          // ISO YYYY-MM-DD
+  periodDays: number;
+  acomptesTotal: number;
+  chargeExpenses: number;
+  solde: number;
+  rows: ChargesStatementRow[];
+  currency?: string;
+}
+
+export async function generateChargesStatementPdf(
+  building: Building,
+  landlord: LandlordInfo,
+  options: ChargesStatementOptions,
+): Promise<void> {
+  const doc = new jsPDF({ unit: "mm", format: "a4", orientation: "landscape" });
+  const currency = options.currency ?? building.currency ?? "CHF";
+  const fmtDate = (iso: string) => new Date(iso).toLocaleDateString("fr-CH");
+
+  header(doc, `Décompte de charges — ${building.name}`);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(90);
+  doc.text(
+    `Période : ${fmtDate(options.periodStart)} → ${fmtDate(options.periodEnd)} (${options.periodDays} jours)`,
+    20, 34,
+  );
+  doc.text(`Propriétaire : ${landlord.name || "—"}`, 20, 40);
+  doc.text(`Adresse : ${building.address}`, 20, 46);
+
+  autoTable(doc, {
+    startY: 55,
+    head: [[
+      "Locataire", "Unité", "m²", "% m²",
+      "Occupation", "Jours", "Pro-rata",
+      "Acomptes (CHF)", "Dû (CHF)", "Différence (CHF)",
+    ]],
+    body: options.rows.map((r) => [
+      r.tenantName,
+      r.unit || "—",
+      String(r.m2),
+      `${(r.pctShare * 100).toFixed(2)}%`,
+      r.daysOccupied > 0 ? `${fmtDate(r.periodFrom)} → ${fmtDate(r.periodTo)}` : "—",
+      String(r.daysOccupied),
+      `${(r.proRata * 100).toFixed(2)}%`,
+      formatAmount(r.acomptesPaid, currency),
+      formatAmount(r.amountDue, currency),
+      { content: `${r.difference >= 0 ? "+" : ""}${formatAmount(r.difference, currency)}`,
+        styles: { textColor: r.difference >= 0 ? [22, 163, 74] : [220, 38, 38], fontStyle: "bold" } },
+    ]),
+    foot: [[
+      { content: "TOTAL", colSpan: 7, styles: { fontStyle: "bold" } },
+      { content: formatAmount(options.acomptesTotal, currency), styles: { fontStyle: "bold" } },
+      { content: formatAmount(options.chargeExpenses, currency), styles: { fontStyle: "bold" } },
+      {
+        content: `${options.solde >= 0 ? "+" : ""}${formatAmount(options.solde, currency)}`,
+        styles: {
+          fontStyle: "bold",
+          textColor: options.solde >= 0 ? [22, 163, 74] : [220, 38, 38],
+        },
+      },
+    ]],
+    theme: "grid",
+    headStyles: { fillColor: [99, 102, 241], halign: "left", fontSize: 9 },
+    footStyles: { fillColor: [243, 244, 246], textColor: 20, fontSize: 9 },
+    styles: { fontSize: 8.5, cellPadding: 2.5 },
+  });
+
+  const finalY = (doc as any).lastAutoTable?.finalY ?? 150;
+
+  doc.setFont("helvetica", "italic");
+  doc.setFontSize(9);
+  doc.setTextColor(120);
+  doc.text(
+    "Pro-rata = jours d'occupation ÷ jours de la période. Différence positive = acomptes > charges dues (remboursement au locataire).",
+    20, finalY + 8, { maxWidth: 257 },
+  );
+
+  footer(doc);
+  await savePdfWithShare(
+    doc,
+    `${safeFileName(["decompte-charges", options.periodStart, options.periodEnd, building.name])}.pdf`,
+  );
+}
+

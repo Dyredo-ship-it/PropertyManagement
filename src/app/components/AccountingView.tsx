@@ -15,6 +15,8 @@ import {
   PROJECTED_STATUS,
   type ProjectionPreview,
 } from "../utils/rentProjection";
+import { generateChargesStatementPdf } from "../lib/pdf";
+import { getLandlordInfo } from "../lib/landlord";
 import {
   getBuildings, getTenants,
   getAccountingTransactions, addAccountingTransactions, saveAccountingTransactions,
@@ -294,6 +296,27 @@ export function AccountingView() {
 
   // Year filter
   const [selectedYear, setSelectedYear] = useState<string>(String(new Date().getFullYear()));
+
+  // Custom period for the "Décompte de charges" tab. Defaults to the Swiss
+  // fiscal year 01.07.Y → 30.06.Y+1 (aligned with F&F Gestion's practice:
+  // charges décomptes run July → June, not calendar-year). The user can
+  // override to any range or use the calendar-year quick button.
+  const [chargesPeriodStart, setChargesPeriodStart] = useState<string>("");
+  const [chargesPeriodEnd, setChargesPeriodEnd] = useState<string>("");
+  useEffect(() => {
+    const year = Number(selectedYear) || new Date().getFullYear();
+    // Default = fiscal year ending in `year` → 01.07.(year-1) → 30.06.year
+    const expectedStart = `${year - 1}-07-01`;
+    const expectedEnd = `${year}-06-30`;
+    // Only overwrite when the user hasn't set a custom range for this year.
+    if (!chargesPeriodStart || (chargesPeriodStart.slice(0, 4) !== String(year) && chargesPeriodStart.slice(0, 4) !== String(year - 1))) {
+      setChargesPeriodStart(expectedStart);
+    }
+    if (!chargesPeriodEnd || (chargesPeriodEnd.slice(0, 4) !== String(year) && chargesPeriodEnd.slice(0, 4) !== String(year - 1))) {
+      setChargesPeriodEnd(expectedEnd);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedYear]);
 
   // Sort
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
@@ -921,26 +944,34 @@ export function AccountingView() {
   /* ─── Charges statement ──────────────────────────────────── */
 
   const chargesStatement = useMemo(() => {
-    // Net acomptes: credit - debit (debits on 103 reverse acomptes).
-    const acomptesTotal = (accountTotals[103]?.credit || 0) - (accountTotals[103]?.debit || 0);
-    // Net charge expenses: debit - credit (credits on expense accounts reduce them).
-    const chargeExpenses = CHARGE_EXPENSE_ACCOUNTS.reduce(
-      (sum, num) => {
-        const t = accountTotals[num];
-        return sum + ((t?.debit || 0) - (t?.credit || 0));
-      },
-      0,
-    );
-    const solde = acomptesTotal - chargeExpenses;
-
-    // Pro-rata: a tenant who moved in mid-year (or moved out) only owes the
-    // portion of the charges that overlaps with their occupation. Period is
-    // the calendar year currently filtered.
     const year = Number(selectedYear) || new Date().getFullYear();
-    const periodStart = new Date(year, 0, 1);
-    const periodEnd = new Date(year, 11, 31);
+    const periodStartISO = chargesPeriodStart || `${year}-01-01`;
+    const periodEndISO = chargesPeriodEnd || `${year}-12-31`;
+    const periodStart = new Date(periodStartISO);
+    const periodEnd = new Date(periodEndISO);
     const MS_PER_DAY = 24 * 60 * 60 * 1000;
-    const periodDays = Math.round((periodEnd.getTime() - periodStart.getTime()) / MS_PER_DAY) + 1;
+    const periodDays = Math.max(1, Math.round((periodEnd.getTime() - periodStart.getTime()) / MS_PER_DAY) + 1);
+
+    // Filter every building transaction by the custom period. We cannot reuse
+    // scopedTx (year-based) because a fiscal year like 01.07.25→30.06.26
+    // straddles two calendar years.
+    const allBuildingTx = selectedBuildingId
+      ? transactions.filter((tx) => tx.buildingId === selectedBuildingId)
+      : transactions;
+    const periodTx = allBuildingTx.filter((tx) => {
+      const date = tx.datePayment || tx.dateInvoice;
+      return date && date >= periodStartISO && date <= periodEndISO;
+    });
+
+    // Net acomptes (account 103): credit − debit.
+    const acomptesTotal = periodTx
+      .filter((tx) => tx.accountNumber === 103)
+      .reduce((s, tx) => s + ((tx.credit || 0) - (tx.debit || 0)), 0);
+    // Net charge expenses across CHARGE_EXPENSE_ACCOUNTS: debit − credit.
+    const chargeExpenses = periodTx
+      .filter((tx) => CHARGE_EXPENSE_ACCOUNTS.includes(tx.accountNumber))
+      .reduce((s, tx) => s + ((tx.debit || 0) - (tx.credit || 0)), 0);
+    const solde = acomptesTotal - chargeExpenses;
 
     const daysOccupied = (tenant: Tenant): { days: number; from: Date; to: Date } => {
       const leaseStart = tenant.leaseStart ? new Date(tenant.leaseStart) : periodStart;
@@ -960,7 +991,7 @@ export function AccountingView() {
       const pct = m2 / totalM2;
       const { days, from, to } = daysOccupied(tenant);
       const proRata = periodDays > 0 ? days / periodDays : 0;
-      const acomptesPaid = scopedTx
+      const acomptesPaid = periodTx
         .filter(
           (tx) =>
             tx.accountNumber === 103 &&
@@ -979,8 +1010,11 @@ export function AccountingView() {
       };
     });
 
-    return { acomptesTotal, chargeExpenses, solde, breakdown, periodDays, year };
-  }, [accountTotals, buildingTenants, scopedTx, selectedYear]);
+    return {
+      acomptesTotal, chargeExpenses, solde, breakdown, periodDays,
+      periodStart: periodStartISO, periodEnd: periodEndISO,
+    };
+  }, [buildingTenants, transactions, selectedBuildingId, chargesPeriodStart, chargesPeriodEnd, selectedYear]);
 
   /* ─── Input focus handler ────────────────────────────────── */
 
@@ -1831,13 +1865,76 @@ export function AccountingView() {
     return (
       <div>
         <div style={{ ...cardStyle, padding: "24px 0", marginBottom: 24 }}>
-          {/* Title */}
+          {/* Title + period selector */}
           <div style={{ padding: "0 24px 18px", borderBottom: "2px solid var(--border)" }}>
-            <div style={{ fontSize: 18, fontWeight: 700, color: "var(--foreground)" }}>
-              Décompte de charges {selectedYear}
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+              <div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: "var(--foreground)" }}>
+                  Décompte de charges
+                </div>
+                <div style={{ fontSize: 13, color: "var(--muted-foreground)", marginTop: 2 }}>
+                  {selectedBuilding?.name} - {selectedBuilding?.address}
+                </div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <label style={{ fontSize: 11, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.04em", fontWeight: 600 }}>
+                  Période
+                </label>
+                <input
+                  type="date"
+                  value={chargesPeriodStart}
+                  onChange={(e) => setChargesPeriodStart(e.target.value)}
+                  style={{
+                    padding: "6px 10px", borderRadius: 8, border: "1px solid var(--border)",
+                    background: "var(--card)", color: "var(--foreground)", fontSize: 12, outline: "none",
+                  }}
+                />
+                <span style={{ color: "var(--muted-foreground)", fontSize: 12 }}>→</span>
+                <input
+                  type="date"
+                  value={chargesPeriodEnd}
+                  onChange={(e) => setChargesPeriodEnd(e.target.value)}
+                  style={{
+                    padding: "6px 10px", borderRadius: 8, border: "1px solid var(--border)",
+                    background: "var(--card)", color: "var(--foreground)", fontSize: 12, outline: "none",
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const y = Number(selectedYear) || new Date().getFullYear();
+                    setChargesPeriodStart(`${y - 1}-07-01`);
+                    setChargesPeriodEnd(`${y}-06-30`);
+                  }}
+                  title="Année fiscale 01.07 → 30.06 (défaut)"
+                  style={{
+                    padding: "6px 10px", borderRadius: 8, border: "1px solid var(--border)",
+                    background: "var(--background)", color: "var(--foreground)",
+                    fontSize: 11, fontWeight: 500, cursor: "pointer",
+                  }}
+                >
+                  Fiscale
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const y = Number(selectedYear) || new Date().getFullYear();
+                    setChargesPeriodStart(`${y}-01-01`);
+                    setChargesPeriodEnd(`${y}-12-31`);
+                  }}
+                  title="Année civile 01.01 → 31.12"
+                  style={{
+                    padding: "6px 10px", borderRadius: 8, border: "1px solid var(--border)",
+                    background: "var(--background)", color: "var(--foreground)",
+                    fontSize: 11, fontWeight: 500, cursor: "pointer",
+                  }}
+                >
+                  Civile
+                </button>
+              </div>
             </div>
-            <div style={{ fontSize: 13, color: "var(--muted-foreground)", marginTop: 2 }}>
-              {selectedBuilding?.name} - {selectedBuilding?.address}
+            <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 8 }}>
+              {new Date(chargesPeriodStart).toLocaleDateString("fr-CH")} → {new Date(chargesPeriodEnd).toLocaleDateString("fr-CH")} ({chargesStatement.periodDays} jours)
             </div>
           </div>
 
@@ -1958,13 +2055,59 @@ export function AccountingView() {
                 fontWeight: 700,
                 fontSize: 14,
                 borderBottom: "1px solid var(--border)",
-                color: "var(--foreground)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 10,
+                flexWrap: "wrap",
               }}
             >
-              Répartition par appartement
+              <span>Répartition par appartement</span>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!selectedBuilding) return;
+                  const landlord = getLandlordInfo();
+                  try {
+                    await generateChargesStatementPdf(selectedBuilding, landlord, {
+                      periodStart: chargesStatement.periodStart,
+                      periodEnd: chargesStatement.periodEnd,
+                      periodDays: chargesStatement.periodDays,
+                      acomptesTotal: chargesStatement.acomptesTotal,
+                      chargeExpenses: chargesStatement.chargeExpenses,
+                      solde: chargesStatement.solde,
+                      currency: selectedBuilding.currency,
+                      rows: chargesStatement.breakdown.map((r) => ({
+                        tenantName: r.tenant.name,
+                        unit: r.tenant.unit,
+                        m2: r.m2,
+                        pctShare: r.pct,
+                        periodFrom: r.periodFrom,
+                        periodTo: r.periodTo,
+                        daysOccupied: r.daysOccupied,
+                        proRata: r.proRata,
+                        acomptesPaid: r.acomptesPaid,
+                        amountDue: r.amountDue,
+                        difference: r.difference,
+                      })),
+                    });
+                  } catch (err) {
+                    window.alert(`Erreur PDF: ${(err as Error).message}`);
+                  }
+                }}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                  padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: 600,
+                  border: "1px solid var(--border)", background: "var(--background)",
+                  color: "var(--foreground)", cursor: "pointer",
+                }}
+              >
+                <Download size={13} />
+                Exporter en PDF
+              </button>
             </div>
             <div style={{ padding: "6px 24px 10px", fontSize: 11, color: "var(--muted-foreground)" }}>
-              Période : 01.01.{chargesStatement.year} – 31.12.{chargesStatement.year} ({chargesStatement.periodDays} jours). Pro-rata = jours d'occupation ÷ {chargesStatement.periodDays}.
+              Période : {new Date(chargesStatement.periodStart).toLocaleDateString("fr-CH")} → {new Date(chargesStatement.periodEnd).toLocaleDateString("fr-CH")} ({chargesStatement.periodDays} jours). Pro-rata = jours d'occupation ÷ {chargesStatement.periodDays}.
             </div>
             <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 980 }}>

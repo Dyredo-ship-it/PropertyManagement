@@ -808,17 +808,18 @@ function BuildingTabs({ building, t, occPct, occColor, formattedRevenue }: {
                           padding: "10px 14px", borderRadius: 10,
                           border: "1px solid var(--border)", background: "var(--background)",
                           transition: "background 0.1s",
+                          flexWrap: "wrap",
                         }}
                         onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--card)"; }}
                         onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--background)"; }}
                       >
                         <IconUnit style={{ width: 14, height: 14, color: "var(--muted-foreground)", flexShrink: 0 }} />
-                        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)", minWidth: 80 }}>{unit}</span>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)", minWidth: 0, flexShrink: 1 }}>{unit}</span>
                         <span style={{
                           fontSize: 9, fontWeight: 600, padding: "2px 7px", borderRadius: 99,
                           background: unitType === "garage" ? "rgba(107,114,128,0.08)" : unitType === "place_de_parc" ? "rgba(37,99,235,0.08)" : "rgba(69,85,58,0.07)",
                           color: unitType === "garage" ? "#6b7280" : unitType === "place_de_parc" ? "#2563EB" : "var(--primary)",
-                          textTransform: "uppercase", letterSpacing: "0.03em", flexShrink: 0,
+                          textTransform: "uppercase", letterSpacing: "0.03em", flexShrink: 0, whiteSpace: "nowrap",
                         }}>
                           {typeLabel}
                         </span>
@@ -833,7 +834,8 @@ function BuildingTabs({ building, t, occPct, occColor, formattedRevenue }: {
                             saveAccountingSettings(building.id, updated);
                           }}
                           style={{
-                            flex: 1, padding: "5px 8px", borderRadius: 7, fontSize: 11,
+                            flex: "1 1 140px", minWidth: 0,
+                            padding: "5px 8px", borderRadius: 7, fontSize: 11,
                             border: "1px solid var(--border)", background: "var(--card)",
                             color: assignedTenantId ? "var(--foreground)" : "var(--muted-foreground)",
                             outline: "none", cursor: "pointer", boxSizing: "border-box" as const,
@@ -849,7 +851,7 @@ function BuildingTabs({ building, t, occPct, occColor, formattedRevenue }: {
                         {assignedTenant && (
                           <span style={{
                             fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 99,
-                            background: "rgba(34,197,94,0.08)", color: "#16a34a", flexShrink: 0,
+                            background: "rgba(34,197,94,0.08)", color: "#16a34a", flexShrink: 0, whiteSpace: "nowrap",
                           }}>
                             Attribué
                           </span>
