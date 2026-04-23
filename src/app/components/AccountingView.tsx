@@ -5,9 +5,16 @@ import {
   Upload, FileSpreadsheet, DollarSign, Users, Building2, Calendar,
   CheckCircle, AlertCircle, X, Plus, Trash2, Mail, Download,
   ChevronDown, Filter, Search, Banknote, TrendingUp, TrendingDown,
-  Edit, ArrowUpDown, Save, Pencil, Settings, Wallet,
+  Edit, ArrowUpDown, Save, Pencil, Settings, Wallet, Sparkles,
 } from "lucide-react";
 import { CamtImportModal } from "./CamtImportModal";
+import {
+  previewProjection,
+  applyProjection,
+  clearProjection,
+  PROJECTED_STATUS,
+  type ProjectionPreview,
+} from "../utils/rentProjection";
 import {
   getBuildings, getTenants,
   getAccountingTransactions, addAccountingTransactions, saveAccountingTransactions,
@@ -279,6 +286,11 @@ export function AccountingView() {
   const [adjLabel, setAdjLabel] = useState("");
   const [adjAmount, setAdjAmount] = useState("");
   const [adjType, setAdjType] = useState<"debit" | "credit">("debit");
+
+  // Rent projection modal
+  const [showProjModal, setShowProjModal] = useState(false);
+  const [projIncludeRent, setProjIncludeRent] = useState(true);
+  const [projIncludeCharges, setProjIncludeCharges] = useState(true);
 
   // Year filter
   const [selectedYear, setSelectedYear] = useState<string>(String(new Date().getFullYear()));
@@ -1163,7 +1175,19 @@ export function AccountingView() {
                       </td>
                       <td style={tdStyle}>
                         {tx.status ? (
-                          <span style={{ fontSize: 11, padding: "3px 8px", borderRadius: 6, fontWeight: 600, background: tx.status === "Payé" ? "#dcfce7" : "#fef3c7", color: tx.status === "Payé" ? "#166534" : "#92400e" }}>
+                          <span style={{
+                            fontSize: 11, padding: "3px 8px", borderRadius: 6, fontWeight: 600,
+                            background: tx.status === "Payé"
+                              ? "#dcfce7"
+                              : tx.status === PROJECTED_STATUS
+                                ? "color-mix(in srgb, var(--primary) 12%, transparent)"
+                                : "#fef3c7",
+                            color: tx.status === "Payé"
+                              ? "#166534"
+                              : tx.status === PROJECTED_STATUS
+                                ? "var(--primary)"
+                                : "#92400e",
+                          }}>
                             {tx.status}
                           </span>
                         ) : <span style={{ color: "var(--muted-foreground)" }}>-</span>}
@@ -1497,8 +1521,22 @@ export function AccountingView() {
 
     return (
       <div>
-        {/* Add adjustment button */}
-        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 14 }}>
+        {/* Actions row */}
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+          <button
+            onClick={() => setShowProjModal(true)}
+            style={{
+              ...tabBtnBase,
+              background: "var(--background)",
+              color: "var(--foreground)",
+              border: "1px solid var(--border)",
+              fontSize: 12,
+            }}
+            title="Générer les loyers prévisionnels à partir des baux actifs"
+          >
+            <Sparkles size={14} />
+            Projeter l'année
+          </button>
           <button
             onClick={() => setShowAdjModal(true)}
             style={{
@@ -2385,6 +2423,208 @@ export function AccountingView() {
     );
   };
 
+  /* ─── Rent projection modal ───────────────────────────────── */
+
+  const renderProjectionModal = () => {
+    if (!showProjModal || !selectedBuildingId) return null;
+
+    const year = Number(selectedYear) || new Date().getFullYear();
+    const preview: ProjectionPreview = previewProjection({
+      buildingId: selectedBuildingId,
+      year,
+      includeRent: projIncludeRent,
+      includeCharges: projIncludeCharges,
+    });
+
+    const handleApply = () => {
+      const { inserted, removed } = applyProjection({
+        buildingId: selectedBuildingId,
+        year,
+        includeRent: projIncludeRent,
+        includeCharges: projIncludeCharges,
+      });
+      setTransactions(getAccountingTransactions());
+      setShowProjModal(false);
+      const note = removed > 0
+        ? `${inserted} écritures prévisionnelles générées (${removed} anciennes remplacées).`
+        : `${inserted} écritures prévisionnelles générées.`;
+      window.alert(note);
+    };
+
+    const handleClear = () => {
+      if (!window.confirm(`Supprimer toutes les écritures prévisionnelles ${year} de ${selectedBuilding?.name} ?`)) return;
+      const removed = clearProjection(selectedBuildingId, year);
+      setTransactions(getAccountingTransactions());
+      setShowProjModal(false);
+      window.alert(`${removed} écritures supprimées.`);
+    };
+
+    return createPortal(
+      <div
+        onClick={(e) => { if (e.target === e.currentTarget) setShowProjModal(false); }}
+        style={{
+          position: "fixed", inset: 0, zIndex: 9999,
+          background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)",
+          display: "flex", alignItems: "center", justifyContent: "center", padding: 16,
+        }}
+      >
+        <div
+          style={{
+            background: "var(--card)", borderRadius: 16, border: "1px solid var(--border)",
+            width: "100%", maxWidth: 520, maxHeight: "90vh", overflowY: "auto",
+            boxShadow: "0 16px 48px rgba(0,0,0,0.18)",
+          }}
+        >
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: "18px 22px", borderBottom: "1px solid var(--border)",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Sparkles size={18} style={{ color: "var(--primary)" }} />
+              <span style={{ fontSize: 16, fontWeight: 700, color: "var(--foreground)" }}>
+                Projeter les loyers — {year}
+              </span>
+            </div>
+            <button
+              onClick={() => setShowProjModal(false)}
+              style={{
+                background: "none", border: "none", cursor: "pointer",
+                color: "var(--muted-foreground)", padding: 4, borderRadius: 8,
+                display: "flex", alignItems: "center",
+              }}
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          <div style={{ padding: "18px 22px", display: "flex", flexDirection: "column", gap: 14 }}>
+            <p style={{ margin: 0, fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.5 }}>
+              Génère 12 écritures mensuelles par bail actif de <b>{selectedBuilding?.name}</b> pour <b>{year}</b>, à partir du loyer net et des acomptes de charges enregistrés sur chaque locataire. Les écritures sont taguées « Prévisionnel » — tes écritures réelles ne sont pas touchées.
+            </p>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={projIncludeRent}
+                  onChange={(e) => setProjIncludeRent(e.target.checked)}
+                />
+                <span>
+                  Loyers <b>(comptes 101 + 102)</b>
+                  <span style={{ color: "var(--muted-foreground)", marginLeft: 6 }}>
+                    — appartements + garages/places
+                  </span>
+                </span>
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={projIncludeCharges}
+                  onChange={(e) => setProjIncludeCharges(e.target.checked)}
+                />
+                <span>
+                  Acomptes de charges <b>(compte 103)</b>
+                </span>
+              </label>
+            </div>
+
+            <div style={{
+              padding: "14px 16px", borderRadius: 12,
+              background: "var(--background)", border: "1px solid var(--border)",
+              display: "flex", flexDirection: "column", gap: 6, fontSize: 12,
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "var(--muted-foreground)" }}>Baux actifs</span>
+                <b>{preview.tenantCount}</b>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "var(--muted-foreground)" }}>Loyers appartements (101)</span>
+                <span>{preview.apartmentMonths} mois</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "var(--muted-foreground)" }}>Loyers parking (102)</span>
+                <span>{preview.garageMonths} mois</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "var(--muted-foreground)" }}>Acomptes de charges (103)</span>
+                <span>{preview.chargesMonths} mois</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 6, borderTop: "1px solid var(--border)", marginTop: 4 }}>
+                <b>Écritures à générer</b>
+                <b>{preview.entries.length}</b>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <b>Total prévisionnel</b>
+                <b style={{ color: "var(--primary)" }}>{fmtCHF(preview.totalAmount)}</b>
+              </div>
+              {preview.existingProjectedCount > 0 && (
+                <div style={{
+                  marginTop: 6, padding: "8px 10px", borderRadius: 8,
+                  background: "color-mix(in srgb, #F59E0B 10%, transparent)",
+                  border: "1px solid color-mix(in srgb, #F59E0B 35%, transparent)",
+                  display: "flex", alignItems: "flex-start", gap: 8, fontSize: 11,
+                }}>
+                  <AlertCircle size={13} style={{ color: "#B45309", flexShrink: 0, marginTop: 1 }} />
+                  <span>
+                    {preview.existingProjectedCount} écritures prévisionnelles existent déjà pour {year}. Elles seront <b>remplacées</b>.
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div style={{
+            display: "flex", justifyContent: "space-between", gap: 10,
+            padding: "14px 22px", borderTop: "1px solid var(--border)", flexWrap: "wrap",
+          }}>
+            {preview.existingProjectedCount > 0 ? (
+              <button
+                onClick={handleClear}
+                style={{
+                  padding: "8px 14px", borderRadius: 9, fontSize: 12, fontWeight: 600,
+                  background: "transparent", color: "#DC2626",
+                  border: "1px solid color-mix(in srgb, #DC2626 30%, transparent)",
+                  cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
+                }}
+              >
+                <Trash2 size={13} />
+                Supprimer les prévisionnels
+              </button>
+            ) : <div />}
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                onClick={() => setShowProjModal(false)}
+                style={{
+                  padding: "8px 18px", borderRadius: 9, fontSize: 13, fontWeight: 600,
+                  background: "var(--background)", color: "var(--foreground)",
+                  border: "1px solid var(--border)", cursor: "pointer",
+                }}
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleApply}
+                disabled={preview.entries.length === 0}
+                style={{
+                  padding: "8px 18px", borderRadius: 9, fontSize: 13, fontWeight: 600,
+                  background: preview.entries.length > 0 ? "var(--primary)" : "var(--border)",
+                  color: preview.entries.length > 0 ? "var(--primary-foreground)" : "var(--muted-foreground)",
+                  border: "none",
+                  cursor: preview.entries.length > 0 ? "pointer" : "not-allowed",
+                  display: "flex", alignItems: "center", gap: 6,
+                }}
+              >
+                <Sparkles size={13} />
+                Générer {preview.entries.length} écritures
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>,
+      document.body,
+    );
+  };
+
   /* ─── Chart-of-accounts modal ─────────────────────────────── */
 
   const chartGroups: { type: ChartEntryType; label: string; standards: AccountDef[] }[] = [
@@ -2969,6 +3209,7 @@ export function AccountingView() {
       {/* Modals */}
       {renderImportModal()}
       {renderAdjustmentModal()}
+      {renderProjectionModal()}
       {renderChartModal()}
       <CamtImportModal
         open={showCamtModal}
