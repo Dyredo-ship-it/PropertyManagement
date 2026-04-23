@@ -66,7 +66,7 @@ export function MobileBottomNav({ activeView, onViewChange }: MobileBottomNavPro
         display: "flex",
         justifyContent: "space-around",
         alignItems: "stretch",
-        padding: "6px 6px calc(6px + env(safe-area-inset-bottom))",
+        padding: "6px 2px calc(6px + env(safe-area-inset-bottom))",
         boxShadow: "0 -6px 20px rgba(0,0,0,0.06)",
       }}
     >
@@ -85,13 +85,13 @@ export function MobileBottomNav({ activeView, onViewChange }: MobileBottomNavPro
               }
             }}
             style={{
-              flex: 1,
+              flex: "1 1 0",
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
               gap: 2,
-              padding: "6px 2px",
+              padding: "6px 0",
               border: "none",
               background: "transparent",
               color: isAction

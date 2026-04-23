@@ -236,7 +236,7 @@ export function ServicesView() {
   }, [selectedCategory, searchQuery]);
 
   return (
-    <div style={{ padding: "32px 36px 48px" }}>
+    <div className="page-shell">
       {/* ── Header row: title + search ──────────────────────── */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 24, marginBottom: 20 }}>
         <div style={{ flexShrink: 0 }}>

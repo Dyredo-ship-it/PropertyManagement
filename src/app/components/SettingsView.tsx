@@ -1145,7 +1145,7 @@ export function SettingsView({ initialTab }: { initialTab?: TabId } = {}) {
   ];
 
   return (
-    <div style={{ padding: "32px 32px 48px" }}>
+    <div className="page-shell">
       {/* Header */}
       <div style={{ marginBottom: 28 }}>
         <h1

@@ -148,6 +148,26 @@ body {
   }
 }
 
+/* ── Page shell — responsive wrapper for every top-level view.
+   Desktop keeps the 32/36/48 breathing room; mobile tightens to
+   16px horizontals so iPhone content isn't forced into a 280px-wide
+   column. The -accent flavor adds the 4px primary left-border stripe. */
+.page-shell {
+  padding: 32px 36px 48px;
+}
+.page-shell.page-shell-accent {
+  border-left: 4px solid var(--primary);
+}
+@media (max-width: 767px) {
+  .page-shell {
+    padding: 20px 16px 80px; /* bottom bumped so content clears the bottom tab bar */
+  }
+  .page-shell.page-shell-accent {
+    border-left: none;
+    border-top: 3px solid var(--primary);
+  }
+}
+
 /* ── MobileBottomNav — force-hide on desktop ──────────────────
    The nav's inline `display: flex` would otherwise beat Tailwind's
    `.lg\:hidden` utility, leaving the phone tab bar visible on desktop. */
@@ -302,13 +322,16 @@ body {
   .tenants-header {
     flex-direction: column !important;
     align-items: stretch !important;
+    gap: 12px !important;
   }
   .tenants-header-title {
+    flex: 0 0 auto !important;
     min-width: 0;
   }
   .tenants-header-actions {
     width: 100%;
-    flex-wrap: wrap;
+    flex-wrap: nowrap !important;
+    gap: 8px !important;
   }
   .tenants-search-box {
     flex: 1 1 auto;
@@ -316,6 +339,15 @@ body {
   }
   .tenants-search-box input {
     width: 100% !important;
+  }
+
+  /* RequestsView — same override so flex-basis: 200px set on desktop
+     doesn't force a 200px-tall title block in column direction. */
+  .req-header {
+    gap: 12px !important;
+  }
+  .req-header-title {
+    flex: 0 0 auto !important;
   }
 }
 

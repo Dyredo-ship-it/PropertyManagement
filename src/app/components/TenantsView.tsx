@@ -1715,9 +1715,9 @@ export function TenantsView() {
       {/* ═══ PAGE CONTENT with left accent border ═══ */}
       <div className="page-shell page-shell-accent">
 
-        {/* ═══ PAGE HEADER — matching BuildingsView style ═══ */}
-        <div className="tenants-header" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 28, gap: 16, flexWrap: "wrap" }}>
-          <div className="tenants-header-title">
+        {/* ═══ PAGE HEADER — stacks vertically on mobile via .tenants-header CSS ═══ */}
+        <div className="tenants-header" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 24, gap: 16, flexWrap: "wrap" }}>
+          <div className="tenants-header-title" style={{ minWidth: 0, flex: "1 1 200px" }}>
             <h1 style={{ fontSize: 22, fontWeight: 600, lineHeight: 1.3, color: "var(--foreground)", margin: 0 }}>
               {t("tenantsTitle")}
             </h1>
@@ -1726,18 +1726,20 @@ export function TenantsView() {
             </p>
           </div>
 
-          <div className="tenants-header-actions" style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+          <div className="tenants-header-actions" style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             {/* Search */}
-            <div className="tenants-search-box" style={{ position: "relative" }}>
-              <Search style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", width: 16, height: 16, color: "var(--muted-foreground)" }} />
+            <div className="tenants-search-box" style={{ position: "relative", flex: "1 1 160px", minWidth: 0 }}>
+              <Search style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", width: 16, height: 16, color: "var(--muted-foreground)", pointerEvents: "none" }} />
               <input
                 type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={t("searchTenants")}
                 style={{
+                  width: "100%",
                   paddingLeft: 38, paddingRight: 16, paddingTop: 10, paddingBottom: 10,
-                  borderRadius: 14, fontSize: 13, width: 240,
+                  borderRadius: 14, fontSize: 13,
                   background: "var(--card)", border: "1px solid var(--border)",
                   color: "var(--foreground)", outline: "none",
+                  boxSizing: "border-box",
                 }}
               />
             </div>
@@ -1747,10 +1749,10 @@ export function TenantsView() {
               type="button"
               onClick={handleAddTenantClick}
               style={{
-                display: "flex", alignItems: "center", gap: 8,
-                padding: "10px 20px", borderRadius: 14, border: "none",
+                display: "flex", alignItems: "center", gap: 6, flexShrink: 0,
+                padding: "10px 16px", borderRadius: 14, border: "none",
                 background: "var(--primary)", color: "var(--primary-foreground)",
-                fontSize: 13, fontWeight: 500, cursor: "pointer",
+                fontSize: 13, fontWeight: 500, cursor: "pointer", whiteSpace: "nowrap",
                 transition: "opacity 0.15s",
               }}
               onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.9"; }}

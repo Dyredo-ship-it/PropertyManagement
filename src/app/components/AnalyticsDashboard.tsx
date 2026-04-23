@@ -328,7 +328,7 @@ export function AnalyticsDashboard() {
   const totalUnits = buildings.reduce((s, b) => s + (b.units ?? 0), 0);
 
   return (
-    <div style={{ padding: "32px 32px 48px" }}>
+    <div className="page-shell">
       {/* ── Header ───────────────────────────────────────────── */}
       <div style={{ marginBottom: 32 }}>
         <h1

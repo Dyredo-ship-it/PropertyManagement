@@ -206,7 +206,7 @@ export function TenantDashboardView() {
   ];
 
   return (
-    <div style={{ padding: "32px 36px 48px" }}>
+    <div className="page-shell">
       {/* ── Hero header ── */}
       <div
         style={{

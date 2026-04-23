@@ -1,5 +1,6 @@
 // app/components/DashboardView.tsx
 import React, { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Building as BuildingIcon,
   Users,
@@ -87,10 +88,6 @@ function AdminDashboard({
   /* ─── To-Do state ─── */
   const [todos, setTodos] = useState<BuildingAction[]>([]);
   const [showAddTodo, setShowAddTodo] = useState(false);
-  const [newTodoTitle, setNewTodoTitle] = useState("");
-  const [newTodoBuildingId, setNewTodoBuildingId] = useState("");
-  const [newTodoPriority, setNewTodoPriority] = useState<"low" | "medium" | "high">("medium");
-  const [newTodoDueDate, setNewTodoDueDate] = useState("");
 
   useEffect(() => {
     setTodos(getBuildingActions());
@@ -135,20 +132,21 @@ function AdminDashboard({
     }
   };
 
-  const handleAddTodo = () => {
-    if (!newTodoTitle.trim()) return;
+  const handleAddTodo = (payload: {
+    title: string;
+    buildingId: string;
+    priority: "low" | "medium" | "high";
+    dueDate: string;
+  }) => {
+    if (!payload.title.trim()) return;
     addBuildingAction({
-      buildingId: newTodoBuildingId || "",
-      title: newTodoTitle.trim(),
-      priority: newTodoPriority,
+      buildingId: payload.buildingId || "",
+      title: payload.title.trim(),
+      priority: payload.priority,
       status: "open",
-      dueDate: newTodoDueDate || undefined,
+      dueDate: payload.dueDate || undefined,
     });
     setTodos(getBuildingActions());
-    setNewTodoTitle("");
-    setNewTodoBuildingId("");
-    setNewTodoPriority("medium");
-    setNewTodoDueDate("");
     setShowAddTodo(false);
   };
 
@@ -212,7 +210,7 @@ function AdminDashboard({
   }, [buildings, requests]);
 
   return (
-    <div style={{ padding: "32px 32px 48px" }}>
+    <div className="page-shell">
       {/* ── Page Header ───────────────────────────────────────── */}
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 22, fontWeight: 600, lineHeight: 1.2, color: "var(--foreground)", margin: 0 }}>
@@ -414,7 +412,7 @@ function AdminDashboard({
               </h3>
               <button
                 type="button"
-                onClick={() => setShowAddTodo(!showAddTodo)}
+                onClick={() => setShowAddTodo(true)}
                 style={{
                   width: 26, height: 26, borderRadius: 8,
                   border: "1px solid var(--border)", background: "var(--background)",
@@ -425,114 +423,13 @@ function AdminDashboard({
                 onMouseEnter={(e) => { e.currentTarget.style.background = "color-mix(in srgb, var(--primary) 8%, transparent)"; e.currentTarget.style.color = "var(--primary)"; }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = "var(--background)"; e.currentTarget.style.color = "var(--muted-foreground)"; }}
               >
-                {showAddTodo ? <X style={{ width: 13, height: 13 }} /> : <Plus style={{ width: 13, height: 13 }} />}
+                <Plus style={{ width: 13, height: 13 }} />
               </button>
             </div>
 
-            {/* Add todo form */}
-            {showAddTodo && (
-              <div style={{
-                padding: 12, borderRadius: 10, marginBottom: 12,
-                background: "var(--background)", border: "1px solid var(--border)",
-                display: "flex", flexDirection: "column", gap: 8,
-              }}>
-                {/* Task input with inline add button */}
-                <div style={{ display: "flex", gap: 8 }}>
-                  <input
-                    type="text"
-                    value={newTodoTitle}
-                    onChange={(e) => setNewTodoTitle(e.target.value)}
-                    placeholder={t("todoPlaceholder")}
-                    onKeyDown={(e) => { if (e.key === "Enter" && newTodoTitle.trim()) handleAddTodo(); }}
-                    style={{
-                      flex: 1, padding: "8px 10px", borderRadius: 8, fontSize: 12,
-                      border: "1px solid var(--border)", background: "var(--card)",
-                      color: "var(--foreground)", outline: "none",
-                      boxSizing: "border-box",
-                      transition: "border-color 0.15s",
-                    }}
-                    onFocus={(e) => { e.currentTarget.style.borderColor = "var(--primary)"; }}
-                    onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
-                    autoFocus
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddTodo}
-                    disabled={!newTodoTitle.trim()}
-                    style={{
-                      padding: "0 16px", borderRadius: 8, border: "none", flexShrink: 0,
-                      background: newTodoTitle.trim() ? "var(--primary)" : "var(--border)",
-                      color: newTodoTitle.trim() ? "var(--primary-foreground)" : "var(--muted-foreground)",
-                      fontSize: 11, fontWeight: 600, cursor: newTodoTitle.trim() ? "pointer" : "default",
-                      transition: "opacity 0.15s",
-                    }}
-                    onMouseEnter={(e) => { if (newTodoTitle.trim()) e.currentTarget.style.opacity = "0.9"; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
-                  >
-                    <Plus style={{ width: 13, height: 13 }} />
-                  </button>
-                </div>
-                {/* Date + Building + Priority row */}
-                <div style={{ display: "flex", gap: 8 }}>
-                  <div style={{ position: "relative", flex: 1 }}>
-                    <Calendar style={{
-                      position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)",
-                      width: 11, height: 11, color: "var(--muted-foreground)", pointerEvents: "none",
-                    }} />
-                    <input
-                      type="datetime-local"
-                      value={newTodoDueDate}
-                      onChange={(e) => setNewTodoDueDate(e.target.value)}
-                      style={{
-                        width: "100%", padding: "6px 8px 6px 24px", borderRadius: 7, fontSize: 11,
-                        border: "1px solid var(--border)", background: "var(--card)",
-                        color: newTodoDueDate ? "var(--foreground)" : "var(--muted-foreground)",
-                        outline: "none", boxSizing: "border-box",
-                        transition: "border-color 0.15s",
-                      }}
-                      onFocus={(e) => { e.currentTarget.style.borderColor = "var(--primary)"; }}
-                      onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
-                    />
-                  </div>
-                  <select
-                    value={newTodoBuildingId}
-                    onChange={(e) => setNewTodoBuildingId(e.target.value)}
-                    style={{
-                      flex: 1, padding: "6px 8px", borderRadius: 7, fontSize: 11,
-                      border: "1px solid var(--border)", background: "var(--card)",
-                      color: newTodoBuildingId ? "var(--foreground)" : "var(--muted-foreground)",
-                      outline: "none", boxSizing: "border-box",
-                      transition: "border-color 0.15s",
-                    }}
-                    onFocus={(e) => { e.currentTarget.style.borderColor = "var(--primary)"; }}
-                    onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
-                  >
-                    <option value="">{t("allBuildings")}</option>
-                    {buildings.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-                  </select>
-                  <select
-                    value={newTodoPriority}
-                    onChange={(e) => setNewTodoPriority(e.target.value as any)}
-                    style={{
-                      width: 90, padding: "6px 8px", borderRadius: 7, fontSize: 11,
-                      border: "1px solid var(--border)", background: "var(--card)",
-                      color: "var(--foreground)", outline: "none", boxSizing: "border-box",
-                      transition: "border-color 0.15s",
-                    }}
-                    onFocus={(e) => { e.currentTarget.style.borderColor = "var(--primary)"; }}
-                    onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
-                  >
-                    <option value="low">{t("low")}</option>
-                    <option value="medium">{t("medium")}</option>
-                    <option value="high">{t("high")}</option>
-                  </select>
-                </div>
-              </div>
-            )}
-
             {/* Todo items */}
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {todos.filter((td) => td.status === "open").length === 0 && !showAddTodo ? (
+              {todos.filter((td) => td.status === "open").length === 0 ? (
                 <p style={{ fontSize: 12, color: "var(--muted-foreground)", textAlign: "center", padding: "16px 0" }}>
                   {t("noTasks")}
                 </p>
@@ -694,8 +591,216 @@ function AdminDashboard({
           </div>
         </div>
       </div>
+
+      {showAddTodo && (
+        <AddTodoModal
+          buildings={buildings}
+          onClose={() => setShowAddTodo(false)}
+          onAdd={handleAddTodo}
+          t={t}
+        />
+      )}
     </div>
   );
+}
+
+/* ─── Add Todo Modal ────────────────────────────────────────── */
+
+function AddTodoModal({
+  buildings,
+  onClose,
+  onAdd,
+  t,
+}: {
+  buildings: Building[];
+  onClose: () => void;
+  onAdd: (payload: {
+    title: string;
+    buildingId: string;
+    priority: "low" | "medium" | "high";
+    dueDate: string;
+  }) => void;
+  t: (key: any) => string;
+}) {
+  const [title, setTitle] = useState("");
+  const [buildingId, setBuildingId] = useState("");
+  const [priority, setPriority] = useState<"low" | "medium" | "high">("medium");
+  const [dueDate, setDueDate] = useState("");
+  const [focusedField, setFocusedField] = useState<string | null>(null);
+
+  const canSubmit = title.trim().length > 0;
+
+  const handleSubmit = () => {
+    if (!canSubmit) return;
+    onAdd({ title, buildingId, priority, dueDate });
+  };
+
+  const inputStyle: React.CSSProperties = {
+    width: "100%",
+    boxSizing: "border-box",
+    padding: "9px 12px",
+    borderRadius: 9,
+    fontSize: 13,
+    border: "1px solid var(--border)",
+    background: "var(--background)",
+    color: "var(--foreground)",
+    outline: "none",
+  };
+
+  const labelStyle: React.CSSProperties = {
+    fontSize: 10,
+    fontWeight: 650,
+    textTransform: "uppercase",
+    letterSpacing: "0.04em",
+    color: "var(--muted-foreground)",
+    marginBottom: 4,
+    display: "block",
+  };
+
+  const focusStyle = (field: string): React.CSSProperties => ({
+    ...inputStyle,
+    borderColor: focusedField === field ? "var(--primary)" : undefined,
+  });
+
+  const modal = (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 9999,
+        background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        padding: 16,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: "var(--card)",
+          borderRadius: 16,
+          border: "1px solid var(--border)",
+          width: "100%",
+          maxWidth: 480,
+          maxHeight: "90vh",
+          overflowY: "auto",
+          boxShadow: "0 16px 48px rgba(0,0,0,0.18)",
+        }}
+      >
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "18px 22px", borderBottom: "1px solid var(--border)",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <ListTodo size={18} style={{ color: "var(--primary)" }} />
+            <span style={{ fontSize: 16, fontWeight: 700, color: "var(--foreground)" }}>
+              {t("todoList")}
+            </span>
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              background: "none", border: "none", cursor: "pointer",
+              color: "var(--muted-foreground)", padding: 4, borderRadius: 8,
+              display: "flex", alignItems: "center",
+            }}
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div style={{ padding: "18px 22px", display: "flex", flexDirection: "column", gap: 16 }}>
+          <div>
+            <label style={labelStyle}>{t("todoPlaceholder")}</label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              onFocus={() => setFocusedField("title")}
+              onBlur={() => setFocusedField(null)}
+              onKeyDown={(e) => { if (e.key === "Enter" && canSubmit) handleSubmit(); }}
+              placeholder={t("todoPlaceholder")}
+              autoFocus
+              style={focusStyle("title")}
+            />
+          </div>
+
+          <div>
+            <label style={labelStyle}>{t("dueDate") || "Date"}</label>
+            <input
+              type="datetime-local"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              onFocus={() => setFocusedField("date")}
+              onBlur={() => setFocusedField(null)}
+              style={focusStyle("date")}
+            />
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div>
+              <label style={labelStyle}>{t("navBuildings")}</label>
+              <select
+                value={buildingId}
+                onChange={(e) => setBuildingId(e.target.value)}
+                onFocus={() => setFocusedField("building")}
+                onBlur={() => setFocusedField(null)}
+                style={{ ...focusStyle("building"), cursor: "pointer" }}
+              >
+                <option value="">{t("allBuildings")}</option>
+                {buildings.map((b) => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>{t("priority") || "Priorité"}</label>
+              <select
+                value={priority}
+                onChange={(e) => setPriority(e.target.value as any)}
+                onFocus={() => setFocusedField("priority")}
+                onBlur={() => setFocusedField(null)}
+                style={{ ...focusStyle("priority"), cursor: "pointer" }}
+              >
+                <option value="low">{t("low")}</option>
+                <option value="medium">{t("medium")}</option>
+                <option value="high">{t("high")}</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div style={{
+          display: "flex", justifyContent: "flex-end", gap: 10,
+          padding: "14px 22px", borderTop: "1px solid var(--border)",
+        }}>
+          <button
+            onClick={onClose}
+            style={{
+              padding: "8px 18px", borderRadius: 9, fontSize: 13, fontWeight: 600,
+              background: "var(--background)", color: "var(--foreground)",
+              border: "1px solid var(--border)", cursor: "pointer",
+            }}
+          >
+            {t("cancel") || "Annuler"}
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={!canSubmit}
+            style={{
+              padding: "8px 18px", borderRadius: 9, fontSize: 13, fontWeight: 600,
+              background: canSubmit ? "var(--primary)" : "var(--border)",
+              color: canSubmit ? "var(--primary-foreground)" : "var(--muted-foreground)",
+              border: "none", cursor: canSubmit ? "pointer" : "not-allowed",
+              opacity: canSubmit ? 1 : 0.6,
+            }}
+          >
+            {t("add") || "Ajouter"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  return createPortal(modal, document.body);
 }
 
 /* ─── Kanban Column ───────────────────────────────────────────── */
@@ -904,7 +1009,7 @@ function TenantDashboard({
   const heroPhoto = myBuilding?.imageUrl || BUILDING_PHOTOS[0];
 
   return (
-    <div style={{ padding: "32px 32px 48px" }}>
+    <div className="page-shell">
       {/* Hero */}
       <div
         className="overflow-hidden flex flex-col lg:flex-row"

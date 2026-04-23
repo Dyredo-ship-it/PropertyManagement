@@ -9,7 +9,7 @@ export function InformationsView() {
 
   if (user?.role === "admin") {
     return (
-      <div style={{ padding: "32px 36px 48px" }}>
+      <div className="page-shell">
         {/* ── Header ─────────────────────────────────────────── */}
         <div style={{ marginBottom: 22 }}>
           <h1 style={{
@@ -52,7 +52,7 @@ export function InformationsView() {
 
   /* ── Tenant view ──────────────────────────────────────────── */
   return (
-    <div style={{ padding: "32px 36px 48px" }}>
+    <div className="page-shell">
       {/* ── Header ─────────────────────────────────────────── */}
       <div style={{ marginBottom: 22 }}>
         <h1 style={{

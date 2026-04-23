@@ -228,7 +228,7 @@ export function TenantRequestsView() {
       : t("completedRequests");
 
   return (
-    <div style={{ padding: "32px 36px 48px" }}>
+    <div className="page-shell">
       {/* Header */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 28 }}>
         <div style={{ borderLeft: "4px solid var(--primary)", paddingLeft: 14 }}>

@@ -81,7 +81,7 @@ export function InterventionsView() {
     tenants.find((tn) => tn.id === id)?.name || "Inconnu";
 
   return (
-    <div style={{ padding: "32px 32px 48px" }}>
+    <div className="page-shell">
       {/* ── Header ────────────────────────────────────────────── */}
       <div
         className="flex items-start justify-between gap-4"

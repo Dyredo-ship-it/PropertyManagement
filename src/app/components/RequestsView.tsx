@@ -722,7 +722,7 @@ export function RequestsView() {
     <div style={{ background: "var(--background)" }}>
 
       {/* ── Page content with left accent border ─── */}
-      <div style={{ padding: "32px 36px 48px", borderLeft: "4px solid var(--primary)" }}>
+      <div className="page-shell page-shell-accent">
 
         {/* ── Page header ───────────────────────────────────── */}
         <div className="req-header" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 28, gap: 16, flexWrap: "wrap" }}>

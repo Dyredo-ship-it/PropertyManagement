@@ -297,7 +297,7 @@ export function NotificationsView({ onNavigate }: { onNavigate?: (view: string) 
   };
 
   return (
-    <div style={{ padding: "32px 36px 48px" }}>
+    <div className="page-shell">
       {/* ── Header row: title + button ──────────────────────── */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 24, marginBottom: 20 }}>
         <div style={{ flexShrink: 0 }}>

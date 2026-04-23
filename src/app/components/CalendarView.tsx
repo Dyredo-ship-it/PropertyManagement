@@ -161,7 +161,7 @@ export function CalendarView() {
   const selectedDayEvents = selectedDay ? (eventsByDate.get(selectedDay) || []) : [];
 
   return (
-    <div style={{ padding: "32px 36px 48px" }}>
+    <div className="page-shell">
       {/* ── Header ─────────────────────────────────────────── */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 24, marginBottom: 22 }}>
         <div style={{ flexShrink: 0 }}>

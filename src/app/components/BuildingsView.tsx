@@ -272,7 +272,7 @@ function BuildingDetail({
   const [ownerOpen, setOwnerOpen] = useState(false);
 
   return (
-    <div style={{ padding: "32px 36px 48px" }}>
+    <div className="page-shell">
       {/* ── Header: back + title + actions ──────────────────── */}
       <div className="building-detail-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 22, gap: 12, flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
@@ -944,7 +944,7 @@ export function BuildingsView({ onSelectBuilding, initialSelectedId }: Buildings
   /* ── Detail mode ── */
   if (selectedBuilding) {
     return (
-      <div style={{ padding: "32px 32px 48px" }}>
+      <div className="page-shell">
         <BuildingDetail
           building={selectedBuilding}
           index={selectedIndex}
@@ -971,7 +971,7 @@ export function BuildingsView({ onSelectBuilding, initialSelectedId }: Buildings
 
   /* ── Bubble grid mode ── */
   return (
-    <div style={{ padding: "32px 32px 48px" }}>
+    <div className="page-shell">
       {/* Page header */}
       <div className="flex items-start justify-between" style={{ marginBottom: 28 }}>
         <div>
