@@ -1126,13 +1126,14 @@ function TenantDetailDrawer({
                 display: "flex", flexDirection: "column", gap: 10,
               }}>
                 <p style={{ ...labelStyle, marginBottom: 2 }}>Ajouter un document</p>
-                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                <div className="tenant-doc-upload-row" style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
                   <select
                     value={uploadCategory}
                     onChange={(e) => setUploadCategory(e.target.value as TenantDocument["category"])}
                     style={{
                       padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border)",
                       background: "var(--card)", color: "var(--foreground)", fontSize: 13, outline: "none",
+                      flex: "1 1 140px", minWidth: 0,
                     }}
                   >
                     {DOC_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -1153,10 +1154,11 @@ function TenantDetailDrawer({
                       padding: "8px 16px", borderRadius: 8, border: "none", cursor: "pointer",
                       fontSize: 12, fontWeight: 600,
                       background: "var(--primary)", color: "var(--primary-foreground)",
+                      whiteSpace: "nowrap", flexShrink: 0,
                     }}
                   >
-                    <Upload style={{ width: 14, height: 14 }} />
-                    Choisir un fichier
+                    <Upload style={{ width: 14, height: 14, flexShrink: 0 }} />
+                    <span style={{ whiteSpace: "nowrap" }}>Choisir un fichier</span>
                   </button>
                 </div>
               </div>
@@ -1180,7 +1182,7 @@ function TenantDetailDrawer({
                   <FileDown style={{ width: 14, height: 14, color: "var(--primary)" }} />
                   Contrat de bail
                 </button>
-                <div style={{ display: "flex", gap: 8, alignItems: "stretch" }}>
+                <div className="tenant-doc-receipt-row" style={{ display: "flex", gap: 8, alignItems: "stretch", flexWrap: "wrap" }}>
                   <input
                     type="month"
                     value={receiptPeriod}
@@ -1188,20 +1190,22 @@ function TenantDetailDrawer({
                     style={{
                       padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border)",
                       background: "var(--card)", color: "var(--foreground)", fontSize: 13, outline: "none",
-                      flexShrink: 0,
+                      flex: "1 1 140px", minWidth: 0,
                     }}
                   />
                   <button
                     type="button"
                     onClick={() => handleGenerateReceipt()}
                     style={{
-                      display: "flex", alignItems: "center", gap: 8,
+                      display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                       padding: "10px 14px", borderRadius: 8, border: "1px solid var(--border)",
                       background: "var(--card)", color: "var(--foreground)",
-                      fontSize: 13, fontWeight: 500, cursor: "pointer", flex: 1,
+                      fontSize: 13, fontWeight: 500, cursor: "pointer",
+                      flex: "1 1 120px", minWidth: 0,
+                      whiteSpace: "nowrap",
                     }}
                   >
-                    <FileDown style={{ width: 14, height: 14, color: "var(--primary)" }} />
+                    <FileDown style={{ width: 14, height: 14, color: "var(--primary)", flexShrink: 0 }} />
                     Quittance
                   </button>
                   <button
@@ -1209,13 +1213,15 @@ function TenantDetailDrawer({
                     onClick={() => setShowSignatureFor("receipt")}
                     title="Signer et générer la quittance"
                     style={{
-                      display: "flex", alignItems: "center", gap: 6,
+                      display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
                       padding: "10px 14px", borderRadius: 8, border: "1px solid var(--border)",
                       background: "var(--card)", color: "var(--foreground)",
                       fontSize: 13, fontWeight: 500, cursor: "pointer",
+                      flex: "1 1 100px", minWidth: 0,
+                      whiteSpace: "nowrap",
                     }}
                   >
-                    <Edit style={{ width: 14, height: 14, color: "var(--primary)" }} />
+                    <Edit style={{ width: 14, height: 14, color: "var(--primary)", flexShrink: 0 }} />
                     Signer
                   </button>
                 </div>
