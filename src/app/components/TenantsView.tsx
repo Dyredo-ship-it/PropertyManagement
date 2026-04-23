@@ -1713,7 +1713,7 @@ export function TenantsView() {
   return (
     <div style={{ background: "var(--background)", minHeight: "100vh" }}>
       {/* ═══ PAGE CONTENT with left accent border ═══ */}
-      <div style={{ padding: "32px 36px 48px", borderLeft: "4px solid var(--primary)" }}>
+      <div className="page-shell page-shell-accent">
 
         {/* ═══ PAGE HEADER — matching BuildingsView style ═══ */}
         <div className="tenants-header" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 28, gap: 16, flexWrap: "wrap" }}>
@@ -1809,8 +1809,17 @@ export function TenantsView() {
                   {buildings.map((b, i) => {
                     const photo = b.imageUrl || BUILDING_PHOTOS[i % BUILDING_PHOTOS.length];
                     const tenantCount = tenants.filter((tn: any) => tn.buildingId === b.id).length;
-                    const activeCnt = tenants.filter((tn: any) => tn.buildingId === b.id && tn.status === "active").length;
-                    const occPct = b.units > 0 ? Math.round((activeCnt / b.units) * 100) : 0;
+                    // Occupation only counts apartment tenants — garage/place-de-parc
+                    // only renters don't occupy a housing unit, so they shouldn't
+                    // push the rate above 100%.
+                    const isApartmentUnit = (unit: string | undefined) => {
+                      const u = (unit ?? "").toLowerCase();
+                      return !u.startsWith("garage") && !u.startsWith("place");
+                    };
+                    const activeCnt = tenants.filter((tn: any) =>
+                      tn.buildingId === b.id && tn.status === "active" && isApartmentUnit(tn.unit),
+                    ).length;
+                    const occPct = b.units > 0 ? Math.min(100, Math.round((activeCnt / b.units) * 100)) : 0;
                     return (
                       <button
                         key={b.id}

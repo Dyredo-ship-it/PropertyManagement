@@ -37,7 +37,16 @@ const DEFAULT_ROWS: Row[] = [
 ];
 
 function fmt(n: number): string {
-  return new Intl.NumberFormat("fr-CH", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+  // Swiss convention uses a simple ASCII apostrophe as the thousands
+  // separator ("9'138.00"), matching the PDF décomptes de gestion.
+  // Intl.NumberFormat("fr-CH") emits the typographic right-single-quote
+  // ("’") instead, so we normalize it.
+  return new Intl.NumberFormat("fr-CH", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+    .format(n)
+    .replace(/’/g, "'");
 }
 
 export function RentIncreaseCalculator() {

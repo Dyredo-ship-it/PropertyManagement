@@ -436,14 +436,32 @@ export function AccountingView() {
   );
 
   // ─── Available years from transactions ───
+  // Always surface the current year ±1 so the user can file new entries
+  // without needing seed data in that year first.
   const availableYears = useMemo(() => {
     const years = new Set<string>();
     transactions.forEach((tx) => {
       if (tx.dateInvoice) years.add(tx.dateInvoice.substring(0, 4));
     });
-    if (years.size === 0) years.add(String(new Date().getFullYear()));
+    const now = new Date().getFullYear();
+    for (const y of [now - 1, now, now + 1]) years.add(String(y));
     return Array.from(years).sort().reverse();
   }, [transactions]);
+
+  // If the selected year has no data but another year does, jump to the
+  // most recent year that actually has transactions — avoids the "empty
+  // comptabilité" surprise right after importing older data.
+  useEffect(() => {
+    if (transactions.length === 0) return;
+    const hasDataForSelected = transactions.some(
+      (tx) => tx.dateInvoice?.startsWith(selectedYear),
+    );
+    if (hasDataForSelected) return;
+    const yearsWithData = Array.from(
+      new Set(transactions.map((tx) => tx.dateInvoice?.substring(0, 4)).filter(Boolean)),
+    ).sort().reverse();
+    if (yearsWithData[0]) setSelectedYear(yearsWithData[0] as string);
+  }, [transactions, selectedYear]);
 
   /* ─── Import handlers ─────────────────────────────────────── */
 
@@ -2785,7 +2803,7 @@ export function AccountingView() {
   ];
 
   return (
-    <div style={{ padding: "32px 36px 48px" }}>
+    <div className="page-shell">
       {/* Header */}
       <div
         style={{
