@@ -905,6 +905,7 @@ export function BuildingsView({ onSelectBuilding, initialSelectedId }: Buildings
     occupiedUnits: 0,
     monthlyRevenue: 0,
     currency: "CHF" as string,
+    imageUrl: "" as string,
   });
 
   useEffect(() => { loadBuildings(); }, []);
@@ -912,7 +913,7 @@ export function BuildingsView({ onSelectBuilding, initialSelectedId }: Buildings
   const loadBuildings = () => setBuildings(getBuildings());
 
   const resetForm = () =>
-    setFormData({ name: "", address: "", units: 0, occupiedUnits: 0, monthlyRevenue: 0, currency: "CHF" });
+    setFormData({ name: "", address: "", units: 0, occupiedUnits: 0, monthlyRevenue: 0, currency: "CHF", imageUrl: "" });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -943,6 +944,7 @@ export function BuildingsView({ onSelectBuilding, initialSelectedId }: Buildings
       occupiedUnits: b.occupiedUnits,
       monthlyRevenue: b.monthlyRevenue,
       currency: b.currency ?? "",
+      imageUrl: b.imageUrl ?? "",
     });
     setIsDialogOpen(true);
   };
@@ -1291,6 +1293,12 @@ function FormDialog({
         {/* ── Form body ─────────────────────────────────────── */}
         <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column" }}>
           <div style={{ padding: "20px 22px", display: "flex", flexDirection: "column", gap: 14, overflow: "hidden" }}>
+            {/* Photo */}
+            <BuildingPhotoField
+              imageUrl={formData.imageUrl}
+              onChange={(url) => setFormData({ ...formData, imageUrl: url })}
+            />
+
             {/* Name */}
             <div>
               <label style={labelStyle}>{t("buildingName")}</label>
@@ -1421,5 +1429,133 @@ function FormDialog({
       </div>
     </div>,
     document.body
+  );
+}
+
+/* ─── Building photo field ───────────────────────────────────── */
+
+async function compressToDataUrl(file: File, maxSize = 1200, quality = 0.8): Promise<string> {
+  if (!file.type.startsWith("image/")) throw new Error("Fichier non supporté");
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, maxSize / Math.max(bitmap.width, bitmap.height));
+  const w = Math.round(bitmap.width * scale);
+  const h = Math.round(bitmap.height * scale);
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas non disponible");
+  ctx.drawImage(bitmap, 0, 0, w, h);
+  bitmap.close();
+  return canvas.toDataURL("image/jpeg", quality);
+}
+
+function BuildingPhotoField({
+  imageUrl,
+  onChange,
+}: {
+  imageUrl: string;
+  onChange: (url: string) => void;
+}) {
+  const fileRef = React.useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const handleFile = async (file: File) => {
+    setError(null);
+    setBusy(true);
+    try {
+      const dataUrl = await compressToDataUrl(file);
+      onChange(dataUrl);
+    } catch (err) {
+      setError((err as Error).message || "Erreur lors de l'upload");
+    } finally {
+      setBusy(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  return (
+    <div>
+      <label style={labelStyle}>Photo de l'immeuble</label>
+      <div
+        style={{
+          display: "flex", gap: 12, alignItems: "stretch",
+          padding: 10, borderRadius: 10,
+          border: "1px dashed var(--border)",
+          background: "var(--background)",
+        }}
+      >
+        <div
+          style={{
+            width: 88, height: 66, borderRadius: 8, flexShrink: 0,
+            background: imageUrl ? "transparent" : "var(--card)",
+            border: "1px solid var(--border)",
+            overflow: "hidden", position: "relative",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}
+        >
+          {imageUrl ? (
+            <img
+              src={imageUrl}
+              alt=""
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            />
+          ) : (
+            <Building2 style={{ width: 22, height: 22, color: "var(--muted-foreground)" }} />
+          )}
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, justifyContent: "center", flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              disabled={busy}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 6,
+                padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: 600,
+                border: "1px solid var(--border)", background: "var(--card)",
+                color: "var(--foreground)", cursor: busy ? "wait" : "pointer",
+                opacity: busy ? 0.7 : 1,
+              }}
+            >
+              {busy ? "Traitement…" : imageUrl ? "Remplacer" : "Choisir une photo"}
+            </button>
+            {imageUrl && (
+              <button
+                type="button"
+                onClick={() => onChange("")}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 4,
+                  padding: "6px 10px", borderRadius: 8, fontSize: 12, fontWeight: 500,
+                  border: "1px solid var(--border)", background: "transparent",
+                  color: "#DC2626", cursor: "pointer",
+                }}
+              >
+                Retirer
+              </button>
+            )}
+          </div>
+          <p style={{ margin: 0, fontSize: 10, color: "var(--muted-foreground)", lineHeight: 1.35 }}>
+            {imageUrl
+              ? "Affichée en couverture sur la carte de l'immeuble."
+              : "Laisser vide pour utiliser une photo par défaut. JPEG / PNG, compressée à 1200 px max."}
+          </p>
+          {error && (
+            <p style={{ margin: 0, fontSize: 11, color: "#DC2626" }}>{error}</p>
+          )}
+        </div>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          style={{ display: "none" }}
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) handleFile(f);
+          }}
+        />
+      </div>
+    </div>
   );
 }
