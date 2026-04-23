@@ -1,6 +1,9 @@
 // app/components/DashboardView.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { listOverdueThisMonth, type TenantRentMonth } from "../utils/rentStatus";
+import { sendRentReminder } from "../lib/email";
+import { Mail, AlertTriangle } from "lucide-react";
 import {
   Building as BuildingIcon,
   Users,
@@ -167,6 +170,37 @@ function AdminDashboard({
     ).sort((a: any, b: any) => (b.latePaymentMonths ?? 1) - (a.latePaymentMonths ?? 1));
   }, [tenants]);
 
+  /* ─── Overdue rents live-computed from transactions ─── */
+  const [overdueThisMonth, setOverdueThisMonth] = useState<TenantRentMonth[]>(() => listOverdueThisMonth());
+  const [sendingReminderId, setSendingReminderId] = useState<string | null>(null);
+  useEffect(() => {
+    // Recompute when the tenants prop changes — storage might have hydrated.
+    setOverdueThisMonth(listOverdueThisMonth());
+  }, [tenants, buildings]);
+
+  const handleSendReminder = async (row: TenantRentMonth) => {
+    if (!row.building) return;
+    if (!row.tenant.email) {
+      alert(`Pas d'email enregistré pour ${row.tenant.name}.`);
+      return;
+    }
+    const confirmed = window.confirm(
+      `Envoyer un rappel à ${row.tenant.name} (${row.tenant.email}) pour ${row.monthKey} ?`,
+    );
+    if (!confirmed) return;
+    setSendingReminderId(row.tenant.id);
+    try {
+      await sendRentReminder(row.tenant, row.building, row.monthKey);
+      alert(`Rappel envoyé à ${row.tenant.name}.`);
+    } catch (err) {
+      alert(`Échec de l'envoi: ${(err as Error).message}`);
+    } finally {
+      setSendingReminderId(null);
+    }
+  };
+
+  const overdueTotalAmount = overdueThisMonth.reduce((s, r) => s + r.expectedAmount, 0);
+
   const totalUnits = buildings.reduce((s, b) => s + (b.units ?? 0), 0);
   const occupied = buildings.reduce((s, b) => s + (b.occupiedUnits ?? 0), 0);
   const revenue = buildings.reduce((s, b) => s + convertToBase(b.monthlyRevenue ?? 0, getBuildingCurrency(b)), 0);
@@ -273,6 +307,101 @@ function AdminDashboard({
           );
         })}
       </div>
+
+      {/* ── Overdue rents alert (live from accounting) ─────────── */}
+      {overdueThisMonth.length > 0 && (
+        <div
+          style={{
+            marginBottom: 28,
+            borderRadius: 14,
+            border: "1px solid color-mix(in srgb, #DC2626 30%, transparent)",
+            background: "color-mix(in srgb, #DC2626 4%, var(--card))",
+            overflow: "hidden",
+          }}
+        >
+          <div style={{
+            padding: "14px 20px",
+            borderBottom: "1px solid color-mix(in srgb, #DC2626 20%, transparent)",
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            gap: 12, flexWrap: "wrap",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+              <div style={{
+                width: 32, height: 32, borderRadius: 8, flexShrink: 0,
+                background: "color-mix(in srgb, #DC2626 12%, transparent)",
+                color: "#DC2626",
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}>
+                <AlertTriangle style={{ width: 16, height: 16 }} />
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <p style={{ fontSize: 14, fontWeight: 700, color: "#B91C1C", margin: 0 }}>
+                  {overdueThisMonth.length} loyer{overdueThisMonth.length > 1 ? "s" : ""} impayé{overdueThisMonth.length > 1 ? "s" : ""} ce mois
+                </p>
+                <p style={{ fontSize: 12, color: "var(--muted-foreground)", margin: "2px 0 0" }}>
+                  Montant total attendu : {formatAmount(overdueTotalAmount)} · échéance dépassée
+                </p>
+              </div>
+            </div>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            {overdueThisMonth.slice(0, 6).map((row) => (
+              <div
+                key={`${row.tenant.id}-${row.monthKey}`}
+                style={{
+                  padding: "10px 20px",
+                  borderTop: "1px solid color-mix(in srgb, #DC2626 10%, transparent)",
+                  display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
+                }}
+              >
+                <div style={{ flex: "1 1 180px", minWidth: 0 }}>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {row.tenant.name}
+                  </p>
+                  <p style={{ fontSize: 11, color: "var(--muted-foreground)", margin: "2px 0 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {row.building?.name} · {row.tenant.unit} · {row.daysLate ?? 0} j de retard
+                  </p>
+                </div>
+                <span style={{
+                  fontSize: 13, fontWeight: 700, color: "#B91C1C",
+                  fontVariantNumeric: "tabular-nums", flexShrink: 0,
+                }}>
+                  {formatAmount(row.expectedAmount)}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleSendReminder(row)}
+                  disabled={sendingReminderId === row.tenant.id || !row.tenant.email}
+                  title={row.tenant.email ? "Envoyer un rappel par email" : "Pas d'email enregistré"}
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 6,
+                    padding: "6px 12px", borderRadius: 8,
+                    border: "1px solid color-mix(in srgb, #DC2626 25%, transparent)",
+                    background: "var(--card)",
+                    color: row.tenant.email ? "#DC2626" : "var(--muted-foreground)",
+                    fontSize: 12, fontWeight: 600,
+                    cursor: sendingReminderId === row.tenant.id ? "wait" : row.tenant.email ? "pointer" : "not-allowed",
+                    opacity: sendingReminderId === row.tenant.id ? 0.6 : 1,
+                    flexShrink: 0, whiteSpace: "nowrap",
+                  }}
+                >
+                  <Mail style={{ width: 12, height: 12 }} />
+                  {sendingReminderId === row.tenant.id ? "Envoi…" : "Rappel"}
+                </button>
+              </div>
+            ))}
+            {overdueThisMonth.length > 6 && (
+              <div style={{
+                padding: "10px 20px", fontSize: 11,
+                color: "var(--muted-foreground)", textAlign: "center",
+                borderTop: "1px solid color-mix(in srgb, #DC2626 10%, transparent)",
+              }}>
+                +{overdueThisMonth.length - 6} autres — voir <b>Comptabilité → Suivi des loyers</b>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── Main content: two-column layout ───────────────────── */}
       <div className="dash-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 24 }}>
