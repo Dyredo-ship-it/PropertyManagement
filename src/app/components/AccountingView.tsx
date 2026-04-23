@@ -798,7 +798,7 @@ export function AccountingView() {
     };
     const today = new Date();
     return buildingTenants.map((tenant) => {
-      const months: Record<string, "paid" | "unpaid" | "late"> = {};
+      const months: Record<string, "paid" | "unpaid" | "paid-late" | "overdue"> = {};
       for (let m = 1; m <= 12; m++) {
         const monthKey = `${year}-${String(m).padStart(2, "0")}`;
         const rentTxs = scopedTx.filter(
@@ -817,10 +817,10 @@ export function AccountingView() {
             const paymentDate = new Date(tx.datePayment);
             return paymentDate > deadline;
           });
-          months[monthKey] = isLate ? "late" : "paid";
+          months[monthKey] = isLate ? "paid-late" : "paid";
         } else if (today > deadline) {
-          // Unpaid past the deadline → late.
-          months[monthKey] = "late";
+          // Unpaid past the deadline → overdue (money still owed).
+          months[monthKey] = "overdue";
         } else {
           // Not yet due or future month.
           months[monthKey] = "unpaid";
@@ -837,7 +837,8 @@ export function AccountingView() {
     let paid = 0;
     let unpaid = 0;
     rentGrid.forEach((row) => {
-      if (row.months[currentMonth] === "paid" || row.months[currentMonth] === "late") paid++;
+      const s = row.months[currentMonth];
+      if (s === "paid" || s === "paid-late") paid++;
       else unpaid++;
     });
     return { paid, unpaid };
@@ -854,7 +855,9 @@ export function AccountingView() {
     const existingNotifs = getNotifications();
     for (const row of rentGrid) {
       const status = row.months[currentMonthKey];
-      if (status !== "late") continue;
+      // Only fire reminders for money actually still owed — "paid-late" has
+      // already hit the bank, nothing to chase.
+      if (status !== "overdue") continue;
       const key = `${row.tenant.id}::${currentMonthKey}`;
       if (notifiedLateKeys.current.has(key)) continue;
       const alreadyNotified = existingNotifs.some(
@@ -1529,14 +1532,21 @@ export function AccountingView() {
                       <td key={i} style={{ ...tdStyle, textAlign: "center", padding: "6px 4px" }}>
                         {status === "paid" ? (
                           <CheckCircle size={16} color="#16a34a" />
-                        ) : status === "late" ? (
-                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-                            <Calendar size={14} color="#f59e0b" />
-                            <span style={{ fontSize: 9, color: "#f59e0b" }}>Tard</span>
+                        ) : status === "paid-late" ? (
+                          <div
+                            title="Payé en retard (encaissement après la date limite)"
+                            style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}
+                          >
+                            <CheckCircle size={14} color="#f59e0b" />
+                            <span style={{ fontSize: 9, color: "#f59e0b", fontWeight: 600 }}>Payé tard</span>
                           </div>
-                        ) : (
-                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-                            <X size={16} color="#ef4444" />
+                        ) : status === "overdue" ? (
+                          <div
+                            title="Impayé — date limite dépassée"
+                            style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}
+                          >
+                            <X size={16} color="#dc2626" />
+                            <span style={{ fontSize: 9, color: "#dc2626", fontWeight: 600 }}>Impayé</span>
                             <button
                               onClick={() => handleSendReminder(tenant, monthKey)}
                               style={{
@@ -1555,6 +1565,13 @@ export function AccountingView() {
                               <Mail size={10} />
                             </button>
                           </div>
+                        ) : (
+                          <span
+                            title="Pas encore dû"
+                            style={{ color: "var(--muted-foreground)", fontSize: 14 }}
+                          >
+                            —
+                          </span>
                         )}
                       </td>
                     );
