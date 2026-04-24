@@ -74,7 +74,12 @@
       "Bash(awk 'BEGIN{RS=\"}\"} /calendar-two-col/' dist/assets/index-Dx4KxkWO.css)",
       "Bash(supabase functions *)",
       "Bash(grep -E \"^\\(tsc|next\\)$\")",
-      "Bash(awk '/Gare 27|building_id|Encaissements|loyer|Loyer|insert into accounting_transactions/' supabase/migrations/20260422_ff_gestion_seed_2025.sql)"
+      "Bash(awk '/Gare 27|building_id|Encaissements|loyer|Loyer|insert into accounting_transactions/' supabase/migrations/20260422_ff_gestion_seed_2025.sql)",
+      "Bash(supabase status *)",
+      "Bash(supabase migration *)",
+      "Bash(supabase db *)",
+      "Bash(pbcopy)",
+      "Bash(open -a TextEdit \"/Users/dylan/Library/Mobile Documents/com~apple~CloudDocs/Documents/Property Management App/supabase/migrations/20260424_contracts.sql\")"
     ]
   }
 }

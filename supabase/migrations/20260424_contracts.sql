@@ -68,21 +68,23 @@ for each row
 execute function set_updated_at();
 
 -- RLS: a member of an organization can read/write only that org's rows.
+-- Uses the app-wide current_org_id() helper (reads organization_id from
+-- the caller's profiles row) that every other org-scoped table uses.
 alter table contracts enable row level security;
 
-drop policy if exists "members read contracts" on contracts;
-create policy "members read contracts"
-on contracts for select
-using (organization_id in (
-  select organization_id from organization_members where user_id = auth.uid()
-));
+drop policy if exists "contracts_select_org" on contracts;
+create policy "contracts_select_org" on contracts
+  for select using (organization_id = current_org_id());
 
-drop policy if exists "members write contracts" on contracts;
-create policy "members write contracts"
-on contracts for all
-using (organization_id in (
-  select organization_id from organization_members where user_id = auth.uid()
-))
-with check (organization_id in (
-  select organization_id from organization_members where user_id = auth.uid()
-));
+drop policy if exists "contracts_insert_org" on contracts;
+create policy "contracts_insert_org" on contracts
+  for insert with check (organization_id = current_org_id());
+
+drop policy if exists "contracts_update_org" on contracts;
+create policy "contracts_update_org" on contracts
+  for update using (organization_id = current_org_id())
+  with check (organization_id = current_org_id());
+
+drop policy if exists "contracts_delete_org" on contracts;
+create policy "contracts_delete_org" on contracts
+  for delete using (organization_id = current_org_id());
