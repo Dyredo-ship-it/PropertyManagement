@@ -34,7 +34,8 @@ type EventCategory =
   | "task"
   | "amortization"
   | "calendar"
-  | "contract-renewal";
+  | "contract-renewal"
+  | "deposit-release";
 
 type TimelineEvent = {
   id: string;
@@ -86,6 +87,12 @@ const CATEGORY_STYLE: Record<EventCategory, {
     label: "Contrat",
     color: "#0891B2",
     bg: "rgba(8,145,178,0.08)",
+    icon: FileText,
+  },
+  "deposit-release": {
+    label: "Caution",
+    color: "#CA8A04",
+    bg: "rgba(202,138,4,0.08)",
     icon: FileText,
   },
 };
@@ -196,6 +203,29 @@ function collectEvents(): TimelineEvent[] {
     });
   }
 
+  // Deposit releases — due when a tenant's lease ends + 30 days (typical
+  // Swiss practice: release of caution after final walkthrough).
+  for (const tenant of getTenants()) {
+    if (!tenant.depositAmount || tenant.depositAmount <= 0) continue;
+    if (tenant.depositReleasedAt) continue;
+    if (!tenant.leaseEnd) continue;
+    const leaseEnd = new Date(tenant.leaseEnd);
+    const releaseDue = new Date(leaseEnd);
+    releaseDue.setDate(releaseDue.getDate() + 30);
+    const releaseISO = releaseDue.toISOString().slice(0, 10);
+    if (releaseISO < todayISO || releaseISO > horizonISO) continue;
+    const b = byId(tenant.buildingId);
+    events.push({
+      id: `deposit-${tenant.id}`,
+      date: releaseISO,
+      category: "deposit-release",
+      title: `Libérer la caution — ${tenant.name}`,
+      subtitle: `${b?.name ?? "?"} · ${tenant.unit}`,
+      tenant,
+      building: b,
+    });
+  }
+
   events.sort((a, b) => a.date.localeCompare(b.date));
   return events;
 }
@@ -247,7 +277,8 @@ export function UpcomingTimeline() {
 
   const categoryCounts = useMemo(() => {
     const c: Record<EventCategory, number> = {
-      "lease-end": 0, "lease-start": 0, task: 0, amortization: 0, calendar: 0, "contract-renewal": 0,
+      "lease-end": 0, "lease-start": 0, task: 0, amortization: 0, calendar: 0,
+      "contract-renewal": 0, "deposit-release": 0,
     };
     for (const e of events) c[e.category]++;
     return c;
@@ -281,6 +312,7 @@ export function UpcomingTimeline() {
     { key: "lease-end", label: "Fins de bail", count: categoryCounts["lease-end"] },
     { key: "task", label: "Tâches", count: categoryCounts.task },
     { key: "contract-renewal", label: "Contrats", count: categoryCounts["contract-renewal"] },
+    { key: "deposit-release", label: "Cautions", count: categoryCounts["deposit-release"] },
     { key: "calendar", label: "Agenda", count: categoryCounts.calendar },
     { key: "lease-start", label: "Nouveaux baux", count: categoryCounts["lease-start"] },
     { key: "amortization", label: "Amortissements", count: categoryCounts.amortization },

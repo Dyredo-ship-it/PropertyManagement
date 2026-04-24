@@ -76,6 +76,13 @@ export interface TenantDocument {
   storagePath?: string;
 }
 
+export type DepositType =
+  | "compte-bloque"
+  | "garantie-bancaire"
+  | "paritaire"
+  | "cash"
+  | "autre";
+
 export interface Tenant {
   id: string;
   name: string;
@@ -93,6 +100,16 @@ export interface Tenant {
   paymentStatus?: "up-to-date" | "late" | "very-late";
   latePaymentMonths?: number;
   lastPaymentDate?: string;
+  // Deposit / caution (Mietkaution)
+  depositAmount?: number;
+  depositType?: DepositType;
+  depositBank?: string;
+  depositIban?: string;
+  depositAccountNumber?: string;
+  depositDocumentName?: string;
+  depositDocumentDataUrl?: string;
+  depositReleasedAt?: string; // ISO date when the deposit was actually released
+  depositNotes?: string;
 }
 
 export type NotificationCategory = "general" | "maintenance" | "payment" | "inspection" | "urgent";
@@ -533,6 +550,15 @@ const t2c = (r: any): Tenant => ({
   paymentStatus: r.payment_status ?? undefined,
   latePaymentMonths: r.late_payment_months ?? undefined,
   lastPaymentDate: r.last_payment_date ?? undefined,
+  depositAmount: r.deposit_amount != null ? Number(r.deposit_amount) : undefined,
+  depositType: r.deposit_type ?? undefined,
+  depositBank: r.deposit_bank ?? undefined,
+  depositIban: r.deposit_iban ?? undefined,
+  depositAccountNumber: r.deposit_account_number ?? undefined,
+  depositDocumentName: r.deposit_document_name ?? undefined,
+  depositDocumentDataUrl: r.deposit_document_data_url ?? undefined,
+  depositReleasedAt: r.deposit_released_at ?? undefined,
+  depositNotes: r.deposit_notes ?? undefined,
 });
 
 const t2r = (t: Partial<Tenant>, org: string) => ({
@@ -553,6 +579,15 @@ const t2r = (t: Partial<Tenant>, org: string) => ({
   payment_status: t.paymentStatus ?? null,
   late_payment_months: t.latePaymentMonths ?? null,
   last_payment_date: t.lastPaymentDate ?? null,
+  deposit_amount: t.depositAmount ?? null,
+  deposit_type: t.depositType ?? null,
+  deposit_bank: t.depositBank ?? null,
+  deposit_iban: t.depositIban ?? null,
+  deposit_account_number: t.depositAccountNumber ?? null,
+  deposit_document_name: t.depositDocumentName ?? null,
+  deposit_document_data_url: t.depositDocumentDataUrl ?? null,
+  deposit_released_at: t.depositReleasedAt ?? null,
+  deposit_notes: t.depositNotes ?? null,
 });
 
 const m2c = (r: any): MaintenanceRequest => ({

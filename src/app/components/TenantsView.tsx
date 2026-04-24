@@ -46,7 +46,7 @@ import {
 } from "../utils/storage";
 import { useLanguage } from "../i18n/LanguageContext";
 import { useCurrency } from "../context/CurrencyContext";
-import { Bell, ArrowUpDown } from "lucide-react";
+import { Bell, ArrowUpDown, Shield as ShieldIcon, Banknote as BanknoteIcon } from "lucide-react";
 import { usePlanLimits } from "../lib/billing";
 import { PlanLimitModal } from "./PlanLimitModal";
 import { generateLeasePdf, generateRentReceiptPdf } from "../lib/pdf";
@@ -386,6 +386,7 @@ function TenantDetailDrawer({
   onDeleteNote,
   onUploadDoc,
   onDeleteDoc,
+  onUpdateTenant,
 }: {
   tenant: any;
   open: boolean;
@@ -401,6 +402,7 @@ function TenantDetailDrawer({
   onDeleteNote: (noteId: string) => void;
   onUploadDoc: (file: File, category: TenantDocument["category"]) => void;
   onDeleteDoc: (docId: string) => void;
+  onUpdateTenant?: (updated: Tenant) => void;
 }) {
   const [activeTab, setActiveTab] = useState<"profil" | "activite" | "notes" | "demandes" | "documents">("profil");
   const [noteDate, setNoteDate] = useState(todayISO());
@@ -891,6 +893,14 @@ function TenantDetailDrawer({
                     ×
                   </button>
                 </div>
+              )}
+
+              {/* Caution / Mietkaution */}
+              {onUpdateTenant && (
+                <TenantDepositPanel
+                  tenant={tenant as Tenant}
+                  onUpdated={onUpdateTenant}
+                />
               )}
 
               {/* Automated emails */}
@@ -2562,6 +2572,9 @@ export function TenantsView() {
           const current = ((drawerTenant as any)?.documents ?? []) as TenantDocument[];
           updateTenantById(drawerTenantId, { documents: current.filter((d) => d.id !== docId) });
         }}
+        onUpdateTenant={(updated) => {
+          updateTenantById(updated.id, updated);
+        }}
       />
 
       <PlanLimitModal
@@ -2780,6 +2793,368 @@ function TenantActivityTimeline({ tenant }: { tenant: Tenant }) {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+/* ─── Deposit / Caution panel ──────────────────────────────────── */
+
+const DEPOSIT_TYPE_LABEL: Record<NonNullable<Tenant["depositType"]>, string> = {
+  "compte-bloque": "Compte bloqué (au nom du locataire)",
+  "garantie-bancaire": "Garantie bancaire / assurance",
+  "paritaire": "Compte paritaire (agence)",
+  "cash": "Espèces",
+  "autre": "Autre",
+};
+
+function TenantDepositPanel({
+  tenant,
+  onUpdated,
+}: {
+  tenant: Tenant;
+  onUpdated: (updated: Tenant) => void;
+}) {
+  const { formatAmount } = useCurrency();
+  const [editing, setEditing] = React.useState(false);
+  const [draft, setDraft] = React.useState<Tenant>(tenant);
+  const [docBusy, setDocBusy] = React.useState(false);
+
+  React.useEffect(() => { setDraft(tenant); }, [tenant]);
+
+  const hasDeposit = tenant.depositAmount != null && tenant.depositAmount > 0;
+  const released = !!tenant.depositReleasedAt;
+
+  const handleSave = () => {
+    onUpdated(draft);
+    setEditing(false);
+  };
+
+  const handleCancel = () => {
+    setDraft(tenant);
+    setEditing(false);
+  };
+
+  const handleUploadDoc = async (file: File) => {
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Fichier trop gros (max 5 MB).");
+      return;
+    }
+    setDocBusy(true);
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
+      setDraft({ ...draft, depositDocumentName: file.name, depositDocumentDataUrl: dataUrl });
+    } catch (e) {
+      alert((e as Error).message || "Erreur upload");
+    } finally {
+      setDocBusy(false);
+    }
+  };
+
+  const inputStyle: React.CSSProperties = {
+    width: "100%", boxSizing: "border-box",
+    padding: "7px 10px", borderRadius: 8, fontSize: 13,
+    border: "1px solid var(--border)", background: "var(--background)",
+    color: "var(--foreground)", outline: "none",
+  };
+
+  if (editing) {
+    return (
+      <div style={{
+        padding: 14, borderRadius: 10, background: "var(--background)",
+        display: "flex", flexDirection: "column", gap: 12,
+        border: "1px solid var(--border)",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <ShieldIcon style={{ width: 16, height: 16, color: "var(--primary)" }} />
+          <span style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)" }}>
+            Caution de garantie
+          </span>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <div>
+            <label style={labelStyle}>Montant (CHF)</label>
+            <input
+              type="number" min={0} step={0.01}
+              value={draft.depositAmount ?? ""}
+              onChange={(e) => setDraft({ ...draft, depositAmount: e.target.value ? Number(e.target.value) : undefined })}
+              placeholder={`~3 × ${formatAmount(((draft.rentNet || 0) + (draft.charges || 0)))}`}
+              style={inputStyle}
+            />
+          </div>
+          <div>
+            <label style={labelStyle}>Type</label>
+            <select
+              value={draft.depositType ?? ""}
+              onChange={(e) => setDraft({ ...draft, depositType: (e.target.value || undefined) as Tenant["depositType"] })}
+              style={{ ...inputStyle, cursor: "pointer" }}
+            >
+              <option value="">— Non précisé —</option>
+              {Object.entries(DEPOSIT_TYPE_LABEL).map(([key, label]) => (
+                <option key={key} value={key}>{label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <div>
+            <label style={labelStyle}>Banque</label>
+            <input
+              type="text"
+              value={draft.depositBank ?? ""}
+              onChange={(e) => setDraft({ ...draft, depositBank: e.target.value || undefined })}
+              placeholder="Ex: UBS, Raiffeisen Neuchâtel…"
+              style={inputStyle}
+            />
+          </div>
+          <div>
+            <label style={labelStyle}>N° de compte</label>
+            <input
+              type="text"
+              value={draft.depositAccountNumber ?? ""}
+              onChange={(e) => setDraft({ ...draft, depositAccountNumber: e.target.value || undefined })}
+              style={inputStyle}
+            />
+          </div>
+        </div>
+
+        <div>
+          <label style={labelStyle}>IBAN</label>
+          <input
+            type="text"
+            value={draft.depositIban ?? ""}
+            onChange={(e) => setDraft({ ...draft, depositIban: e.target.value || undefined })}
+            placeholder="CH00 0000 0000 0000 0000 0"
+            style={{ ...inputStyle, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}
+          />
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <div>
+            <label style={labelStyle}>Date de libération</label>
+            <input
+              type="date"
+              value={draft.depositReleasedAt ?? ""}
+              onChange={(e) => setDraft({ ...draft, depositReleasedAt: e.target.value || undefined })}
+              style={inputStyle}
+            />
+          </div>
+          <div>
+            <label style={labelStyle}>Document (PDF / scan)</label>
+            {draft.depositDocumentDataUrl ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <a
+                  href={draft.depositDocumentDataUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  download={draft.depositDocumentName}
+                  style={{
+                    flex: 1, padding: "6px 10px", borderRadius: 7, fontSize: 11,
+                    background: "var(--card)", border: "1px solid var(--border)",
+                    color: "var(--foreground)", textDecoration: "none",
+                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                  }}
+                >
+                  📎 {draft.depositDocumentName || "Document"}
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setDraft({ ...draft, depositDocumentName: undefined, depositDocumentDataUrl: undefined })}
+                  style={{
+                    padding: "6px 8px", borderRadius: 7,
+                    border: "1px solid var(--border)", background: "transparent",
+                    color: "#DC2626", cursor: "pointer", fontSize: 11,
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+            ) : (
+              <label style={{
+                display: "block", padding: "7px 10px", borderRadius: 8, fontSize: 12,
+                border: "1px dashed var(--border)", background: "var(--card)",
+                textAlign: "center", cursor: "pointer", color: "var(--muted-foreground)",
+              }}>
+                {docBusy ? "Traitement…" : "Choisir un fichier"}
+                <input
+                  type="file"
+                  accept=".pdf,image/*"
+                  style={{ display: "none" }}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) handleUploadDoc(f);
+                  }}
+                />
+              </label>
+            )}
+          </div>
+        </div>
+
+        <div>
+          <label style={labelStyle}>Notes</label>
+          <textarea
+            value={draft.depositNotes ?? ""}
+            onChange={(e) => setDraft({ ...draft, depositNotes: e.target.value || undefined })}
+            rows={2}
+            style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }}
+          />
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+          <button
+            type="button"
+            onClick={handleCancel}
+            style={{
+              padding: "7px 14px", borderRadius: 7, fontSize: 12, fontWeight: 600,
+              border: "1px solid var(--border)", background: "transparent",
+              color: "var(--foreground)", cursor: "pointer",
+            }}
+          >
+            Annuler
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            style={{
+              padding: "7px 14px", borderRadius: 7, fontSize: 12, fontWeight: 600,
+              border: "none", background: "var(--primary)",
+              color: "var(--primary-foreground)", cursor: "pointer",
+            }}
+          >
+            Enregistrer
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{
+      padding: 14, borderRadius: 10, background: "var(--background)",
+      display: "flex", flexDirection: "column", gap: 10,
+      border: "1px solid var(--border)",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <ShieldIcon style={{ width: 16, height: 16, color: "var(--primary)" }} />
+          <span style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)" }}>
+            Caution de garantie
+          </span>
+          {released && (
+            <span style={{
+              fontSize: 9, fontWeight: 700, padding: "2px 7px", borderRadius: 5,
+              background: "rgba(22,163,74,0.10)", color: "#16A34A",
+              textTransform: "uppercase", letterSpacing: "0.04em",
+            }}>
+              Libérée
+            </span>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          style={{
+            padding: "5px 10px", borderRadius: 7, fontSize: 11, fontWeight: 600,
+            border: "1px solid var(--border)", background: "var(--card)",
+            color: "var(--foreground)", cursor: "pointer",
+          }}
+        >
+          {hasDeposit ? "Modifier" : "Ajouter"}
+        </button>
+      </div>
+
+      {hasDeposit ? (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 10 }}>
+          <DepositCell icon={BanknoteIcon} label="Montant" value={formatAmount(tenant.depositAmount ?? 0)} />
+          {tenant.depositType && (
+            <DepositCell icon={ShieldIcon} label="Type" value={DEPOSIT_TYPE_LABEL[tenant.depositType]} />
+          )}
+          {tenant.depositBank && (
+            <DepositCell label="Banque" value={tenant.depositBank} />
+          )}
+          {tenant.depositIban && (
+            <DepositCell label="IBAN" value={tenant.depositIban} mono />
+          )}
+          {tenant.depositAccountNumber && (
+            <DepositCell label="N° compte" value={tenant.depositAccountNumber} mono />
+          )}
+          {tenant.depositReleasedAt && (
+            <DepositCell
+              label="Libérée le"
+              value={new Date(tenant.depositReleasedAt).toLocaleDateString("fr-CH")}
+            />
+          )}
+          {tenant.depositDocumentDataUrl && (
+            <a
+              href={tenant.depositDocumentDataUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              download={tenant.depositDocumentName}
+              style={{
+                gridColumn: "1 / -1",
+                display: "inline-flex", alignItems: "center", gap: 6,
+                padding: "6px 10px", borderRadius: 7, fontSize: 11, fontWeight: 600,
+                background: "var(--card)", border: "1px solid var(--border)",
+                color: "var(--foreground)", textDecoration: "none",
+                width: "fit-content",
+              }}
+            >
+              📎 {tenant.depositDocumentName || "Document"}
+            </a>
+          )}
+          {tenant.depositNotes && (
+            <p style={{
+              gridColumn: "1 / -1", fontSize: 11, color: "var(--muted-foreground)",
+              fontStyle: "italic", margin: 0, paddingTop: 4, borderTop: "1px solid var(--border)",
+            }}>
+              {tenant.depositNotes}
+            </p>
+          )}
+        </div>
+      ) : (
+        <p style={{ fontSize: 11, color: "var(--muted-foreground)", margin: 0, fontStyle: "italic" }}>
+          Aucune caution renseignée. Typiquement 3× le loyer net + charges ({formatAmount(3 * ((tenant.rentNet || 0) + (tenant.charges || 0)))}) — à déposer sur un compte bloqué au nom du locataire (art. 257e CO).
+        </p>
+      )}
+    </div>
+  );
+}
+
+function DepositCell({
+  icon: Icon,
+  label,
+  value,
+  mono,
+}: {
+  icon?: React.ElementType;
+  label: string;
+  value: string;
+  mono?: boolean;
+}) {
+  return (
+    <div style={{ minWidth: 0 }}>
+      <p style={{
+        fontSize: 10, fontWeight: 600, color: "var(--muted-foreground)",
+        textTransform: "uppercase", letterSpacing: "0.04em", margin: 0,
+        display: "flex", alignItems: "center", gap: 4,
+      }}>
+        {Icon && <Icon style={{ width: 10, height: 10 }} />}
+        {label}
+      </p>
+      <p style={{
+        fontSize: 12, fontWeight: 600, color: "var(--foreground)",
+        margin: "3px 0 0",
+        fontFamily: mono ? "ui-monospace, SFMono-Regular, Menlo, monospace" : undefined,
+        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+      }}>
+        {value}
+      </p>
     </div>
   );
 }
