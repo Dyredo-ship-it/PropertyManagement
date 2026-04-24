@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import {
   FileText, Plus, Trash2, Edit, X, Shield, Flame, Brush, Users, Clock,
   Building as BuildingIcon, AlertCircle, CheckCircle, Zap, Phone, Leaf,
+  Paperclip, Upload, ExternalLink,
 } from "lucide-react";
 import {
   getContracts,
@@ -58,6 +59,8 @@ type FormState = {
   paymentFrequency: PaymentFrequency;
   notes: string;
   status: ContractStatus;
+  documentName?: string;
+  documentDataUrl?: string;
 };
 
 const EMPTY_FORM: FormState = {
@@ -74,6 +77,8 @@ const EMPTY_FORM: FormState = {
   paymentFrequency: "yearly",
   notes: "",
   status: "active",
+  documentName: undefined,
+  documentDataUrl: undefined,
 };
 
 function daysUntil(dateStr: string | undefined): number | null {
@@ -157,6 +162,8 @@ export function ContractsManager({ buildingId }: { buildingId: string }) {
       paymentFrequency: editing.paymentFrequency,
       notes: editing.notes.trim() || undefined,
       status: editing.status,
+      documentName: editing.documentName,
+      documentDataUrl: editing.documentDataUrl,
     };
     if (editing.id) {
       const existing = getContracts().find((c) => c.id === editing.id);
@@ -239,6 +246,8 @@ export function ContractsManager({ buildingId }: { buildingId: string }) {
                 paymentFrequency: c.paymentFrequency ?? "yearly",
                 notes: c.notes ?? "",
                 status: c.status,
+                documentName: c.documentName,
+                documentDataUrl: c.documentDataUrl,
               })}
               onDelete={() => handleDelete(c.id)}
             />
@@ -516,6 +525,15 @@ function ContractFormModal({
           </div>
 
           <div>
+            <label style={labelStyle}>Document (PDF / scan)</label>
+            <ContractDocumentField
+              name={form.documentName}
+              dataUrl={form.documentDataUrl}
+              onChange={(doc) => onChange({ ...form, documentName: doc?.name, documentDataUrl: doc?.dataUrl })}
+            />
+          </div>
+
+          <div>
             <label style={labelStyle}>Notes</label>
             <textarea value={form.notes} onChange={(e) => upd("notes", e.target.value)} rows={3} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} />
           </div>
@@ -542,6 +560,159 @@ function ContractFormModal({
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ─── Document upload field ─────────────────────────────────── */
+
+async function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+function ContractDocumentField({
+  name,
+  dataUrl,
+  onChange,
+}: {
+  name?: string;
+  dataUrl?: string;
+  onChange: (doc: { name: string; dataUrl: string } | null) => void;
+}) {
+  const fileRef = React.useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const handleFile = async (file: File) => {
+    setError(null);
+    setBusy(true);
+    try {
+      // Reject huge uploads — keeps the row below Supabase's 8 MB JSONB limit
+      // comfortably even if the rest of the contract payload is fat.
+      const MAX_BYTES = 5 * 1024 * 1024;
+      if (file.size > MAX_BYTES) {
+        throw new Error(`Fichier trop gros (${(file.size / 1024 / 1024).toFixed(1)} MB). Max 5 MB.`);
+      }
+      const dataUrl = await fileToDataUrl(file);
+      onChange({ name: file.name, dataUrl });
+    } catch (err) {
+      setError((err as Error).message || "Erreur lors de l'ajout du document");
+    } finally {
+      setBusy(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  const hasDoc = !!dataUrl;
+
+  return (
+    <div
+      style={{
+        display: "flex", alignItems: "center", gap: 12,
+        padding: 10, borderRadius: 8,
+        border: "1px dashed var(--border)", background: "var(--background)",
+      }}
+    >
+      <div style={{
+        width: 40, height: 40, borderRadius: 8, flexShrink: 0,
+        background: hasDoc ? "color-mix(in srgb, var(--primary) 10%, transparent)" : "var(--card)",
+        color: hasDoc ? "var(--primary)" : "var(--muted-foreground)",
+        border: "1px solid var(--border)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+      }}>
+        {hasDoc ? <Paperclip style={{ width: 18, height: 18 }} /> : <Upload style={{ width: 18, height: 18 }} />}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        {hasDoc ? (
+          <>
+            <p style={{
+              fontSize: 12, fontWeight: 600, color: "var(--foreground)", margin: 0,
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            }}>
+              {name || "Document attaché"}
+            </p>
+            <p style={{ fontSize: 10, color: "var(--muted-foreground)", margin: "2px 0 0" }}>
+              Stocké dans le contrat
+            </p>
+          </>
+        ) : (
+          <>
+            <p style={{ fontSize: 12, fontWeight: 600, color: "var(--foreground)", margin: 0 }}>
+              Aucun document
+            </p>
+            <p style={{ fontSize: 10, color: "var(--muted-foreground)", margin: "2px 0 0" }}>
+              PDF, image ou scan — max 5 MB
+            </p>
+          </>
+        )}
+        {error && (
+          <p style={{ fontSize: 10, color: "#DC2626", margin: "2px 0 0" }}>{error}</p>
+        )}
+      </div>
+      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+        {hasDoc && dataUrl && (
+          <a
+            href={dataUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            download={name}
+            title="Ouvrir"
+            style={{
+              width: 32, height: 32, borderRadius: 7,
+              border: "1px solid var(--border)", background: "var(--card)",
+              color: "var(--foreground)", cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              textDecoration: "none",
+            }}
+          >
+            <ExternalLink style={{ width: 13, height: 13 }} />
+          </a>
+        )}
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          disabled={busy}
+          style={{
+            padding: "7px 11px", borderRadius: 7, fontSize: 11, fontWeight: 600,
+            border: "none", cursor: busy ? "wait" : "pointer",
+            background: "var(--primary)", color: "var(--primary-foreground)",
+            opacity: busy ? 0.7 : 1,
+            whiteSpace: "nowrap",
+          }}
+        >
+          {busy ? "…" : hasDoc ? "Remplacer" : "Choisir"}
+        </button>
+        {hasDoc && (
+          <button
+            type="button"
+            onClick={() => onChange(null)}
+            title="Retirer"
+            style={{
+              width: 32, height: 32, borderRadius: 7,
+              border: "1px solid var(--border)", background: "transparent",
+              color: "#DC2626", cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}
+          >
+            <Trash2 style={{ width: 13, height: 13 }} />
+          </button>
+        )}
+      </div>
+      <input
+        ref={fileRef}
+        type="file"
+        accept=".pdf,image/*"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) handleFile(f);
+        }}
+      />
     </div>
   );
 }

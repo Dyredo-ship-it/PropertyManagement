@@ -192,9 +192,12 @@ body {
 
 /* BuildingDetail quick-stats row — "CHF 12'114" overflowed the revenue
    card on iPhone because 3 cards × 14px horizontal padding left <80px for
-   a 100px-wide number. Shrink padding + fit the number on one line. */
+   a 100px-wide number. Shrink padding + fit the number on one line.
+   Grid now has 4 cards (added fixed-costs card) — drops to 2 cols on
+   phone so numbers remain readable. */
 @media (max-width: 767px) {
   .building-quick-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     gap: 8px !important;
   }
   .building-quick-stats > div {

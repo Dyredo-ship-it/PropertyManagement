@@ -684,7 +684,9 @@ export async function generateOwnerReportPdf(
     startY: 52,
     body: [kpis.map((k) => ({ content: `${k.value}\n${k.label}`, styles: { halign: "center" as const } }))],
     theme: "plain",
-    styles: { fontSize: 10, cellPadding: 6 },
+    styles: { fontSize: 9.5, cellPadding: 5, overflow: "linebreak" },
+    margin: { left: 20, right: 20 },
+    tableWidth: 170,
     columnStyles: kpis.reduce<Record<number, any>>((acc, _, i) => {
       acc[i] = { cellWidth: 42.5 };
       return acc;
@@ -712,8 +714,13 @@ export async function generateOwnerReportPdf(
     ],
     theme: "grid",
     headStyles: { fillColor: [69, 85, 58], halign: "left", fontSize: 10 },
-    styles: { fontSize: 10, cellPadding: 3 },
-    columnStyles: { 1: { halign: "right" } },
+    styles: { fontSize: 10, cellPadding: 3, overflow: "linebreak" },
+    margin: { left: 20, right: 20 },
+    tableWidth: 170,
+    columnStyles: {
+      0: { cellWidth: 120 },
+      1: { cellWidth: 50, halign: "right" },
+    },
   });
 
   // Impayés (if any)
@@ -745,13 +752,17 @@ export async function generateOwnerReportPdf(
       },
     ]),
     theme: "grid",
-    headStyles: { fillColor: [69, 85, 58], halign: "left", fontSize: 9 },
-    styles: { fontSize: 9, cellPadding: 2.5 },
+    headStyles: { fillColor: [69, 85, 58], halign: "left", fontSize: 8.5 },
+    styles: { fontSize: 8.5, cellPadding: 2, overflow: "linebreak" },
+    margin: { left: 20, right: 20 },
+    tableWidth: 170,
     columnStyles: {
-      2: { halign: "center" },
-      3: { halign: "right" },
-      4: { halign: "right" },
-      5: { halign: "right" },
+      0: { cellWidth: 30 },                    // Immeuble
+      1: { cellWidth: 48 },                    // Adresse
+      2: { cellWidth: 18, halign: "center" },  // Unités
+      3: { cellWidth: 24, halign: "right" },   // Recettes
+      4: { cellWidth: 24, halign: "right" },   // Charges
+      5: { cellWidth: 26, halign: "right" },   // Résultat net
     },
   });
 
@@ -781,12 +792,17 @@ export async function generateOwnerReportPdf(
       },
     ]),
     theme: "grid",
-    headStyles: { fillColor: [69, 85, 58], halign: "left", fontSize: 9 },
-    styles: { fontSize: 9, cellPadding: 2.5 },
+    headStyles: { fillColor: [69, 85, 58], halign: "left", fontSize: 8.5 },
+    styles: { fontSize: 8.5, cellPadding: 2, overflow: "linebreak" },
+    margin: { left: 20, right: 20 },
+    tableWidth: 170,
     columnStyles: {
-      2: { halign: "right" },
-      3: { halign: "right" },
-      4: { halign: "right" },
+      0: { cellWidth: 38 },                   // Locataire
+      1: { cellWidth: 48 },                   // Immeuble · Unité
+      2: { cellWidth: 22, halign: "right" },  // Loyer net
+      3: { cellWidth: 20, halign: "right" },  // Charges
+      4: { cellWidth: 22, halign: "right" },  // Total
+      5: { cellWidth: 20, halign: "center" }, // Statut
     },
   });
 

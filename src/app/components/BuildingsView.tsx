@@ -27,7 +27,7 @@ import {
   User,
   FileText,
 } from "lucide-react";
-import { getBuildings, saveBuildings, getTenants, getMaintenanceRequests, getAccountingSettings, saveAccountingSettings, type Building, type Currency, type Tenant, type MaintenanceRequest, type AccountingSettings } from "../utils/storage";
+import { getBuildings, saveBuildings, getTenants, getMaintenanceRequests, getAccountingSettings, saveAccountingSettings, getContracts, type Building, type Currency, type Tenant, type MaintenanceRequest, type AccountingSettings } from "../utils/storage";
 import { computeNetIncome, formatRatio } from "../utils/financialMetrics";
 import { BuildingUnitsGrid } from "./BuildingUnitsGrid";
 import { ContractsManager } from "./ContractsManager";
@@ -553,7 +553,7 @@ function BuildingTabs({ building, t, occPct, occColor, formattedRevenue }: {
           </div>
 
           {/* Quick stats */}
-          <div className="building-quick-stats" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12 }}>
+          <div className="building-quick-stats" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12 }}>
             <div style={{ padding: "14px 16px", borderRadius: 12, background: "var(--card)", border: "1px solid var(--border)", minWidth: 0 }}>
               <span style={{ fontSize: 10, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--muted-foreground)" }}>
                 {t("tenants") || "Locataires"}
@@ -579,6 +579,7 @@ function BuildingTabs({ building, t, occPct, occColor, formattedRevenue }: {
                 {formattedRevenue}
               </div>
             </div>
+            <BuildingFixedCostsCard buildingId={building.id} />
           </div>
         </div>
       )}
@@ -1573,6 +1574,62 @@ function BuildingPhotoField({
           }}
         />
       </div>
+    </div>
+  );
+}
+
+/* ─── Fixed costs summary card (per building) ─────────────────── */
+
+function BuildingFixedCostsCard({ buildingId }: { buildingId: string }) {
+  const { formatAmount } = useCurrency();
+  const [totalAnnual, setTotalAnnual] = React.useState(0);
+  const [count, setCount] = React.useState(0);
+
+  React.useEffect(() => {
+    const recompute = () => {
+      const active = getContracts(buildingId).filter((c) => c.status === "active" && c.annualAmount);
+      const total = active.reduce((s, c) => {
+        const amt = c.annualAmount ?? 0;
+        if (c.paymentFrequency === "monthly") return s + amt * 12;
+        if (c.paymentFrequency === "quarterly") return s + amt * 4;
+        // yearly or one-time → use as-is
+        return s + amt;
+      }, 0);
+      setTotalAnnual(total);
+      setCount(active.length);
+    };
+    recompute();
+    // Re-compute on window focus in case contracts were edited elsewhere.
+    window.addEventListener("focus", recompute);
+    return () => window.removeEventListener("focus", recompute);
+  }, [buildingId]);
+
+  const monthly = totalAnnual / 12;
+
+  return (
+    <div style={{
+      padding: "14px 16px", borderRadius: 12,
+      background: "var(--card)", border: "1px solid var(--border)",
+      minWidth: 0,
+    }}>
+      <span style={{
+        fontSize: 10, fontWeight: 650, textTransform: "uppercase",
+        letterSpacing: "0.04em", color: "var(--muted-foreground)",
+      }}>
+        Coûts fixes
+      </span>
+      <div
+        style={{
+          fontSize: 18, fontWeight: 700, color: "var(--foreground)",
+          marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+        }}
+        title={count > 0 ? `${formatAmount(monthly)}/mois (${count} contrats)` : "Aucun contrat"}
+      >
+        {count > 0 ? formatAmount(totalAnnual) : "—"}
+      </div>
+      <p style={{ fontSize: 10, color: "var(--muted-foreground)", margin: "2px 0 0" }}>
+        {count > 0 ? `${formatAmount(monthly)}/mois · ${count} contrat${count > 1 ? "s" : ""}` : "Aucun contrat saisi"}
+      </p>
     </div>
   );
 }

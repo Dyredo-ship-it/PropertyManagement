@@ -643,8 +643,10 @@ function TenantDetailDrawer({
 
         {/* ═══ TAB BAR ═══ */}
         <div style={{
-          display: "flex", gap: 6, padding: "12px 24px 0",
+          display: "flex", gap: 4, padding: "4px 16px 0",
           borderBottom: "1px solid var(--border)", flexShrink: 0,
+          overflowX: "auto",
+          scrollbarWidth: "none",
         }}>
           {tabs.map((tab) => {
             const isActive = activeTab === tab.key;
@@ -653,16 +655,28 @@ function TenantDetailDrawer({
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
                 style={{
-                  padding: "8px 16px", fontSize: 12, fontWeight: 600,
-                  borderRadius: "8px 8px 0 0", border: "none", cursor: "pointer",
-                  background: isActive ? "var(--primary)" : "var(--card)",
-                  color: isActive ? "var(--primary-foreground)" : "var(--muted-foreground)",
-                  marginBottom: -1,
-                  borderBottom: isActive ? "1px solid var(--primary)" : "1px solid transparent",
+                  position: "relative",
+                  padding: "12px 14px",
+                  fontSize: 12,
+                  fontWeight: isActive ? 700 : 500,
+                  border: "none",
+                  cursor: "pointer",
+                  background: "transparent",
+                  color: isActive ? "var(--primary)" : "var(--muted-foreground)",
                   letterSpacing: "0.02em",
+                  whiteSpace: "nowrap",
+                  transition: "color 0.15s",
                 }}
+                onMouseEnter={(e) => { if (!isActive) (e.currentTarget as HTMLElement).style.color = "var(--foreground)"; }}
+                onMouseLeave={(e) => { if (!isActive) (e.currentTarget as HTMLElement).style.color = "var(--muted-foreground)"; }}
               >
                 {tab.label}
+                {isActive && (
+                  <span style={{
+                    position: "absolute", left: 10, right: 10, bottom: -1, height: 2,
+                    background: "var(--primary)", borderRadius: "2px 2px 0 0",
+                  }} />
+                )}
               </button>
             );
           })}

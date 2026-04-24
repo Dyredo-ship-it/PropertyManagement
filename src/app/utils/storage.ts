@@ -309,6 +309,8 @@ export interface Contract {
   paymentFrequency?: PaymentFrequency;
   notes?: string;
   status: ContractStatus;
+  documentName?: string;     // original filename of the attached PDF/scan
+  documentDataUrl?: string;  // base64 data URL of the attached document
   createdAt: string;
   updatedAt: string;
 }
@@ -798,6 +800,8 @@ const contract2c = (r: any): Contract => ({
   paymentFrequency: r.payment_frequency ?? "yearly",
   notes: r.notes ?? undefined,
   status: r.status ?? "active",
+  documentName: r.document_name ?? undefined,
+  documentDataUrl: r.document_data_url ?? undefined,
   createdAt: r.created_at,
   updatedAt: r.updated_at,
 });
@@ -819,6 +823,8 @@ const contract2r = (c: Partial<Contract>, org: string) => ({
   payment_frequency: c.paymentFrequency ?? "yearly",
   notes: c.notes ?? null,
   status: c.status ?? "active",
+  document_name: c.documentName ?? null,
+  document_data_url: c.documentDataUrl ?? null,
 });
 
 const ba2c = (r: any): BuildingAction => ({
