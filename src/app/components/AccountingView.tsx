@@ -17,6 +17,7 @@ import {
 } from "../utils/rentProjection";
 import { generateChargesStatementPdf } from "../lib/pdf";
 import { getLandlordInfo } from "../lib/landlord";
+import { BankReconciliationPanel } from "./BankReconciliationPanel";
 import {
   getBuildings, getTenants,
   getAccountingTransactions, addAccountingTransactions, saveAccountingTransactions,
@@ -1105,6 +1106,13 @@ export function AccountingView() {
 
     return (
       <div>
+        {/* Bank reconciliation — suggests tenant match for unlinked payments */}
+        <BankReconciliationPanel
+          buildingId={selectedBuildingId || undefined}
+          year={Number(selectedYear) || undefined}
+          onChanged={() => setTransactions(getAccountingTransactions())}
+        />
+
         {/* Toolbar: Search + Sort + Year + Add + Export */}
         <div style={{ display: "flex", gap: 10, marginBottom: 18, alignItems: "center", flexWrap: "wrap" }}>
           <div style={{ position: "relative", flex: "1 1 260px", maxWidth: 340 }}>
