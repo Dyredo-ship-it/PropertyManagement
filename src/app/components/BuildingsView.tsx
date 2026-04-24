@@ -25,10 +25,12 @@ import {
   Car,
   Warehouse,
   User,
+  FileText,
 } from "lucide-react";
 import { getBuildings, saveBuildings, getTenants, getMaintenanceRequests, getAccountingSettings, saveAccountingSettings, type Building, type Currency, type Tenant, type MaintenanceRequest, type AccountingSettings } from "../utils/storage";
 import { computeNetIncome, formatRatio } from "../utils/financialMetrics";
 import { BuildingUnitsGrid } from "./BuildingUnitsGrid";
+import { ContractsManager } from "./ContractsManager";
 import { OwnerFichePanel } from "./OwnerFichePanel";
 import { RentIncreaseCalculator } from "./RentIncreaseCalculator";
 import { useLanguage } from "../i18n/LanguageContext";
@@ -466,6 +468,7 @@ const TAB_LIST = [
   { key: "overview", label: "Vue d'ensemble", icon: BarChart3 },
   { key: "tenants", label: "Locataires", icon: Users },
   { key: "renovations", label: "Rénovations", icon: Wrench },
+  { key: "contracts", label: "Contrats", icon: FileText },
   { key: "maintenance", label: "Maintenance", icon: AlertCircle },
   { key: "rent-increase", label: "Augmentation loyer", icon: TrendingUp },
   { key: "settings", label: "Paramètres", icon: Settings },
@@ -659,6 +662,10 @@ function BuildingTabs({ building, t, occPct, occColor, formattedRevenue }: {
 
       {activeTab === "renovations" && (
         <RenovationTracker buildingId={building.id} />
+      )}
+
+      {activeTab === "contracts" && (
+        <ContractsManager buildingId={building.id} />
       )}
 
       {activeTab === "maintenance" && (

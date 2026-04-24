@@ -13,11 +13,13 @@ import {
   getBuildingActions,
   getRenovations,
   getCalendarEvents,
+  getContracts,
   type Tenant,
   type Building,
   type BuildingAction,
   type Renovation,
   type CalendarEvent,
+  type Contract,
 } from "../utils/storage";
 
 /**
@@ -31,7 +33,8 @@ type EventCategory =
   | "lease-start"
   | "task"
   | "amortization"
-  | "calendar";
+  | "calendar"
+  | "contract-renewal";
 
 type TimelineEvent = {
   id: string;
@@ -78,6 +81,12 @@ const CATEGORY_STYLE: Record<EventCategory, {
     color: "#7C3AED",
     bg: "rgba(124,58,237,0.08)",
     icon: Calendar,
+  },
+  "contract-renewal": {
+    label: "Contrat",
+    color: "#0891B2",
+    bg: "rgba(8,145,178,0.08)",
+    icon: FileText,
   },
 };
 
@@ -170,6 +179,23 @@ function collectEvents(): TimelineEvent[] {
     });
   }
 
+  // Contract renewals
+  for (const c of getContracts() as Contract[]) {
+    if (c.status !== "active") continue;
+    if (!c.renewalDate) continue;
+    const renewal = c.renewalDate.slice(0, 10);
+    if (renewal < todayISO || renewal > horizonISO) continue;
+    const b = byId(c.buildingId);
+    events.push({
+      id: `contract-${c.id}`,
+      date: renewal,
+      category: "contract-renewal",
+      title: `Renouvellement — ${c.label}`,
+      subtitle: `${b?.name ?? "?"}${c.provider ? ` · ${c.provider}` : ""}`,
+      building: b,
+    });
+  }
+
   events.sort((a, b) => a.date.localeCompare(b.date));
   return events;
 }
@@ -220,7 +246,9 @@ export function UpcomingTimeline() {
   }, [filtered]);
 
   const categoryCounts = useMemo(() => {
-    const c = { "lease-end": 0, "lease-start": 0, task: 0, amortization: 0, calendar: 0 };
+    const c: Record<EventCategory, number> = {
+      "lease-end": 0, "lease-start": 0, task: 0, amortization: 0, calendar: 0, "contract-renewal": 0,
+    };
     for (const e of events) c[e.category]++;
     return c;
   }, [events]);
@@ -252,6 +280,7 @@ export function UpcomingTimeline() {
     { key: "all", label: "Tout", count: events.length },
     { key: "lease-end", label: "Fins de bail", count: categoryCounts["lease-end"] },
     { key: "task", label: "Tâches", count: categoryCounts.task },
+    { key: "contract-renewal", label: "Contrats", count: categoryCounts["contract-renewal"] },
     { key: "calendar", label: "Agenda", count: categoryCounts.calendar },
     { key: "lease-start", label: "Nouveaux baux", count: categoryCounts["lease-start"] },
     { key: "amortization", label: "Amortissements", count: categoryCounts.amortization },

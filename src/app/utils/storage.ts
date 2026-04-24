@@ -275,6 +275,44 @@ export interface RentalApplication {
   documents?: { name: string; type: string; data: string }[];
 }
 
+/* ─── Contracts (assurances, chauffage, conciergerie…) ────────── */
+
+export type ContractType =
+  | "assurance-batiment"
+  | "assurance-rc"
+  | "assurance-incendie"
+  | "chauffage"
+  | "conciergerie"
+  | "ascenseur"
+  | "jardinage"
+  | "nettoyage"
+  | "securite"
+  | "telecom"
+  | "autre";
+
+export type ContractStatus = "active" | "expired" | "cancelled";
+export type PaymentFrequency = "monthly" | "quarterly" | "yearly" | "one-time";
+
+export interface Contract {
+  id: string;
+  buildingId: string;
+  type: ContractType;
+  label: string;
+  provider?: string;
+  policyNumber?: string;
+  startDate?: string;        // YYYY-MM-DD
+  renewalDate?: string;      // YYYY-MM-DD — next renewal
+  noticePeriodDays: number;  // how many days' notice required to opt out
+  autoRenew: boolean;
+  annualAmount?: number;
+  currency?: Currency;
+  paymentFrequency?: PaymentFrequency;
+  notes?: string;
+  status: ContractStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ──────────────────────────────────────────────────────────────
 // In-memory cache
 // ──────────────────────────────────────────────────────────────
@@ -293,6 +331,7 @@ type Cache = {
   manualAdjustments: ManualAdjustment[];
   chartEntries: ChartEntry[];
   renovations: Renovation[];
+  contracts: Contract[];
   accountingSettings: Record<string, AccountingSettings>; // keyed by buildingId
   orgRentSettings: OrgRentSettings;
   baseCurrency: Currency;
@@ -314,6 +353,7 @@ const cache: Cache = {
   manualAdjustments: [],
   chartEntries: [],
   renovations: [],
+  contracts: [],
   accountingSettings: {},
   orgRentSettings: { ...DEFAULT_ORG_RENT_SETTINGS },
   baseCurrency: ((): Currency => {
@@ -742,6 +782,45 @@ const reno2r = (r: Partial<Renovation>, org: string) => ({
   notes: r.notes ?? null,
 });
 
+const contract2c = (r: any): Contract => ({
+  id: r.id,
+  buildingId: r.building_id,
+  type: r.type,
+  label: r.label ?? "",
+  provider: r.provider ?? undefined,
+  policyNumber: r.policy_number ?? undefined,
+  startDate: r.start_date ?? undefined,
+  renewalDate: r.renewal_date ?? undefined,
+  noticePeriodDays: r.notice_period_days ?? 90,
+  autoRenew: r.auto_renew ?? true,
+  annualAmount: r.annual_amount != null ? Number(r.annual_amount) : undefined,
+  currency: r.currency ?? "CHF",
+  paymentFrequency: r.payment_frequency ?? "yearly",
+  notes: r.notes ?? undefined,
+  status: r.status ?? "active",
+  createdAt: r.created_at,
+  updatedAt: r.updated_at,
+});
+
+const contract2r = (c: Partial<Contract>, org: string) => ({
+  ...(isValidDbId(c.id) ? { id: c.id } : {}),
+  organization_id: org,
+  building_id: c.buildingId ?? "",
+  type: c.type ?? "autre",
+  label: c.label ?? "",
+  provider: c.provider ?? null,
+  policy_number: c.policyNumber ?? null,
+  start_date: c.startDate || null,
+  renewal_date: c.renewalDate || null,
+  notice_period_days: c.noticePeriodDays ?? 90,
+  auto_renew: c.autoRenew ?? true,
+  annual_amount: c.annualAmount ?? null,
+  currency: c.currency ?? "CHF",
+  payment_frequency: c.paymentFrequency ?? "yearly",
+  notes: c.notes ?? null,
+  status: c.status ?? "active",
+});
+
 const ba2c = (r: any): BuildingAction => ({
   id: r.id,
   buildingId: r.building_id,
@@ -809,6 +888,7 @@ function persistOfflineSnapshot(): void {
       accountingTransactions: cache.accountingTransactions,
       manualAdjustments: cache.manualAdjustments,
       renovations: cache.renovations,
+      contracts: cache.contracts,
       buildingActions: cache.buildingActions,
       tenantNotes: cache.tenantNotes,
       tenantDocuments: cache.tenantDocuments,
@@ -837,6 +917,7 @@ function loadOfflineSnapshot(): boolean {
     cache.accountingTransactions = snap.accountingTransactions ?? [];
     cache.manualAdjustments = snap.manualAdjustments ?? [];
     cache.renovations = snap.renovations ?? [];
+    cache.contracts = snap.contracts ?? [];
     cache.buildingActions = snap.buildingActions ?? [];
     cache.tenantNotes = snap.tenantNotes ?? [];
     cache.tenantDocuments = snap.tenantDocuments ?? [];
@@ -863,6 +944,7 @@ export async function hydrateFromSupabase(): Promise<void> {
       { data: txs },
       { data: adjs },
       { data: renos },
+      { data: contractsRows },
       { data: actions },
       { data: tenantNotes },
       { data: tenantDocs },
@@ -880,6 +962,13 @@ export async function hydrateFromSupabase(): Promise<void> {
       supabase.from("accounting_transactions").select("*"),
       supabase.from("manual_adjustments").select("*"),
       supabase.from("renovations").select("*"),
+      // `contracts` table was added in 20260424. It might not yet exist
+      // on older Supabase instances — swallow 404 so the rest of hydrate
+      // still runs rather than failing the whole snapshot.
+      supabase.from("contracts").select("*").then(
+        (r) => r,
+        () => ({ data: [] as any[], error: null }),
+      ),
       supabase.from("building_actions").select("*"),
       supabase.from("tenant_notes").select("*"),
       supabase.from("tenant_documents").select("*"),
@@ -898,6 +987,7 @@ export async function hydrateFromSupabase(): Promise<void> {
     cache.accountingTransactions = (txs ?? []).map(tx2c);
     cache.manualAdjustments = (adjs ?? []).map(adj2c);
     cache.renovations = (renos ?? []).map(reno2c);
+    cache.contracts = (contractsRows ?? []).map(contract2c);
     cache.buildingActions = (actions ?? []).map(ba2c);
     cache.tenantNotes = (tenantNotes ?? []).map(tn2c);
     cache.tenantDocuments = (tenantDocs ?? []).map(td2c);
@@ -1459,6 +1549,35 @@ export const addRenovation = (reno: Omit<Renovation, "id" | "createdAt">): Renov
 };
 export const deleteRenovation = (id: string) => {
   saveRenovations(cache.renovations.filter((r) => r.id !== id));
+};
+
+// Contracts (insurance, chauffage, conciergerie, …)
+export const getContracts = (buildingId?: string): Contract[] => {
+  return buildingId
+    ? cache.contracts.filter((c) => c.buildingId === buildingId)
+    : cache.contracts;
+};
+export const saveContracts = (contracts: Contract[]) => {
+  const prev = cache.contracts;
+  const next = contracts.map((x) => ensureId(x));
+  cache.contracts = next;
+  void sync<Contract>("contracts", prev, next, contract2r as any, contract2c, (list) => (cache.contracts = list));
+};
+export const addContract = (contract: Omit<Contract, "id" | "createdAt" | "updatedAt">): Contract => {
+  const newContract: Contract = {
+    id: `tmp_${Date.now()}_${Math.random().toString(16).slice(2, 6)}`,
+    createdAt: nowISO(),
+    updatedAt: nowISO(),
+    ...contract,
+  };
+  saveContracts([newContract, ...cache.contracts]);
+  return newContract;
+};
+export const updateContract = (updated: Contract) => {
+  saveContracts(cache.contracts.map((c) => (c.id === updated.id ? { ...updated, updatedAt: nowISO() } : c)));
+};
+export const deleteContract = (id: string) => {
+  saveContracts(cache.contracts.filter((c) => c.id !== id));
 };
 
 // Accounting settings
