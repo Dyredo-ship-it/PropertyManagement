@@ -55,6 +55,7 @@ import { sendRentReminder, sendLeaseEndReminder } from "../lib/email";
 import { SignaturePad } from "./SignaturePad";
 import { supabase } from "../lib/supabase";
 import { FileDown } from "lucide-react";
+import { buildTenantActivity, type TenantActivity, type ActivityKind } from "../utils/tenantActivity";
 
 function currentMonthPeriod(): string {
   const d = new Date();
@@ -401,7 +402,7 @@ function TenantDetailDrawer({
   onUploadDoc: (file: File, category: TenantDocument["category"]) => void;
   onDeleteDoc: (docId: string) => void;
 }) {
-  const [activeTab, setActiveTab] = useState<"profil" | "notes" | "demandes" | "documents">("profil");
+  const [activeTab, setActiveTab] = useState<"profil" | "activite" | "notes" | "demandes" | "documents">("profil");
   const [noteDate, setNoteDate] = useState(todayISO());
   const [noteText, setNoteText] = useState("");
 
@@ -542,6 +543,7 @@ function TenantDetailDrawer({
   /* ─── Tab definitions ─── */
   const tabs: { key: typeof activeTab; label: string }[] = [
     { key: "profil", label: "Profil" },
+    { key: "activite", label: "Activité" },
     { key: "notes", label: "Notes" },
     { key: "demandes", label: "Demandes" },
     { key: "documents", label: "Documents" },
@@ -965,6 +967,11 @@ function TenantDetailDrawer({
                 </div>
               </div>
             </div>
+          )}
+
+          {/* ──────── TAB: Activité ──────── */}
+          {activeTab === "activite" && (
+            <TenantActivityTimeline tenant={tenant} />
           )}
 
           {/* ──────── TAB: Notes ──────── */}
@@ -2603,6 +2610,161 @@ function StyledInput({
             e.currentTarget.style.boxShadow = "none";
           }}
         />
+      </div>
+    </div>
+  );
+}
+
+/* ─── Tenant activity timeline ──────────────────────────────────── */
+
+const ACTIVITY_STYLE: Record<ActivityKind, { color: string; bg: string; label: string }> = {
+  "lease-start":      { color: "#16A34A", bg: "rgba(22,163,74,0.10)",  label: "Début bail" },
+  "lease-end":        { color: "#DC2626", bg: "rgba(220,38,38,0.08)",  label: "Fin bail" },
+  "note":             { color: "#7C3AED", bg: "rgba(124,58,237,0.10)", label: "Note" },
+  "document":         { color: "#2563EB", bg: "rgba(37,99,235,0.10)",  label: "Document" },
+  "payment":          { color: "#15803D", bg: "rgba(21,128,61,0.10)",  label: "Paiement" },
+  "email-sent":       { color: "#B45309", bg: "rgba(180,83,9,0.10)",   label: "Email" },
+  "request-filed":    { color: "#EA580C", bg: "rgba(234,88,12,0.10)",  label: "Demande" },
+  "request-resolved": { color: "#059669", bg: "rgba(5,150,105,0.10)",  label: "Résolue" },
+};
+
+function fmtActivityDate(date: string): { date: string; time: string } {
+  const d = new Date(date);
+  return {
+    date: d.toLocaleDateString("fr-CH", { day: "2-digit", month: "short", year: "numeric" }),
+    time: d.toLocaleTimeString("fr-CH", { hour: "2-digit", minute: "2-digit" }),
+  };
+}
+
+function TenantActivityTimeline({ tenant }: { tenant: Tenant }) {
+  const { formatAmount } = useCurrency();
+  const [filter, setFilter] = React.useState<ActivityKind | "all">("all");
+  const events: TenantActivity[] = React.useMemo(() => buildTenantActivity(tenant), [tenant]);
+
+  const counts = React.useMemo(() => {
+    const c: Record<string, number> = { all: events.length };
+    for (const e of events) c[e.kind] = (c[e.kind] ?? 0) + 1;
+    return c;
+  }, [events]);
+
+  const filtered = filter === "all" ? events : events.filter((e) => e.kind === filter);
+
+  if (events.length === 0) {
+    return (
+      <div style={{
+        padding: "40px 24px", textAlign: "center", borderRadius: 12,
+        border: "1px dashed var(--border)", background: "var(--background)",
+        color: "var(--muted-foreground)",
+      }}>
+        <p style={{ fontSize: 13, fontWeight: 600, margin: 0 }}>Aucune activité enregistrée</p>
+        <p style={{ fontSize: 11, margin: "6px 0 0" }}>
+          Les notes, documents, paiements et emails apparaîtront ici chronologiquement.
+        </p>
+      </div>
+    );
+  }
+
+  const chips: { key: ActivityKind | "all"; label: string }[] = [
+    { key: "all",              label: "Tout" },
+    { key: "payment",          label: "Paiements" },
+    { key: "email-sent",       label: "Emails" },
+    { key: "note",             label: "Notes" },
+    { key: "document",         label: "Documents" },
+    { key: "request-filed",    label: "Demandes" },
+    { key: "lease-start",      label: "Bail" },
+  ];
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      {/* Summary + filters */}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        {chips.map((c) => {
+          const n = counts[c.key] ?? 0;
+          if (c.key !== "all" && n === 0) return null;
+          const active = filter === c.key;
+          return (
+            <button
+              key={c.key}
+              onClick={() => setFilter(c.key)}
+              style={{
+                padding: "5px 11px", borderRadius: 99,
+                border: `1px solid ${active ? "var(--primary)" : "var(--border)"}`,
+                background: active ? "color-mix(in srgb, var(--primary) 10%, transparent)" : "transparent",
+                color: active ? "var(--primary)" : "var(--muted-foreground)",
+                fontSize: 11, fontWeight: active ? 700 : 500,
+                cursor: "pointer",
+              }}
+            >
+              {c.label} <span style={{ opacity: 0.7 }}>{n}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Timeline */}
+      <div style={{ position: "relative", paddingLeft: 22 }}>
+        {/* Vertical line */}
+        <div style={{
+          position: "absolute", left: 10, top: 8, bottom: 8, width: 2,
+          background: "var(--border)", borderRadius: 1,
+        }} />
+
+        {filtered.map((ev) => {
+          const style = ACTIVITY_STYLE[ev.kind];
+          const { date, time } = fmtActivityDate(ev.date);
+          return (
+            <div key={ev.id} style={{ position: "relative", marginBottom: 14 }}>
+              {/* Dot */}
+              <div style={{
+                position: "absolute", left: -17, top: 10,
+                width: 14, height: 14, borderRadius: "50%",
+                background: style.color, border: "3px solid var(--card)",
+                boxShadow: `0 0 0 1px ${style.color}66`,
+              }} />
+
+              <div style={{
+                background: "var(--background)",
+                border: `1px solid ${style.bg}`,
+                borderRadius: 10,
+                padding: "10px 12px",
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
+                  <span style={{
+                    fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 6,
+                    background: style.bg, color: style.color, textTransform: "uppercase",
+                    letterSpacing: "0.04em",
+                  }}>
+                    {style.label}
+                  </span>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)", margin: 0, flex: 1, minWidth: 0 }}>
+                    {ev.title}
+                  </p>
+                  {ev.amount !== undefined && (
+                    <span style={{ fontSize: 13, fontWeight: 700, color: style.color, flexShrink: 0 }}>
+                      {formatAmount(ev.amount)}
+                    </span>
+                  )}
+                </div>
+                {ev.subtitle && (
+                  <p style={{
+                    fontSize: 12, color: "var(--muted-foreground)", margin: 0,
+                    lineHeight: 1.4,
+                    display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" as const,
+                    overflow: "hidden",
+                  }}>
+                    {ev.subtitle}
+                  </p>
+                )}
+                <p style={{
+                  fontSize: 10, color: "var(--muted-foreground)", margin: "5px 0 0",
+                  opacity: 0.8,
+                }}>
+                  {date} · {time}
+                </p>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
