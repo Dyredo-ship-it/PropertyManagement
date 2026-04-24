@@ -51,6 +51,7 @@ type TranslationSet = {
   navDashboard: string;
   navBuildings: string;
   navTenants: string;
+  navOwners: string;
   navRequests: string;
   navInterventions: string;
   navServices: string;
@@ -640,6 +641,7 @@ export const translations: Record<Language, TranslationSet> = {
     navDashboard: "Tableau de bord",
     navBuildings: "Bâtiments",
     navTenants: "Locataires",
+    navOwners: "Propriétaires",
     navRequests: "Demandes",
     navInterventions: "Interventions",
     navServices: "Services",
@@ -1204,6 +1206,7 @@ export const translations: Record<Language, TranslationSet> = {
     navDashboard: "Dashboard",
     navBuildings: "Buildings",
     navTenants: "Tenants",
+    navOwners: "Owners",
     navRequests: "Requests",
     navInterventions: "Interventions",
     navServices: "Services",
@@ -1768,6 +1771,7 @@ export const translations: Record<Language, TranslationSet> = {
     navDashboard: "Dashboard",
     navBuildings: "Gebäude",
     navTenants: "Mieter",
+    navOwners: "Eigentümer",
     navRequests: "Anfragen",
     navInterventions: "Interventionen",
     navServices: "Dienstleistungen",
@@ -2332,6 +2336,7 @@ export const translations: Record<Language, TranslationSet> = {
     navDashboard: "Dashboard",
     navBuildings: "Edifici",
     navTenants: "Inquilini",
+    navOwners: "Proprietari",
     navRequests: "Richieste",
     navInterventions: "Interventi",
     navServices: "Servizi",

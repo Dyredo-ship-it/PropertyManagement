@@ -594,3 +594,205 @@ export async function generateChargesStatementPdf(
   );
 }
 
+
+/* ─── Rapport propriétaire (quarterly / annual portfolio summary) ─ */
+
+export interface OwnerReportBuildingRow {
+  name: string;
+  address: string;
+  units: number;
+  occupiedUnits: number;
+  revenueYtd: number;
+  expensesYtd: number;
+  netIncomeYtd: number;
+}
+
+export interface OwnerReportTenantRow {
+  tenantName: string;
+  buildingName: string;
+  unit: string;
+  rentNet: number;
+  charges: number;
+  status: "paid" | "paid-late" | "overdue" | "unpaid";
+}
+
+export interface OwnerReportOptions {
+  ownerName: string;
+  ownerEmail?: string;
+  ownerAddress?: string;
+  year: number;
+  generatedOn: string;       // ISO date
+  portfolio: {
+    buildingCount: number;
+    tenantCount: number;
+    totalUnits: number;
+    occupiedUnits: number;
+    occupancyRate: number;
+    revenueYtd: number;
+    expensesYtd: number;
+    netIncomeYtd: number;
+    netMarginYtd: number;
+    nominalMonthlyRevenue: number;
+    overdueCount: number;
+    overdueAmount: number;
+  };
+  buildings: OwnerReportBuildingRow[];
+  tenants: OwnerReportTenantRow[];
+  currency?: string;
+}
+
+const STATUS_LABEL: Record<OwnerReportTenantRow["status"], string> = {
+  paid: "Payé",
+  "paid-late": "Payé en retard",
+  overdue: "Impayé",
+  unpaid: "En cours",
+};
+
+export async function generateOwnerReportPdf(
+  options: OwnerReportOptions,
+): Promise<void> {
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const currency = options.currency ?? "CHF";
+  const fmt = (v: number) => formatAmount(v, currency);
+
+  header(doc, `Rapport propriétaire — ${options.year}`);
+
+  // Owner + metadata block
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(11);
+  doc.setTextColor(40);
+  doc.text(options.ownerName, 20, 34);
+  doc.setFontSize(9);
+  doc.setTextColor(110);
+  if (options.ownerAddress) {
+    doc.text(options.ownerAddress, 20, 39);
+  }
+  if (options.ownerEmail) {
+    doc.text(options.ownerEmail, 20, 44);
+  }
+  const genLabel = `Édité le ${new Date(options.generatedOn).toLocaleDateString("fr-CH", { day: "2-digit", month: "long", year: "numeric" })}`;
+  doc.text(genLabel, 190 - doc.getTextWidth(genLabel), 44);
+
+  // KPI strip
+  const kpis: { label: string; value: string }[] = [
+    { label: "Immeubles", value: String(options.portfolio.buildingCount) },
+    { label: "Unités", value: `${options.portfolio.occupiedUnits}/${options.portfolio.totalUnits}` },
+    { label: "Occupation", value: `${options.portfolio.occupancyRate}%` },
+    { label: "Loyer brut/mois", value: fmt(options.portfolio.nominalMonthlyRevenue) },
+  ];
+  autoTable(doc, {
+    startY: 52,
+    body: [kpis.map((k) => ({ content: `${k.value}\n${k.label}`, styles: { halign: "center" as const } }))],
+    theme: "plain",
+    styles: { fontSize: 10, cellPadding: 6 },
+    columnStyles: kpis.reduce<Record<number, any>>((acc, _, i) => {
+      acc[i] = { cellWidth: 42.5 };
+      return acc;
+    }, {}),
+  });
+
+  // Financial summary
+  autoTable(doc, {
+    startY: ((doc as any).lastAutoTable?.finalY ?? 80) + 6,
+    head: [["Résumé financier YTD", ""]],
+    body: [
+      ["Recettes", fmt(options.portfolio.revenueYtd)],
+      ["Charges d'exploitation", fmt(options.portfolio.expensesYtd)],
+      [
+        { content: "Résultat net", styles: { fontStyle: "bold" } },
+        {
+          content: fmt(options.portfolio.netIncomeYtd),
+          styles: {
+            fontStyle: "bold",
+            textColor: options.portfolio.netIncomeYtd >= 0 ? [22, 163, 74] : [220, 38, 38],
+          },
+        },
+      ],
+      ["Marge nette", `${options.portfolio.netMarginYtd.toFixed(1)}%`],
+    ],
+    theme: "grid",
+    headStyles: { fillColor: [69, 85, 58], halign: "left", fontSize: 10 },
+    styles: { fontSize: 10, cellPadding: 3 },
+    columnStyles: { 1: { halign: "right" } },
+  });
+
+  // Impayés (if any)
+  if (options.portfolio.overdueCount > 0) {
+    autoTable(doc, {
+      startY: ((doc as any).lastAutoTable?.finalY ?? 130) + 4,
+      body: [[
+        { content: `⚠ ${options.portfolio.overdueCount} loyer(s) impayé(s) ce mois — ${fmt(options.portfolio.overdueAmount)}`,
+          styles: { fontStyle: "bold", textColor: [185, 28, 28], fillColor: [254, 242, 242] } },
+      ]],
+      theme: "plain",
+      styles: { fontSize: 10, cellPadding: 4 },
+    });
+  }
+
+  // Buildings breakdown
+  autoTable(doc, {
+    startY: ((doc as any).lastAutoTable?.finalY ?? 150) + 6,
+    head: [["Immeuble", "Adresse", "Unités", "Recettes", "Charges", "Résultat net"]],
+    body: options.buildings.map((b) => [
+      b.name,
+      b.address,
+      `${b.occupiedUnits}/${b.units}`,
+      fmt(b.revenueYtd),
+      fmt(b.expensesYtd),
+      {
+        content: fmt(b.netIncomeYtd),
+        styles: { textColor: b.netIncomeYtd >= 0 ? [22, 163, 74] : [220, 38, 38], fontStyle: "bold" as const },
+      },
+    ]),
+    theme: "grid",
+    headStyles: { fillColor: [69, 85, 58], halign: "left", fontSize: 9 },
+    styles: { fontSize: 9, cellPadding: 2.5 },
+    columnStyles: {
+      2: { halign: "center" },
+      3: { halign: "right" },
+      4: { halign: "right" },
+      5: { halign: "right" },
+    },
+  });
+
+  // Tenants (new page if short on space)
+  const finalYBefore = (doc as any).lastAutoTable?.finalY ?? 200;
+  if (finalYBefore > 220) doc.addPage();
+
+  autoTable(doc, {
+    startY: finalYBefore > 220 ? 20 : finalYBefore + 8,
+    head: [["Locataire", "Immeuble · Unité", "Loyer net", "Charges", "Total", "Statut"]],
+    body: options.tenants.map((t) => [
+      t.tenantName,
+      `${t.buildingName} · ${t.unit}`,
+      fmt(t.rentNet),
+      fmt(t.charges),
+      fmt(t.rentNet + t.charges),
+      {
+        content: STATUS_LABEL[t.status],
+        styles: {
+          textColor:
+            t.status === "paid" ? [22, 163, 74]
+            : t.status === "paid-late" ? [217, 119, 6]
+            : t.status === "overdue" ? [220, 38, 38]
+            : [107, 114, 128],
+          fontStyle: "bold" as const,
+        },
+      },
+    ]),
+    theme: "grid",
+    headStyles: { fillColor: [69, 85, 58], halign: "left", fontSize: 9 },
+    styles: { fontSize: 9, cellPadding: 2.5 },
+    columnStyles: {
+      2: { halign: "right" },
+      3: { halign: "right" },
+      4: { halign: "right" },
+    },
+  });
+
+  footer(doc);
+  await savePdfWithShare(
+    doc,
+    safeFileName(["rapport", String(options.year), options.ownerName]) + ".pdf",
+  );
+}

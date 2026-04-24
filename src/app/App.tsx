@@ -16,6 +16,7 @@ import { TenantDashboardView } from "./components/TenantDashboardView";
 import { TenantRequestsView } from "./components/TenantRequestsView";
 import { BuildingsView } from "./components/BuildingsView";
 import { TenantsView } from "./components/TenantsView";
+import { OwnersView } from "./components/OwnersView";
 import { RequestsView } from "./components/RequestsView";
 import { ServicesView } from "./components/ServicesView";
 import { NotificationsView } from "./components/NotificationsView";
@@ -271,6 +272,7 @@ function AppContent() {
             />
           )}
           {activeView === "tenants" && user?.role === "admin" && can("tenants") && <TenantsView />}
+          {activeView === "owners" && user?.role === "admin" && can("buildings") && <OwnersView />}
           {activeView === "interventions" && user?.role === "admin" && can("interventions") && <InterventionsView />}
           {activeView === "requests" && user?.role === "admin" && can("requests") && <RequestsView />}
           {activeView === "requests" && user?.role === "tenant" && <TenantRequestsView />}

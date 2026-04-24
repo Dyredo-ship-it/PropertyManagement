@@ -454,6 +454,26 @@ export async function getOwner(ownerId: string): Promise<Owner | null> {
   };
 }
 
+// Lists every owner of the current org. Used by the Propriétaires view
+// to show portfolio summaries + generate quarterly reports. Not cached
+// in `cache.*` yet because the volume is typically tiny (< 50 rows).
+export async function listOwners(): Promise<Owner[]> {
+  const { data, error } = await supabase
+    .from("owners")
+    .select("id, name, email, phone, address, iban, notes")
+    .order("name");
+  if (error || !data) return [];
+  return data.map((r: any) => ({
+    id: r.id,
+    name: r.name,
+    email: r.email ?? undefined,
+    phone: r.phone ?? undefined,
+    address: r.address ?? undefined,
+    iban: r.iban ?? undefined,
+    notes: r.notes ?? undefined,
+  }));
+}
+
 const t2c = (r: any): Tenant => ({
   id: r.id,
   name: r.name,

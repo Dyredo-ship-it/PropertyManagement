@@ -17,6 +17,7 @@ import {
   Search,
   MoreVertical,
   Receipt,
+  UserCircle2,
 } from "lucide-react";
 import { useAuth, useCan } from "../context/AuthContext";
 import { useNotifications } from "../context/NotificationsContext";
@@ -109,6 +110,7 @@ export function ModernSidebar({ activeView, onViewChange, mobileOpen = false, on
             ],
           },
           { id: "tenants", labelKey: "navTenants", icon: Users, feature: "tenants" },
+          { id: "owners", labelKey: "navOwners", icon: UserCircle2, feature: "buildings" },
           {
             id: "requests",
             labelKey: "requestsHub",
