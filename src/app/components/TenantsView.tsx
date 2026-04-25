@@ -49,7 +49,8 @@ import { useCurrency } from "../context/CurrencyContext";
 import { Bell, ArrowUpDown, Shield as ShieldIcon, Banknote as BanknoteIcon } from "lucide-react";
 import { usePlanLimits } from "../lib/billing";
 import { PlanLimitModal } from "./PlanLimitModal";
-import { generateLeasePdf, generateRentReceiptPdf } from "../lib/pdf";
+import { generateLeasePdf, generateRentReceiptPdf, generateRentAttestationPdf } from "../lib/pdf";
+import { getAccountingTransactions } from "../utils/storage";
 import { getLandlordInfo } from "../lib/landlord";
 import { sendRentReminder, sendLeaseEndReminder } from "../lib/email";
 import { SignaturePad } from "./SignaturePad";
@@ -470,6 +471,55 @@ function TenantDetailDrawer({
       period: receiptPeriod,
       amount: total,
       signatureDataUrl,
+    });
+  };
+
+  const [attestationYear, setAttestationYear] = useState<number>(() => new Date().getFullYear() - 1);
+  const handleGenerateAttestation = () => {
+    if (!tenant || !building) {
+      alert("Le bâtiment lié à ce locataire est introuvable.");
+      return;
+    }
+    const txs = getAccountingTransactions(tenant.buildingId);
+    const lastNameToken = (tenant.name.toLowerCase().split(" ").pop() ?? "");
+    const matched = txs.filter((tx) => {
+      if (![101, 102, 103].includes(tx.accountNumber)) return false;
+      if ((tx.credit || 0) <= 0) return false;
+      const dateRaw = tx.datePayment || tx.dateInvoice || "";
+      if (!dateRaw.startsWith(String(attestationYear))) return false;
+      if (tx.tenantName === tenant.name) return true;
+      if (lastNameToken && tx.description?.toLowerCase().includes(lastNameToken)) return true;
+      return false;
+    });
+    if (matched.length === 0) {
+      alert(`Aucun paiement trouvé pour ${tenant.name} en ${attestationYear}.`);
+      return;
+    }
+    const FR = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+    const payments = matched
+      .map((tx) => {
+        const date = tx.datePayment || tx.dateInvoice || "";
+        const month = (tx.month || date.slice(0, 7)).split("-");
+        const monthIdx = Math.max(0, Math.min(11, parseInt(month[1] ?? "1", 10) - 1));
+        return {
+          monthLabel: `${FR[monthIdx]} ${month[0]}`,
+          date,
+          amount: tx.credit || 0,
+          account: tx.accountNumber,
+          description: tx.description ?? "",
+        };
+      })
+      .sort((a, b) => a.date.localeCompare(b.date));
+    const totalRent = matched.filter((tx) => tx.accountNumber === 101 || tx.accountNumber === 102).reduce((s, tx) => s + (tx.credit || 0), 0);
+    const totalCharges = matched.filter((tx) => tx.accountNumber === 103).reduce((s, tx) => s + (tx.credit || 0), 0);
+    const total = totalRent + totalCharges;
+    void generateRentAttestationPdf(tenant as Tenant, building, getLandlordInfo(), {
+      year: attestationYear,
+      payments,
+      totalRent,
+      totalCharges,
+      total,
+      currency: building.currency,
     });
   };
 
@@ -1254,6 +1304,40 @@ function TenantDetailDrawer({
                   >
                     <Edit style={{ width: 14, height: 14, color: "var(--primary)", flexShrink: 0 }} />
                     Signer
+                  </button>
+                </div>
+                {/* Annual rent attestation (tax) */}
+                <div className="tenant-doc-receipt-row" style={{ display: "flex", gap: 8, alignItems: "stretch", flexWrap: "wrap", marginTop: 8 }}>
+                  <select
+                    value={attestationYear}
+                    onChange={(e) => setAttestationYear(Number(e.target.value))}
+                    style={{
+                      padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border)",
+                      background: "var(--card)", color: "var(--foreground)", fontSize: 13, outline: "none",
+                      flex: "0 0 100px", cursor: "pointer",
+                    }}
+                  >
+                    {(() => {
+                      const cur = new Date().getFullYear();
+                      const opts: number[] = [];
+                      for (let y = cur; y >= cur - 5; y--) opts.push(y);
+                      return opts.map((y) => <option key={y} value={y}>{y}</option>);
+                    })()}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={handleGenerateAttestation}
+                    title="Génère le récapitulatif fiscal des loyers payés (déclaration d'impôts)"
+                    style={{
+                      display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                      padding: "10px 14px", borderRadius: 8, border: "1px solid var(--border)",
+                      background: "var(--card)", color: "var(--foreground)",
+                      fontSize: 13, fontWeight: 500, cursor: "pointer",
+                      flex: "1 1 200px", minWidth: 0, whiteSpace: "nowrap",
+                    }}
+                  >
+                    <FileDown style={{ width: 14, height: 14, color: "var(--primary)", flexShrink: 0 }} />
+                    Attestation fiscale annuelle
                   </button>
                 </div>
               </div>

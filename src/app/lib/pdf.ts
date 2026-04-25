@@ -812,3 +812,166 @@ export async function generateOwnerReportPdf(
     safeFileName(["rapport", String(options.year), options.ownerName]) + ".pdf",
   );
 }
+
+/* ─── Annual rent attestation (for tenant's tax return) ────────── */
+
+export interface RentAttestationPayment {
+  monthLabel: string;     // "Janvier 2025"
+  date: string;            // ISO date
+  amount: number;
+  account: number;         // 101, 102, 103
+  description?: string;
+}
+
+export interface RentAttestationOptions {
+  year: number;
+  payments: RentAttestationPayment[];
+  totalRent: number;
+  totalCharges: number;
+  total: number;
+  currency?: string;
+  generatedOn?: string;
+}
+
+export async function generateRentAttestationPdf(
+  tenant: Tenant,
+  building: Building,
+  landlord: LandlordInfo,
+  options: RentAttestationOptions,
+): Promise<void> {
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const currency = options.currency ?? building.currency ?? "CHF";
+  const fmt = (v: number) => formatAmount(v, currency);
+  const generated = options.generatedOn ?? new Date().toISOString();
+
+  header(doc, "Attestation de loyers payés");
+
+  // Bailleur (régie) — top left
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(40);
+  doc.text(landlord.name || "—", 20, 36);
+  doc.setFontSize(9);
+  doc.setTextColor(100);
+  if (landlord.address) doc.text(landlord.address, 20, 41);
+  if (landlord.email) doc.text(landlord.email, 20, 46);
+
+  // Date d'édition — top right
+  const genLabel = `Édité le ${new Date(generated).toLocaleDateString("fr-CH", { day: "2-digit", month: "long", year: "numeric" })}`;
+  doc.text(genLabel, 190 - doc.getTextWidth(genLabel), 46);
+
+  // Tenant block
+  doc.setFontSize(10);
+  doc.setTextColor(60);
+  doc.text("DESTINATAIRE", 20, 62);
+  doc.setFontSize(11);
+  doc.setTextColor(20);
+  doc.setFont("helvetica", "bold");
+  doc.text(tenant.name, 20, 68);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  if (building.address) doc.text(building.address, 20, 74);
+  if (tenant.unit) doc.text(`Logement : ${tenant.unit}`, 20, 79);
+
+  // Salutation + statement
+  let y = 92;
+  doc.setFontSize(10);
+  doc.setTextColor(20);
+  doc.text("Madame, Monsieur,", 20, y);
+  y += 8;
+
+  const intro = `Par la présente, nous attestons que ${tenant.name}, locataire du logement situé au ${building.address}${tenant.unit ? ` (${tenant.unit})` : ""}, a versé durant l'année civile ${options.year} les montants ci-dessous au titre du loyer et des charges locatives.`;
+  const split = doc.splitTextToSize(intro, 170);
+  doc.text(split, 20, y);
+  y += split.length * 5 + 4;
+
+  // Payments table
+  autoTable(doc, {
+    startY: y,
+    head: [["Mois", "Date paiement", "Compte", "Description", "Montant"]],
+    body: options.payments.map((p) => [
+      p.monthLabel,
+      new Date(p.date).toLocaleDateString("fr-CH"),
+      String(p.account),
+      p.description ?? "",
+      fmt(p.amount),
+    ]),
+    foot: [[
+      { content: "Total " + options.year, colSpan: 4, styles: { fontStyle: "bold" as const, halign: "right" as const } },
+      { content: fmt(options.total), styles: { fontStyle: "bold" as const, fillColor: [69, 85, 58], textColor: 255 } },
+    ]],
+    theme: "grid",
+    headStyles: { fillColor: [69, 85, 58], halign: "left" as const, fontSize: 9 },
+    footStyles: { fillColor: [243, 244, 246], textColor: 20, fontSize: 10 },
+    styles: { fontSize: 9, cellPadding: 2.5, overflow: "linebreak" as const },
+    margin: { left: 20, right: 20 },
+    tableWidth: 170,
+    columnStyles: {
+      0: { cellWidth: 32 },                   // Mois
+      1: { cellWidth: 28 },                   // Date
+      2: { cellWidth: 18, halign: "center" }, // Compte
+      3: { cellWidth: 60 },                   // Description
+      4: { cellWidth: 32, halign: "right" },  // Montant
+    },
+  });
+
+  let finalY = (doc as any).lastAutoTable?.finalY ?? 200;
+
+  // Breakdown summary box
+  if (finalY < 230) {
+    autoTable(doc, {
+      startY: finalY + 6,
+      body: [
+        ["Loyers nets (compte 101 + 102)", fmt(options.totalRent)],
+        ["Acomptes de charges (compte 103)", fmt(options.totalCharges)],
+        [
+          { content: "Total versé", styles: { fontStyle: "bold" as const } },
+          { content: fmt(options.total), styles: { fontStyle: "bold" as const } },
+        ],
+      ],
+      theme: "plain",
+      styles: { fontSize: 10, cellPadding: 3 },
+      margin: { left: 20, right: 20 },
+      tableWidth: 170,
+      columnStyles: {
+        0: { cellWidth: 130 },
+        1: { cellWidth: 40, halign: "right" },
+      },
+    });
+    finalY = (doc as any).lastAutoTable?.finalY ?? finalY;
+  }
+
+  // Closing + signature block — new page if not enough room
+  if (finalY > 240) {
+    doc.addPage();
+    finalY = 30;
+  }
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(40);
+  doc.text(
+    "Cette attestation peut être présentée aux autorités fiscales suisses dans le cadre de la déclaration d'impôts.",
+    20, finalY + 12, { maxWidth: 170 },
+  );
+  doc.text(
+    "Nous restons à disposition pour tout complément d'information.",
+    20, finalY + 22, { maxWidth: 170 },
+  );
+
+  // Signature block
+  const sigY = finalY + 38;
+  doc.text(`${landlord.address?.split(",").slice(-1)[0].trim() || "Lausanne"}, le ${new Date(generated).toLocaleDateString("fr-CH")}`, 20, sigY);
+  doc.setFont("helvetica", "bold");
+  doc.text(landlord.name || "—", 20, sigY + 14);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.setTextColor(110);
+  if (landlord.email) doc.text(landlord.email, 20, sigY + 20);
+
+  footer(doc);
+  await savePdfWithShare(
+    doc,
+    safeFileName(["attestation-loyers", String(options.year), tenant.name]) + ".pdf",
+  );
+}
