@@ -57,6 +57,7 @@ import { SignaturePad } from "./SignaturePad";
 import { supabase } from "../lib/supabase";
 import { FileDown } from "lucide-react";
 import { buildTenantActivity, type TenantActivity, type ActivityKind } from "../utils/tenantActivity";
+import { TenantLettersModal } from "./TenantLettersModal";
 
 function currentMonthPeriod(): string {
   const d = new Date();
@@ -411,6 +412,7 @@ function TenantDetailDrawer({
 
   /* Send-document modal state */
   const [showSendDoc, setShowSendDoc] = useState(false);
+  const [showLetters, setShowLetters] = useState(false);
   const [sendDocFile, setSendDocFile] = useState<File | null>(null);
   const [sendDocCategory, setSendDocCategory] = useState<TenantDocument["category"]>("Communication");
   const [sendDocMessage, setSendDocMessage] = useState("");
@@ -1342,6 +1344,22 @@ function TenantDetailDrawer({
                 </div>
               </div>
 
+              {/* Official letters generator */}
+              <button
+                onClick={() => setShowLetters(true)}
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                  padding: "10px 0", borderRadius: 10, border: "1px solid var(--border)",
+                  background: "color-mix(in srgb, var(--primary) 8%, var(--card))", color: "var(--foreground)",
+                  fontSize: 13, fontWeight: 600, cursor: "pointer", width: "100%",
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = "color-mix(in srgb, var(--primary) 14%, var(--card))"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = "color-mix(in srgb, var(--primary) 8%, var(--card))"; }}
+              >
+                <FileDown style={{ width: 14, height: 14, color: "var(--primary)" }} />
+                Lettres officielles (résiliation, convocation EDL…)
+              </button>
+
               {/* Send document to tenant button */}
               <button
                 onClick={() => setShowSendDoc(true)}
@@ -1563,6 +1581,14 @@ function TenantDetailDrawer({
           handleGenerateReceipt(dataUrl);
         }}
       />
+      {tenant && building && (
+        <TenantLettersModal
+          open={showLetters}
+          onClose={() => setShowLetters(false)}
+          tenant={tenant as Tenant}
+          building={building}
+        />
+      )}
     </div>,
     document.body
   );

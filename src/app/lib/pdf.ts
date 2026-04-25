@@ -975,3 +975,307 @@ export async function generateRentAttestationPdf(
     safeFileName(["attestation-loyers", String(options.year), tenant.name]) + ".pdf",
   );
 }
+
+/* ─── Avis de résiliation par le bailleur (CO 266a-l) ──────────── */
+
+export type TerminationReason =
+  | "ordinaire"
+  | "vente"
+  | "renovation-lourde"
+  | "usage-personnel"
+  | "loyers-impayes"
+  | "violations-graves"
+  | "autre";
+
+export const TERMINATION_REASON_LABEL: Record<TerminationReason, string> = {
+  "ordinaire": "Résiliation ordinaire (sans motif particulier)",
+  "vente": "Vente de l'immeuble",
+  "renovation-lourde": "Travaux de rénovation lourde",
+  "usage-personnel": "Usage personnel ou pour proche parent",
+  "loyers-impayes": "Loyers impayés (art. 257d CO)",
+  "violations-graves": "Violations graves du bail",
+  "autre": "Autre motif",
+};
+
+export interface TerminationNoticeOptions {
+  effectiveDate: string;       // ISO YYYY-MM-DD — date à laquelle le bail prend fin
+  reason: TerminationReason;
+  reasonDetails?: string;       // Précisions facultatives
+  signedAt?: string;            // Lieu de signature, default canton from address
+  generatedOn?: string;
+}
+
+export async function generateTerminationNoticePdf(
+  tenant: Tenant,
+  building: Building,
+  landlord: LandlordInfo,
+  options: TerminationNoticeOptions,
+): Promise<void> {
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const generated = options.generatedOn ?? new Date().toISOString();
+  const signedAt = options.signedAt ?? (landlord.address?.split(",").slice(-1)[0]?.trim() || "Lausanne");
+
+  header(doc, "Avis de résiliation de bail");
+
+  // Bailleur — top
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(40);
+  doc.text(landlord.name || "—", 20, 36);
+  doc.setFontSize(9);
+  doc.setTextColor(100);
+  if (landlord.address) doc.text(landlord.address, 20, 41);
+  if (landlord.email) doc.text(landlord.email, 20, 46);
+
+  const genLabel = `${signedAt}, le ${new Date(generated).toLocaleDateString("fr-CH", { day: "2-digit", month: "long", year: "numeric" })}`;
+  doc.text(genLabel, 190 - doc.getTextWidth(genLabel), 46);
+
+  // Tenant block — formal addressing on right
+  doc.setFontSize(10);
+  doc.setTextColor(40);
+  doc.text(tenant.name, 115, 62);
+  if (building.address) doc.text(building.address, 115, 67);
+  if (tenant.unit) doc.text(tenant.unit, 115, 72);
+
+  // Subject line
+  let y = 92;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.setTextColor(20);
+  doc.text(
+    `Objet : Résiliation de votre bail pour le ${new Date(options.effectiveDate).toLocaleDateString("fr-CH", { day: "2-digit", month: "long", year: "numeric" })}`,
+    20, y, { maxWidth: 170 },
+  );
+  y += 14;
+
+  // Salutation + body
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.text("Madame, Monsieur,", 20, y);
+  y += 8;
+
+  const intro = `Par la présente, nous vous notifions formellement la résiliation de votre bail à loyer portant sur le logement situé au ${building.address}${tenant.unit ? `, ${tenant.unit}` : ""}.`;
+  const introLines = doc.splitTextToSize(intro, 170);
+  doc.text(introLines, 20, y);
+  y += introLines.length * 5 + 4;
+
+  // Effective date emphasised
+  doc.setFont("helvetica", "bold");
+  const effDate = new Date(options.effectiveDate).toLocaleDateString("fr-CH", { day: "2-digit", month: "long", year: "numeric" });
+  doc.text(`Date d'effet : ${effDate}`, 20, y);
+  y += 8;
+  doc.setFont("helvetica", "normal");
+
+  // Reason
+  const reasonLabel = TERMINATION_REASON_LABEL[options.reason];
+  doc.text(`Motif de la résiliation : ${reasonLabel}`, 20, y, { maxWidth: 170 });
+  y += 6;
+  if (options.reasonDetails && options.reasonDetails.trim()) {
+    const detailLines = doc.splitTextToSize(options.reasonDetails.trim(), 170);
+    doc.text(detailLines, 20, y);
+    y += detailLines.length * 5;
+  }
+  y += 4;
+
+  // Legal info — tenant rights
+  doc.setFont("helvetica", "italic");
+  doc.setFontSize(9);
+  doc.setTextColor(80);
+  const legalNote = "Conformément à l'art. 271a du Code des obligations, vous disposez d'un délai de 30 jours dès la réception du présent avis pour contester la résiliation auprès de l'autorité de conciliation compétente. Vous pouvez également solliciter une prolongation du bail aux conditions des art. 272 et suivants CO.";
+  const legalLines = doc.splitTextToSize(legalNote, 170);
+  doc.text(legalLines, 20, y);
+  y += legalLines.length * 4.5 + 4;
+
+  // Practical info
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(40);
+  doc.text(
+    "Un état des lieux de sortie sera organisé en présence des deux parties. Nous vous contacterons prochainement pour fixer un rendez-vous.",
+    20, y, { maxWidth: 170 },
+  );
+  y += 14;
+
+  doc.text("Veuillez agréer, Madame, Monsieur, nos salutations distinguées.", 20, y, { maxWidth: 170 });
+  y += 22;
+
+  // Signature block
+  doc.setFont("helvetica", "bold");
+  doc.text(landlord.name || "—", 20, y);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.setTextColor(110);
+  if (landlord.email) doc.text(landlord.email, 20, y + 5);
+
+  doc.line(20, y + 25, 100, y + 25);
+  doc.setFontSize(9);
+  doc.text("Signature autorisée", 20, y + 30);
+
+  // Bottom: registered-mail reminder
+  const h = doc.internal.pageSize.getHeight();
+  doc.setFontSize(8);
+  doc.setTextColor(150);
+  doc.text(
+    "Le présent avis doit être envoyé par lettre signature (recommandé) pour faire valablement courir les délais (art. 266l CO).",
+    20, h - 16, { maxWidth: 170 },
+  );
+
+  footer(doc);
+  await savePdfWithShare(
+    doc,
+    safeFileName(["avis-resiliation", String(options.effectiveDate), tenant.name]) + ".pdf",
+  );
+}
+
+/* ─── Convocation à l'état des lieux ───────────────────────────── */
+
+export interface InspectionAppointmentOptions {
+  appointmentDate: string;     // ISO YYYY-MM-DD
+  appointmentTime: string;      // "HH:MM"
+  appointmentType: "entree" | "sortie" | "intermediaire";
+  meetingLocation?: string;     // Default = building address
+  notes?: string;
+  generatedOn?: string;
+}
+
+const INSPECTION_TYPE_LABEL: Record<InspectionAppointmentOptions["appointmentType"], string> = {
+  entree: "État des lieux d'entrée",
+  sortie: "État des lieux de sortie",
+  intermediaire: "État des lieux intermédiaire",
+};
+
+export async function generateInspectionAppointmentPdf(
+  tenant: Tenant,
+  building: Building,
+  landlord: LandlordInfo,
+  options: InspectionAppointmentOptions,
+): Promise<void> {
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const generated = options.generatedOn ?? new Date().toISOString();
+  const meetingLoc = options.meetingLocation || building.address;
+  const dateStr = new Date(options.appointmentDate).toLocaleDateString("fr-CH", {
+    weekday: "long", day: "2-digit", month: "long", year: "numeric",
+  });
+  const typeLabel = INSPECTION_TYPE_LABEL[options.appointmentType];
+
+  header(doc, `Convocation — ${typeLabel}`);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(40);
+  doc.text(landlord.name || "—", 20, 36);
+  doc.setFontSize(9);
+  doc.setTextColor(100);
+  if (landlord.address) doc.text(landlord.address, 20, 41);
+  if (landlord.email) doc.text(landlord.email, 20, 46);
+
+  const signedAt = landlord.address?.split(",").slice(-1)[0]?.trim() || "Lausanne";
+  const genLabel = `${signedAt}, le ${new Date(generated).toLocaleDateString("fr-CH", { day: "2-digit", month: "long", year: "numeric" })}`;
+  doc.text(genLabel, 190 - doc.getTextWidth(genLabel), 46);
+
+  // Tenant block
+  doc.setFontSize(10);
+  doc.setTextColor(40);
+  doc.text(tenant.name, 115, 62);
+  if (building.address) doc.text(building.address, 115, 67);
+  if (tenant.unit) doc.text(tenant.unit, 115, 72);
+
+  // Subject
+  let y = 92;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.setTextColor(20);
+  doc.text(`Objet : Convocation pour ${typeLabel.toLowerCase()}`, 20, y, { maxWidth: 170 });
+  y += 12;
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.text("Madame, Monsieur,", 20, y);
+  y += 8;
+
+  const intro = `Nous vous convions à un ${typeLabel.toLowerCase()} concernant le logement situé au ${building.address}${tenant.unit ? `, ${tenant.unit}` : ""}.`;
+  const introLines = doc.splitTextToSize(intro, 170);
+  doc.text(introLines, 20, y);
+  y += introLines.length * 5 + 6;
+
+  // Highlighted appointment block
+  autoTable(doc, {
+    startY: y,
+    body: [
+      ["Date", dateStr],
+      ["Heure", options.appointmentTime],
+      ["Lieu", meetingLoc],
+    ],
+    theme: "grid",
+    styles: { fontSize: 11, cellPadding: 4, fontStyle: "bold" as const },
+    margin: { left: 20, right: 20 },
+    tableWidth: 170,
+    columnStyles: {
+      0: { cellWidth: 40, fillColor: [243, 244, 246] },
+      1: { cellWidth: 130 },
+    },
+  });
+  y = (doc as any).lastAutoTable?.finalY ?? y + 30;
+  y += 10;
+
+  // What to bring / expectations
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.setTextColor(20);
+  doc.text("À prévoir :", 20, y);
+  y += 6;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9.5);
+  doc.setTextColor(40);
+  const checklist =
+    options.appointmentType === "sortie"
+      ? [
+          "• Toutes les clés du logement (porte palière, boîte aux lettres, garage, cave…)",
+          "• Logement entièrement vidé et nettoyé en profondeur",
+          "• Dernier décompte des charges payé",
+          "• Adresse de transfert pour la libération de la caution",
+        ]
+      : [
+          "• Document d'identité",
+          "• Premier loyer + caution (si pas encore versée)",
+          "• Liste des défauts éventuels constatés à votre arrivée (à remettre dans les 30 jours)",
+          "• Toute question sur le règlement de l'immeuble",
+        ];
+  for (const line of checklist) {
+    doc.text(line, 20, y, { maxWidth: 170 });
+    y += 5.5;
+  }
+
+  if (options.notes && options.notes.trim()) {
+    y += 5;
+    doc.setFont("helvetica", "bold");
+    doc.text("Note :", 20, y);
+    y += 6;
+    doc.setFont("helvetica", "normal");
+    const noteLines = doc.splitTextToSize(options.notes.trim(), 170);
+    doc.text(noteLines, 20, y);
+    y += noteLines.length * 5;
+  }
+
+  y += 8;
+  doc.text(
+    "Si cette date ne vous convient pas, merci de nous contacter rapidement pour fixer un autre rendez-vous.",
+    20, y, { maxWidth: 170 },
+  );
+  y += 12;
+  doc.text("Veuillez agréer, Madame, Monsieur, nos salutations distinguées.", 20, y, { maxWidth: 170 });
+  y += 22;
+
+  doc.setFont("helvetica", "bold");
+  doc.text(landlord.name || "—", 20, y);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.setTextColor(110);
+  if (landlord.email) doc.text(landlord.email, 20, y + 5);
+
+  footer(doc);
+  await savePdfWithShare(
+    doc,
+    safeFileName(["convocation-edl", options.appointmentType, options.appointmentDate, tenant.name]) + ".pdf",
+  );
+}
