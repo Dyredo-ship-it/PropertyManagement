@@ -18,6 +18,7 @@ import {
 import { generateChargesStatementPdf } from "../lib/pdf";
 import { getLandlordInfo } from "../lib/landlord";
 import { BankReconciliationPanel } from "./BankReconciliationPanel";
+import { InvoiceScannerModal } from "./InvoiceScannerModal";
 import {
   getBuildings, getTenants,
   getAccountingTransactions, addAccountingTransactions, saveAccountingTransactions,
@@ -273,6 +274,7 @@ export function AccountingView() {
 
   // Import state
   const [showImport, setShowImport] = useState(false);
+  const [showInvoiceScanner, setShowInvoiceScanner] = useState(false);
   const [importData, setImportData] = useState<any[][]>([]);
   const [importHeaders, setImportHeaders] = useState<string[]>([]);
   const [columnMap, setColumnMap] = useState<Record<string, string>>({});
@@ -1147,6 +1149,20 @@ export function AccountingView() {
             {availableYears.map((y) => (<option key={y} value={y}>{y}</option>))}
           </select>
           <div style={{ flex: 1 }} />
+          <button
+            onClick={() => setShowInvoiceScanner(true)}
+            title="Scanner une facture pour saisie automatique"
+            style={{
+              ...tabBtnBase,
+              background: "color-mix(in srgb, var(--primary) 12%, var(--background))",
+              color: "var(--primary)",
+              border: "1px solid color-mix(in srgb, var(--primary) 40%, transparent)",
+              fontSize: 12, padding: "8px 14px",
+            }}
+          >
+            <Sparkles size={14} />
+            Scanner facture
+          </button>
           <button
             onClick={() => { setNewTx((p) => ({ ...p, buildingId: selectedBuildingId })); setShowAddTx(true); }}
             style={{
@@ -3433,6 +3449,12 @@ export function AccountingView() {
         open={showCamtModal}
         onClose={() => setShowCamtModal(false)}
         onImported={() => reload()}
+      />
+      <InvoiceScannerModal
+        open={showInvoiceScanner}
+        onClose={() => setShowInvoiceScanner(false)}
+        defaultBuildingId={selectedBuildingId || undefined}
+        onSaved={() => setTransactions(getAccountingTransactions())}
       />
 
 
