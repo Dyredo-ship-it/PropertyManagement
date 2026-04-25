@@ -653,7 +653,13 @@ export async function generateOwnerReportPdf(
 ): Promise<void> {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const currency = options.currency ?? "CHF";
-  const fmt = (v: number) => formatAmount(v, currency);
+  // Compact formatter for table cells — no decimals (régies summary
+  // reports round to whole francs). Saves ~3 chars per cell which
+  // prevents overflow on the narrow numeric columns.
+  const fmt = (v: number) => `${currency} ${Math.round(v).toLocaleString("fr-CH").replace(/ /g, "'").replace(/ /g, "'")}`;
+  // Full formatter (with .00) — used only for the prominent summary
+  // table where visual emphasis matters and the column is wide enough.
+  const fmtFull = (v: number) => formatAmount(v, currency);
 
   header(doc, `Rapport propriétaire — ${options.year}`);
 
@@ -693,17 +699,18 @@ export async function generateOwnerReportPdf(
     }, {}),
   });
 
-  // Financial summary
+  // Financial summary — uses fmtFull because the column is wide (50mm)
+  // and the visual emphasis benefits from the .00 precision here.
   autoTable(doc, {
     startY: ((doc as any).lastAutoTable?.finalY ?? 80) + 6,
     head: [["Résumé financier YTD", ""]],
     body: [
-      ["Recettes", fmt(options.portfolio.revenueYtd)],
-      ["Charges d'exploitation", fmt(options.portfolio.expensesYtd)],
+      ["Recettes", fmtFull(options.portfolio.revenueYtd)],
+      ["Charges d'exploitation", fmtFull(options.portfolio.expensesYtd)],
       [
         { content: "Résultat net", styles: { fontStyle: "bold" } },
         {
-          content: fmt(options.portfolio.netIncomeYtd),
+          content: fmtFull(options.portfolio.netIncomeYtd),
           styles: {
             fontStyle: "bold",
             textColor: options.portfolio.netIncomeYtd >= 0 ? [22, 163, 74] : [220, 38, 38],
@@ -757,12 +764,12 @@ export async function generateOwnerReportPdf(
     margin: { left: 20, right: 20 },
     tableWidth: 170,
     columnStyles: {
-      0: { cellWidth: 30 },                    // Immeuble
-      1: { cellWidth: 48 },                    // Adresse
-      2: { cellWidth: 18, halign: "center" },  // Unités
-      3: { cellWidth: 24, halign: "right" },   // Recettes
-      4: { cellWidth: 24, halign: "right" },   // Charges
-      5: { cellWidth: 26, halign: "right" },   // Résultat net
+      0: { cellWidth: 28 },                    // Immeuble
+      1: { cellWidth: 38 },                    // Adresse
+      2: { cellWidth: 16, halign: "center" },  // Unités
+      3: { cellWidth: 28, halign: "right" },   // Recettes
+      4: { cellWidth: 28, halign: "right" },   // Charges
+      5: { cellWidth: 32, halign: "right" },   // Résultat net
     },
   });
 
@@ -797,12 +804,12 @@ export async function generateOwnerReportPdf(
     margin: { left: 20, right: 20 },
     tableWidth: 170,
     columnStyles: {
-      0: { cellWidth: 38 },                   // Locataire
-      1: { cellWidth: 48 },                   // Immeuble · Unité
-      2: { cellWidth: 22, halign: "right" },  // Loyer net
-      3: { cellWidth: 20, halign: "right" },  // Charges
-      4: { cellWidth: 22, halign: "right" },  // Total
-      5: { cellWidth: 20, halign: "center" }, // Statut
+      0: { cellWidth: 36 },                   // Locataire
+      1: { cellWidth: 38 },                   // Immeuble · Unité
+      2: { cellWidth: 24, halign: "right" },  // Loyer net
+      3: { cellWidth: 22, halign: "right" },  // Charges
+      4: { cellWidth: 26, halign: "right" },  // Total
+      5: { cellWidth: 24, halign: "center" }, // Statut
     },
   });
 
